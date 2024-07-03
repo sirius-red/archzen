@@ -61,10 +61,10 @@ jobs:
           PROFILE_NAME="$(echo "$RESPONSE" | jq -r .name)"
           PROFILE_URL="$(echo "$RESPONSE" | jq -r .html_url)"
 
-          echo "{license_name}={LICENSE_NAME}" >> $GITHUB_OUTPUT
-          echo "{license_url}={LICENSE_URL}" >> $GITHUB_OUTPUT
-          echo "{profile_url}={PROFILE_NAME}" >> $GITHUB_OUTPUT
-          echo "{profile_name}={PROFILE_URL}" >> $GITHUB_OUTPUT
+          echo "license_name=${LICENSE_NAME}" >> $GITHUB_OUTPUT
+          echo "license_url=${LICENSE_URL}" >> $GITHUB_OUTPUT
+          echo "profile_url=${PROFILE_NAME}" >> $GITHUB_OUTPUT
+          echo "profile_name=${PROFILE_URL}" >> $GITHUB_OUTPUT
 
           echo "LICENSE_NAME=$LICENSE_NAME"
           echo "LICENSE_URL=$LICENSE_URL"
@@ -78,9 +78,9 @@ jobs:
           PROJECT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           PROJECT_RAW_URL="raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH_NAME}"
 
-          echo "{branch_name}={BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "{project_url}={PROJECT_URL}" >> $GITHUB_OUTPUT
-          echo "{project_raw_url}={PROJECT_RAW_URL}" >> $GITHUB_OUTPUT
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "project_url=${PROJECT_URL}" >> $GITHUB_OUTPUT
+          echo "project_raw_url=${PROJECT_RAW_URL}" >> $GITHUB_OUTPUT
 
           echo "BRANCH_NAME=$BRANCH_NAME"
           echo "PROJECT_URL=$PROJECT_URL"
@@ -114,8 +114,8 @@ jobs:
 
           curl -Lo "$SOURCE_PATH" "$FILE_URL"
 
-          echo "{source_path}={SOURCE_PATH}" >> $GITHUB_OUTPUT
-          echo "{output_path}={OUTPUT_PATH}" >> $GITHUB_OUTPUT
+          echo "source_path=${SOURCE_PATH}" >> $GITHUB_OUTPUT
+          echo "output_path=${OUTPUT_PATH}" >> $GITHUB_OUTPUT
 
       - name: Update file parameters
         run: |
