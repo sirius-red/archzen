@@ -48,8 +48,8 @@ GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=false           # true | false; only for nvidia
 DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
-EDITOR="vim"      # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
-BROWSER="firefox" # any available at https://archlinux.org/packages/
+EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
+BROWSER="chromium" # any available at https://archlinux.org/packages/
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
