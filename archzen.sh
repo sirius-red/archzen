@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 
-#################################################################################
-##                     ArchZen (Arch Linux Install script)                     ##
-## --------------------------------------------------------------------------- ##
-## Author   : Sirius (https://github.com/sirius-red)                           ##
-##                                                                             ##
-## Project  : https://github.com/sirius-red/archzen                            ##
-##                                                                             ##
-## Reference: https://wiki.archlinux.org/index.php/Installation_guide          ##
-##                                                                             ##
-## License  : GPL-v3 (https://github.com/sirius-red/archis/blob/main/LICENSE)  ##
-##                   (https://www.gnu.org/licenses/gpl-3.0.html)               ##
-#################################################################################
+#########################################################################
+##                                                                     ##
+##                 ArchZen (Stay zen and install Arch)                 ##
+##                                                                     ##
+##---------------------------------------------------------------------##
+## Author   : Sirius (https://github.com/sirius-red)                   ##
+##                                                                     ##
+## Project  : https://github.com/sirius-red/archzen                    ##
+##                                                                     ##
+## License  : GPL-v3                                                   ##
+##                                                                     ##
+## Reference: https://wiki.archlinux.org/index.php/Installation_guide) ##
+##            https://github.com/sirius-red/archzen/blob/main/LICENSE) ##
+##            https://www.gnu.org/licenses/gpl-3.0.html)               ##
+##                                                                     ##
+#########################################################################
 
 ########## EDIT THIS SETTINGS ↓ ##########
 
@@ -37,11 +41,11 @@ KERNEL="linux-zen"     # linux | linux-lts | linux-zen | linux-hardened
 ENABLE_DUAL_BOOT=false # true | false
 CPU="intel"            # intel | amd
 
-HOSTNAME="ArchIS"         # name by which the machine will be recognized on the network
+HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
 BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
-USER_NAME="archis"        # your username
-USER_PASSWD="123456"      # your password
-ROOT_PASSWD="123456"      # root user password
+USER_NAME="archzen"       # your username
+USER_PASSWD="archzen"     # your password
+ROOT_PASSWD="archzen"     # root user password
 
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
@@ -407,7 +411,7 @@ install() {
 	local root_partition="${DISK_DEVICE}${root_partition_number:-2}"
 	local home_partition="${DISK_DEVICE}${home_partition_number:-3}"
 	local swap_partition="${DISK_DEVICE}${swap_partition_number:-4}"
-	export root_mountpoint="/mnt/archis"
+	export root_mountpoint="/mnt/archzen"
 	local home_mountpoint="${root_mountpoint}/home"
 	local boot_mountpoint="${root_mountpoint}/boot"
 
