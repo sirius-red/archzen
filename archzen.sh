@@ -168,30 +168,9 @@ is_integer() {
 	[[ "$1" =~ ^[0-9]+$ ]]
 }
 
-yesno() {
-	while true; do
-		read -r -p "$* [y/n]: " yn
-		case $yn in
-		[Yy]*)
-			echo
-			return 0
-			;;
-		[Nn]*)
-			echo
-			return 1
-			;;
-		esac
-	done
-}
-
 func_exists() {
 	local function_name=$1
 	declare -F "$function_name" &>/dev/null
-}
-
-print_error() {
-	local message=$1
-	echo -e "Error in \033[1;31m${BASH_SOURCE[1]}\033[0m at line \033[1;31m${BASH_LINENO[0]}\033[0m: \033[1;31m$message\033[0m"
 }
 
 color() {
@@ -228,7 +207,8 @@ color() {
 	elif is_integer "$color"; then
 		echo -e "\033[1;${color}m${text}\033[0m"
 	else
-		print_error "Invalid color name/code: ${color}"
+		text="Invalid color name/code: ${color}"
+		red
 		echo -e "Usage: $(
 			text="color"
 			cyan
@@ -245,6 +225,27 @@ color() {
 		)"
 		exit 1
 	fi
+}
+
+print_error() {
+	local message=$1
+	echo -e "Error in $(color red "${BASH_SOURCE[1]}") at line $(color red "${BASH_LINENO[0]}"): $(color red "$message")"
+}
+
+yesno() {
+	while true; do
+		read -r -p "$* [$(color green Y)/$(color red n)]: " yn
+		case $yn in
+		[Yy]*)
+			echo
+			return 0
+			;;
+		[Nn]*)
+			echo
+			return 1
+			;;
+		esac
+	done
 }
 
 banner() {
@@ -339,12 +340,14 @@ arch_chroot() {
 install() {
 	########## start installation on live environment ##########
 	# test connection
+	echo "Check network connectivity with: ${PING_URL}..."
 	if ! ping -c 1 "$PING_URL"; then
 		print_error "Connect to the network first!"
 		exit 1
 	fi
 
 	# setup pacman settings
+	echo "Updating pacman.conf settings..."
 	local pacman_conf="/etc/pacman.conf"
 	sed -i 's/#Color/Color/' "$pacman_conf"
 	sed -i "s/#ParallelDownloads = 5/ParallelDownloads = $PARALLEL_DOWNLOADS\nILoveCandy/" "$pacman_conf"
@@ -356,13 +359,16 @@ install() {
 	fi
 
 	# initializes and populates GPG keys
+	echo "Initializing and populating pacman keys..."
 	pacman-key --init
 	pacman-key --populate
 
 	# update pacman database
+	echo "Updating the pacman package list..."
 	pacman -Syy --noconfirm
 
 	# select mirrors
+	echo "Configuring the reflector and raffling off mirrors..."
 	local reflector_conf="/etc/xdg/reflector/reflector.conf"
 	[ -e "$reflector_conf" ] && rm "$reflector_conf"
 	{
@@ -377,9 +383,11 @@ install() {
 	systemctl start reflector.service
 
 	# set keyboard layout
+	echo "Loading keyboard layout: ${KEYMAP}..."
 	loadkeys "$KEYMAP"
 
 	# update the system clock
+	echo "Setting the time zone to: ${TIMEZONE}..."
 	timedatectl set-timezone "$TIMEZONE"
 
 	# partition the disks
@@ -416,26 +424,34 @@ install() {
 	swapon "$swap_partition"
 
 	# install base system
+	echo "Installing the base system..."
 	pacstrap -K -P "$root_mountpoint" "${BASE_SYSTEM_PKGLIST[@]}"
 	cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
 
 	# generate an fstab file
+	echo "Generating the fstab file..."
 	genfstab -U "$root_mountpoint" >>"${root_mountpoint}/etc/fstab"
 
 	########### finalize system installation with chroot ##########
 	# set the timezone
+	echo "Setting the time zone of ${HOSTNAME} to: ${TIMEZONE}..."
 	ln -sf "${root_mountpoint}/usr/share/zoneinfo/${TIMEZONE}" "${root_mountpoint}/etc/localtime"
 	arch_chroot hwclock --systohc
 
 	# set the system language
+	echo "Setting the system language to: ${LANGUAGES[0]}"
+	echo "Additional languages:"
 	for lang in "${LANGUAGES[@]}"; do
+		echo "- ${lang}"
 		sed -i "s/#${lang}/${lang}/g" "${root_mountpoint}/etc/locale.gen"
 	done
 	arch_chroot locale-gen
 	echo "LANG=${LANGUAGES[0]}" >"${root_mountpoint}/etc/locale.conf"
+	echo "Setting the keyboard layout to: ${KEYMAP}"
 	echo "KEYMAP=${KEYMAP}" >"${root_mountpoint}/etc/vconsole.conf"
 
 	# setup network
+	echo "Configuring the network... Hostname: ${HOSTNAME}"
 	echo "${HOSTNAME}" >"${root_mountpoint}/etc/hostname"
 	{
 		echo "127.0.0.1    localhost"
@@ -445,15 +461,18 @@ install() {
 	arch_chroot systemctl enable NetworkManager.service
 
 	# create the initramfs
+	echo "Creating the initramfs"
 	arch_chroot mkinitcpio -P
 
 	# user and groups management
+	echo "Creating the user ${USER_NAME} and configuring the root user..."
 	arch_chroot useradd -m -G wheel,storage "$USER_NAME"
 	chpasswd --root "$root_mountpoint" <<<"root:${ROOT_PASSWD}"
 	chpasswd --root "$root_mountpoint" <<<"${USER_NAME}:${USER_PASSWD}"
 	sed -i "s/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" "${root_mountpoint}/etc/sudoers"
 
 	# install bootloader (grub)
+	echo "Installing the boot loader..."
 	boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
 	pacstrap "$root_mountpoint" grub efibootmgr
 	arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
@@ -464,6 +483,7 @@ install() {
 	arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
 
 	# install gpu driver
+	echo "Installing video drivers... GPU: ${GPU}"
 	if [ -n "$GPU" ]; then
 		local driver opengl vulkan gpu_packages
 		local gpu_packages=(xorg-server xorg-xinit)
@@ -508,6 +528,7 @@ install() {
 	fi
 
 	# install desktop profile
+	echo "Installing the desktop profile... PROFILE: ${DESKTOP_PROFILE}"
 	case $DESKTOP_PROFILE in
 	xorg)
 		pacstrap "$root_mountpoint" "${XORG_PKGLIST[@]}"
@@ -531,8 +552,10 @@ install() {
 	esac
 
 	# umount disks and reboot
+	echo "Unmounting the disks..."
 	umount -R "$root_mountpoint"
 	swapoff "$swap_partition"
+
 	yesno "Installation complete, do you want to reboot your system now?" && reboot
 }
 
