@@ -531,7 +531,7 @@ install() {
 set -e
 setfont "$TERMINAL_FONT"
 clear
-banner "purple" "cyan" "#" \
+banner "cyan" "purple" "#" \
 	"ArchZen" \
 	"author:{{PROJECT_AUTHOR}}" \
 	"project_url:{{PROJECT_URL}}" \
