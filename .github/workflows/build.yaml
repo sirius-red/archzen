@@ -24,6 +24,7 @@ jobs:
       branch_name: ${{ steps.project.outputs.branch_name }}
       project_url: ${{ steps.project.outputs.project_url }}
       project_raw_url: ${{ steps.project.outputs.project_raw_url }}
+      prune:
 
     steps:
       - name: Install jq if not present
@@ -63,8 +64,8 @@ jobs:
 
           echo "license_name=${LICENSE_NAME}" >> $GITHUB_OUTPUT
           echo "license_url=${LICENSE_URL}" >> $GITHUB_OUTPUT
-          echo "profile_url=${PROFILE_NAME}" >> $GITHUB_OUTPUT
-          echo "profile_name=${PROFILE_URL}" >> $GITHUB_OUTPUT
+          echo "profile_name=${PROFILE_NAME}" >> $GITHUB_OUTPUT
+          echo "profile_url=${PROFILE_URL}" >> $GITHUB_OUTPUT
 
           echo "LICENSE_NAME=$LICENSE_NAME"
           echo "LICENSE_URL=$LICENSE_URL"
@@ -77,14 +78,19 @@ jobs:
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           PROJECT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
           PROJECT_RAW_URL="raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH_NAME}"
+          PRUNE=true
+
+          [[ "$BRANCH_NAME" != "main" ]] && PRUNE=false
 
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
           echo "project_url=${PROJECT_URL}" >> $GITHUB_OUTPUT
           echo "project_raw_url=${PROJECT_RAW_URL}" >> $GITHUB_OUTPUT
+          echo "prune=${PRUNE}" >> $GITHUB_OUTPUT
 
           echo "BRANCH_NAME=$BRANCH_NAME"
           echo "PROJECT_URL=$PROJECT_URL"
           echo "PROJECT_RAW_URL=$PROJECT_RAW_URL"
+          echo "PRUNE=$PRUNE"
 
   build:
     name: Build script
@@ -125,6 +131,7 @@ jobs:
           project_raw_url="${{ needs.setup.outputs.project_raw_url }}"
           license_name="${{ needs.setup.outputs.license_name }}"
           license_url="${{ needs.setup.outputs.license_url }}"
+          source_path="${{ steps.download.outputs.source_path }}"
 
           echo "Profile Name: ${profile_name}"
           echo "Profile URL: ${profile_url}"
@@ -133,11 +140,11 @@ jobs:
           echo "License Name: ${license_name}"
           echo "License URL: ${license_url}"
 
-          sed -i "s|{{PROJECT_AUTHOR}}|${profile_name} (${profile_url})|" $SOURCE_PATH
-          sed -i "s|{{PROJECT_URL}}|${project_url}|" $SOURCE_PATH
-          sed -i "s|{{PROJECT_RAW_URL}}|${project_raw_url}|" $SOURCE_PATH
-          sed -i "s|{{LICENSE_NAME}}|${license_name}|" $SOURCE_PATH
-          sed -i "s|{{LICENSE_URL}}|${license_url}|" $SOURCE_PATH
+          sed -i "s|{{PROJECT_AUTHOR}}|${profile_name} (${profile_url})|" $source_path
+          sed -i "s|{{PROJECT_URL}}|${project_url}|" $source_path
+          sed -i "s|{{PROJECT_RAW_URL}}|${project_raw_url}|" $source_path
+          sed -i "s|{{LICENSE_NAME}}|${license_name}|" $source_path
+          sed -i "s|{{LICENSE_URL}}|${license_url}|" $source_path
 
       - name: Save to storage branch
         uses: StirlingLabs/BranchStorageAction@v22.03.0
@@ -145,5 +152,5 @@ jobs:
           src: ${{ steps.download.outputs.source_path }}
           dst: ${{ steps.download.outputs.output_path }}
           storage-branch: ${{ env.STORAGE_BRANCH }}
-          prune: false
+          prune: ${{ needs.setup.outputs.prune }}
           comment: New release from ${{ needs.setup.outputs.branch_name }}
