@@ -347,8 +347,7 @@ install_archzen_pkg() {
 	local pkg_name=$1
 	local root_dir=$2
 	local install_dir="${root_dir}/usr/bin"
-	local base_url="{{PROJECT_URL}}"
-	local url="${base_url//'https://github.com'/'raw.githubusercontent.com'}/main/pkgs/${pkg_name}"
+	local url="{{PROJECT_RAW_URL}}/pkgs/${pkg_name}"
 	curl -LO "$url"
 	mv -f "$pkg_name" "${install_dir}/${pkg_name}"
 	chmod +x "${install_dir}/${pkg_name}"
@@ -592,8 +591,8 @@ banner "cyan" "purple" "#" \
 	"ArchZen" \
 	"author:{{PROJECT_AUTHOR}}" \
 	"project_url:{{PROJECT_URL}}" \
-	"license:{{PROJECT_LICENSE}}" \
+	"license:{{LICENSE_NAME}}" \
 	"ref:https://wiki.archlinux.org/index.php/Installation_guide" \
-	"ref:{{PROJECT_LICENSE_URL}}" \
+	"ref:{{LICENSE_URL}}" \
 	"ref:https://www.gnu.org/licenses/gpl-3.0.html"
 yesno "Do you want to start the installation now?" && install
