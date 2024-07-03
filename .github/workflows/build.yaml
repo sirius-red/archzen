@@ -1,0 +1,112 @@
+name: Build release URL
+
+on:
+  push:
+    branches: [main]
+    paths: [archzen.sh]
+
+  workflow_dispatch:
+
+env:
+  MAIN_FILE: archzen.sh
+  SOURCE_PATH: index.html
+  OUTPUT_PATH: .
+  STORAGE_BRANCH: storage
+
+jobs:
+  setup:
+    name: Setup environment
+    runs-on: ubuntu-latest
+
+    outputs:
+      repo_url: ${{ github.server_url }}/${{ github.repository }}
+      license: ${{ steps.api.outputs.license }}
+      license_url: ${{ steps.api.outputs.license_url }}
+      profile_name: ${{ steps.api.outputs.profile_name }}
+      profile_url: ${{ steps.api.outputs.profile_url }}
+
+    steps:
+      - name: Install jq if not present
+        run: |
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing..."
+            sudo apt-get update && sudo apt-get install -y jq
+          else
+            echo "jq is already installed"
+          fi
+
+      - name: Fetch data from GitHub API
+        id: api
+        run: |
+          fetch_git_api() {
+            local endpoint=$1
+            local response
+            response="$(
+              curl -L \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com${endpoint}"
+            )"
+            echo "$response"
+          }
+
+          echo "Fetching license data... Endpoint: '/repos/${GITHUB_REPOSITORY}/license'"
+          RESPONSE="$(fetch_git_api "/repos/${GITHUB_REPOSITORY}/license")"
+          LICENSE="$(echo "$RESPONSE" | jq -r .license.spdx_id)"
+          LICENSE_URL="$(echo "$RESPONSE" | jq -r .html_url)"
+
+          echo "Fetching profile data... Endpoint: '/users/${GITHUB_REPOSITORY_OWNER}')"
+          RESPONSE="$(fetch_git_api "/users/${GITHUB_REPOSITORY_OWNER}")"
+          PROFILE_NAME="$(echo "$RESPONSE" | jq -r .name)"
+          PROFILE_URL="$(echo "$RESPONSE" | jq -r .html_url)"
+
+          echo "::set-output name=license::$LICENSE"
+          echo "::set-output name=license_url::$LICENSE_URL"
+          echo "::set-output name=profile_name::$PROFILE_NAME"
+          echo "::set-output name=profile_url::$PROFILE_URL"
+
+          echo "LICENSE=$LICENSE"
+          echo "LICENSE_URL=$LICENSE_URL"
+          echo "PROFILE_NAME=$PROFILE_NAME"
+          echo "PROFILE_URL=$PROFILE_URL"
+
+  build:
+    name: Build script
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download file
+        run: curl -Lo $SOURCE_PATH https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/${MAIN_FILE}
+
+      - name: Update file parameters
+        run: |
+          echo "Profile Name: ${{ needs.setup.outputs.profile_name }}"
+          echo "Profile URL: ${{ needs.setup.outputs.profile_url }}"
+          echo "Repo URL: ${{ needs.setup.outputs.repo_url }}"
+          echo "License: ${{ needs.setup.outputs.license }}"
+          echo "License URL: ${{ needs.setup.outputs.license_url }}"
+
+          profile_name="${{ needs.setup.outputs.profile_name }}"
+          profile_url="${{ needs.setup.outputs.profile_url }}"
+          repo_url="${{ needs.setup.outputs.repo_url }}"
+          license="${{ needs.setup.outputs.license }}"
+          license_url="${{ needs.setup.outputs.license_url }}"
+
+          sed -i "s|{{PROJECT_AUTHOR}}|${profile_name} (${profile_url})|" $SOURCE_PATH
+          sed -i "s|{{PROJECT_URL}}|${repo_url}|" $SOURCE_PATH
+          sed -i "s|{{PROJECT_LICENSE}}|${license}|" $SOURCE_PATH
+          sed -i "s|{{PROJECT_LICENSE_URL}}|${license_url}|" $SOURCE_PATH
+
+      - name: Save to storage branch
+        uses: StirlingLabs/BranchStorageAction@v22.03.0
+        with:
+          src: ${{ env.SOURCE_PATH }}
+          dst: ${{ env.OUTPUT_PATH }}
+          storage-branch: ${{ env.STORAGE_BRANCH }}
+          prune: true
+          comment: New release
