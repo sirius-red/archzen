@@ -9,8 +9,6 @@ on:
 
 env:
   MAIN_FILE: archzen.sh
-  SOURCE_PATH: index.html
-  OUTPUT_PATH: .
   STORAGE_BRANCH: storage
 
 jobs:
@@ -19,11 +17,13 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      repo_url: ${{ github.server_url }}/${{ github.repository }}
-      license: ${{ steps.api.outputs.license }}
+      license_name: ${{ steps.api.outputs.license_name }}
       license_url: ${{ steps.api.outputs.license_url }}
       profile_name: ${{ steps.api.outputs.profile_name }}
       profile_url: ${{ steps.api.outputs.profile_url }}
+      branch_name: ${{ steps.project.outputs.branch_name }}
+      project_url: ${{ steps.project.outputs.project_url }}
+      project_raw_url: ${{ steps.project.outputs.project_raw_url }}
 
     steps:
       - name: Install jq if not present
@@ -53,7 +53,7 @@ jobs:
 
           echo "Fetching license data... Endpoint: '/repos/${GITHUB_REPOSITORY}/license'"
           RESPONSE="$(fetch_git_api "/repos/${GITHUB_REPOSITORY}/license")"
-          LICENSE="$(echo "$RESPONSE" | jq -r .license.spdx_id)"
+          LICENSE_NAME="$(echo "$RESPONSE" | jq -r .license.spdx_id)"
           LICENSE_URL="$(echo "$RESPONSE" | jq -r .html_url)"
 
           echo "Fetching profile data... Endpoint: '/users/${GITHUB_REPOSITORY_OWNER}')"
@@ -61,15 +61,30 @@ jobs:
           PROFILE_NAME="$(echo "$RESPONSE" | jq -r .name)"
           PROFILE_URL="$(echo "$RESPONSE" | jq -r .html_url)"
 
-          echo "::set-output name=license::$LICENSE"
-          echo "::set-output name=license_url::$LICENSE_URL"
-          echo "::set-output name=profile_name::$PROFILE_NAME"
-          echo "::set-output name=profile_url::$PROFILE_URL"
+          echo "{license_name}={LICENSE_NAME}" >> $GITHUB_OUTPUT
+          echo "{license_url}={LICENSE_URL}" >> $GITHUB_OUTPUT
+          echo "{profile_url}={PROFILE_NAME}" >> $GITHUB_OUTPUT
+          echo "{profile_name}={PROFILE_URL}" >> $GITHUB_OUTPUT
 
-          echo "LICENSE=$LICENSE"
+          echo "LICENSE_NAME=$LICENSE_NAME"
           echo "LICENSE_URL=$LICENSE_URL"
           echo "PROFILE_NAME=$PROFILE_NAME"
           echo "PROFILE_URL=$PROFILE_URL"
+
+      - name: Fetch project data
+        id: project
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          PROJECT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          PROJECT_RAW_URL="raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH_NAME}"
+
+          echo "{branch_name}={BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "{project_url}={PROJECT_URL}" >> $GITHUB_OUTPUT
+          echo "{project_raw_url}={PROJECT_RAW_URL}" >> $GITHUB_OUTPUT
+
+          echo "BRANCH_NAME=$BRANCH_NAME"
+          echo "PROJECT_URL=$PROJECT_URL"
+          echo "PROJECT_RAW_URL=$PROJECT_RAW_URL"
 
   build:
     name: Build script
@@ -81,32 +96,54 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download file
-        run: curl -Lo $SOURCE_PATH https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/${MAIN_FILE}
+        id: download
+        run: |
+          branch_name="${{ needs.setup.outputs.branch_name }}"
+          project_raw_url="${{ needs.setup.outputs.project_raw_url }}"
+
+          FILE_URL="${project_raw_url}/${MAIN_FILE}"
+          SOURCE_PATH="index.html"
+          OUTPUT_PATH="."
+          [[ "$branch_name" != "main" ]] && OUTPUT_PATH="${branch_name//-//}"
+
+          echo "Branch Name: ${branch_name}"
+          echo "Project RAW URL: ${project_url}"
+          echo "File URL: ${project_url}"
+          echo "Source path: ${SOURCE_PATH}"
+          echo "Output path: ${OUTPUT_PATH}"
+
+          curl -Lo "$SOURCE_PATH" "$FILE_URL"
+
+          echo "{source_path}={SOURCE_PATH}" >> $GITHUB_OUTPUT
+          echo "{output_path}={OUTPUT_PATH}" >> $GITHUB_OUTPUT
 
       - name: Update file parameters
         run: |
-          echo "Profile Name: ${{ needs.setup.outputs.profile_name }}"
-          echo "Profile URL: ${{ needs.setup.outputs.profile_url }}"
-          echo "Repo URL: ${{ needs.setup.outputs.repo_url }}"
-          echo "License: ${{ needs.setup.outputs.license }}"
-          echo "License URL: ${{ needs.setup.outputs.license_url }}"
-
           profile_name="${{ needs.setup.outputs.profile_name }}"
           profile_url="${{ needs.setup.outputs.profile_url }}"
-          repo_url="${{ needs.setup.outputs.repo_url }}"
-          license="${{ needs.setup.outputs.license }}"
+          project_url="${{ needs.setup.outputs.project_url }}"
+          project_raw_url="${{ needs.setup.outputs.project_raw_url }}"
+          license_name="${{ needs.setup.outputs.license_name }}"
           license_url="${{ needs.setup.outputs.license_url }}"
 
+          echo "Profile Name: ${profile_name}"
+          echo "Profile URL: ${profile_url}"
+          echo "Project URL: ${project_url}"
+          echo "Project RAW URL: ${project_url}"
+          echo "License Name: ${license_name}"
+          echo "License URL: ${license_url}"
+
           sed -i "s|{{PROJECT_AUTHOR}}|${profile_name} (${profile_url})|" $SOURCE_PATH
-          sed -i "s|{{PROJECT_URL}}|${repo_url}|" $SOURCE_PATH
-          sed -i "s|{{PROJECT_LICENSE}}|${license}|" $SOURCE_PATH
-          sed -i "s|{{PROJECT_LICENSE_URL}}|${license_url}|" $SOURCE_PATH
+          sed -i "s|{{PROJECT_URL}}|${project_url}|" $SOURCE_PATH
+          sed -i "s|{{PROJECT_RAW_URL}}|${project_raw_url}|" $SOURCE_PATH
+          sed -i "s|{{LICENSE_NAME}}|${license_name}|" $SOURCE_PATH
+          sed -i "s|{{LICENSE_URL}}|${license_url}|" $SOURCE_PATH
 
       - name: Save to storage branch
         uses: StirlingLabs/BranchStorageAction@v22.03.0
         with:
-          src: ${{ env.SOURCE_PATH }}
-          dst: ${{ env.OUTPUT_PATH }}
+          src: ${{ steps.download.outputs.source_path }}
+          dst: ${{ steps.download.outputs.output_path }}
           storage-branch: ${{ env.STORAGE_BRANCH }}
-          prune: true
-          comment: New release
+          prune: false
+          comment: New release from ${{ needs.setup.outputs.branch_name }}
