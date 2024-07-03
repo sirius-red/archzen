@@ -539,6 +539,7 @@ install() {
 	gnome)
 		pacstrap "$root_mountpoint" "${GNOME_PKGLIST[@]}"
 		arch_chroot systemctl enable gdm.service
+		[[ "$ENABLE_DKMS" = true ]] && ln -s /dev/null "${root_mountpoint}/etc/udev/rules.d/61-gdm.rules"
 		;;
 	plasma)
 		pacstrap "$root_mountpoint" "${PLASMA_PKGLIST[@]}"
