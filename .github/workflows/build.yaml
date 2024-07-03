@@ -24,7 +24,7 @@ jobs:
       branch_name: ${{ steps.project.outputs.branch_name }}
       project_url: ${{ steps.project.outputs.project_url }}
       project_raw_url: ${{ steps.project.outputs.project_raw_url }}
-      prune:
+      prune: ${{ steps.project.outputs.prune }}
 
     steps:
       - name: Install jq if not present
