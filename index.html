@@ -447,10 +447,10 @@ install() {
 
 	# install bootloader (grub)
 	boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
-	pacstrap -M -U "$root_mountpoint" grub efibootmgr
+	pacstrap "$root_mountpoint" grub efibootmgr
 	arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
 	if [[ "$ENABLE_DUAL_BOOT" == true ]]; then
-		pacstrap -M -U "$root_mountpoint" os-prober
+		pacstrap "$root_mountpoint" os-prober
 		echo "GRUB_DISABLE_OS_PROBER=false" >>"${root_mountpoint}/etc/default/grub"
 	fi
 	arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
@@ -489,7 +489,7 @@ install() {
 				[[ "$GPU_EXTRA_PACKAGES" =~ opengl|both ]] && gpu_packages+=("lib32-$opengl")
 				[[ "$GPU_EXTRA_PACKAGES" =~ vulkan|both ]] && gpu_packages+=("lib32-$vulkan")
 			fi
-			pacstrap -M -U "$root_mountpoint" "${gpu_packages[@]}"
+			pacstrap "$root_mountpoint" "${gpu_packages[@]}"
 		fi
 		if [[ "$ENABLE_DKMS" = true ]]; then
 			sed -i '/^MODULES=/ s/)/ nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "${root_mountpoint}/etc/mkinitcpio.conf"
@@ -502,17 +502,17 @@ install() {
 	# install desktop profile
 	case $DESKTOP_PROFILE in
 	xorg)
-		pacstrap -M -U "$root_mountpoint" "${XORG_PKGLIST[@]}"
+		pacstrap "$root_mountpoint" "${XORG_PKGLIST[@]}"
 		;;
 	xorg-minimal)
-		pacstrap -M -U "$root_mountpoint" "${XORG_MINIMAL_PKGLIST[@]}"
+		pacstrap "$root_mountpoint" "${XORG_MINIMAL_PKGLIST[@]}"
 		;;
 	gnome)
-		pacstrap -M -U "$root_mountpoint" "${GNOME_PKGLIST[@]}"
+		pacstrap "$root_mountpoint" "${GNOME_PKGLIST[@]}"
 		arch_chroot systemctl enable gdm.service
 		;;
 	plasma)
-		pacstrap -M -U "$root_mountpoint" "${PLASMA_PKGLIST[@]}"
+		pacstrap "$root_mountpoint" "${PLASMA_PKGLIST[@]}"
 		arch_chroot systemctl enable sddm.service
 		;;
 	*)
