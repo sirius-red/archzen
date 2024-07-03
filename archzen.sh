@@ -294,25 +294,33 @@ banner() {
 	# formatting function
 	local edge
 	edge=$(printf "%${width}s" | tr ' ' "$pad")
+	pad="${pad}${pad}"
+
+	# coloring
+	local separator
+	edge="$(color "$secondary_color" "$edge")"
+	pad="$(color "$secondary_color" "$pad")"
+	title="$(color "$primary_color" "$title")"
+	separator="$(color "$secondary_color" "$(printf "%$((width - 4))s" | tr ' ' '-')")"
 
 	# formatting and displaying the banner according to the parameters passed
-	color "$secondary_color" "$edge"
-	color "$secondary_color" "$(printf "${pad}${pad}%$((width - 4))s${pad}${pad}")"
-	color "$secondary_color" "$(printf "${pad}${pad}%$((title_padding + ${#title}))s%$((width - title_padding - ${#title} - 4))s${pad}${pad}" "$title")"
-	color "$secondary_color" "$(printf "${pad}${pad}%$((width - 4))s${pad}${pad}")"
-	[ "${#info_lines}" -gt 0 ] && color "$secondary_color" "$(printf "${pad}${pad}%$((width - 4))s${pad}${pad}" | tr ' ' '-')"
+	echo "$edge"
+	printf "${pad}%$((width - 4))s${pad}\n"
+	printf "${pad}%$((title_padding + ${#title}))s%$((width - title_padding - ${#title} + 7))s${pad}\n" "$title"
+	printf "${pad}%$((width - 4))s${pad}\n"
+	[ "${#info_lines}" -gt 0 ] && printf "${pad}%s${pad}\n" "$separator"
 	for line in "${info_lines[@]}"; do
 		key="$(echo "$line" | cut -d':' -f1):"
 		value="$(echo "$line" | cut -d':' -f2-)"
 		if [[ "$line" =~ ^REF_URL: ]]; then
 			key="${key//?/ }"
 		else
-			color "$secondary_color" "$(printf "${pad}${pad}%$((width - 4))s${pad}${pad}")"
+			printf "${pad}%$((width - 4))s${pad}\n"
 		fi
-		color "$secondary_color" "${pad}${pad} $key $(color "$primary_color" "$value") $(printf "%$((width - ${#key} - ${#value} - 7))s")${pad}${pad}"
+		echo -e "${pad} $key $(color "$primary_color" "$value") $(printf "%$((width - ${#key} - ${#value} - 7))s")${pad}"
 	done
-	[ "${#info_lines}" -gt 0 ] && color "$secondary_color" "$(printf "${pad}${pad}%$((width - 4))s${pad}${pad}")"
-	color "$secondary_color" "$edge"
+	[ "${#info_lines}" -gt 0 ] && printf "${pad}%$((width - 4))s${pad}\n"
+	echo "$edge"
 	echo
 }
 
