@@ -55,6 +55,8 @@ DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it
 EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
 BROWSER="chromium" # any available at https://archlinux.org/packages/
 
+INSTALL_AURBUILDER=true # aurbuilder is a helper script to install packages from aur logged in as root
+
 ########## EDIT THIS SETTINGS ↑ ##########
 
 BASE_SYSTEM_PKGLIST=(
@@ -341,6 +343,16 @@ arch_chroot() {
 	arch-chroot "$root_mountpoint" /usr/bin/bash -c "$command"
 }
 
+install_archzen_pkg() {
+	local pkg_name=$1
+	local root_dir=$2
+	local install_dir="${root_dir}/usr/bin"
+	local url="{{PROJECT_RAW_URL}}/pkgs/${pkg_name}"
+	curl -LO "$url"
+	mv -f "$pkg_name" "${install_dir}/${pkg_name}"
+	chmod +x "${install_dir}/${pkg_name}"
+}
+
 install() {
 	########## start installation on live environment ##########
 	# test connection
@@ -556,6 +568,14 @@ install() {
 		;;
 	esac
 
+	# install archzen packages
+	local archzen_packages=()
+	[[ "$INSTALL_AURBUILDER" = true ]] && archzen_packages+=(aurbuilder)
+	for pkg in "${archzen_packages[@]}"; do
+		echo "Installing ${pkg}..."
+		install_archzen_pkg "$pkg" || print_error "Error: ${pkg} was not installed!"
+	done
+
 	# umount disks and reboot
 	echo "Unmounting the disks..."
 	umount -R "$root_mountpoint"
@@ -571,8 +591,8 @@ banner "cyan" "purple" "#" \
 	"ArchZen" \
 	"author:{{PROJECT_AUTHOR}}" \
 	"project_url:{{PROJECT_URL}}" \
-	"license:{{PROJECT_LICENSE}}" \
+	"license:{{LICENSE_NAME}}" \
 	"ref:https://wiki.archlinux.org/index.php/Installation_guide" \
-	"ref:{{PROJECT_LICENSE_URL}}" \
+	"ref:{{LICENSE_URL}}" \
 	"ref:https://www.gnu.org/licenses/gpl-3.0.html"
 yesno "Do you want to start the installation now?" && install
