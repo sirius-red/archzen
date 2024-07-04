@@ -573,7 +573,7 @@ install() {
 	[[ "$INSTALL_AURBUILDER" = true ]] && archzen_packages+=(aurbuilder)
 	for pkg in "${archzen_packages[@]}"; do
 		echo "Installing ${pkg}..."
-		install_archzen_pkg "$pkg" || print_error "Error: ${pkg} was not installed!"
+		install_archzen_pkg "$pkg" "${root_mountpoint}" || print_error "Error: ${pkg} was not installed!"
 	done
 
 	# umount disks and reboot
