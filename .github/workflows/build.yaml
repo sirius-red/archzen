@@ -55,7 +55,7 @@ jobs:
 
           echo "Fetching license data... Endpoint: '/repos/${GITHUB_REPOSITORY}/license'"
           RESPONSE="$(fetch_git_api "/repos/${GITHUB_REPOSITORY}/license")"
-          LICENSE="$(echo "$RESPONSE" | jq -r .license.spdx_id)"
+          LICENSE_NAME="$(echo "$RESPONSE" | jq -r .license.spdx_id)"
           LICENSE_URL="$(echo "$RESPONSE" | jq -r .html_url)"
 
           echo "Fetching profile data... Endpoint: '/users/${GITHUB_REPOSITORY_OWNER}')"
@@ -83,7 +83,7 @@ jobs:
           echo "PROJECT_URL: ${PROJECT_URL}"
           echo "PROJECT_RAW_URL: ${PROJECT_RAW_URL}"
           echo "TIMESTAMP: ${TIMESTAMP}"
-          
+
           echo "project_url=${PROJECT_URL}" >> $GITHUB_OUTPUT
           echo "project_raw_url=${PROJECT_RAW_URL}" >> $GITHUB_OUTPUT
           echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
@@ -100,8 +100,12 @@ jobs:
       - name: Download file
         run: |
           PROJECT_RAW_URL="${{ needs.setup.outputs.project_raw_url }}"
+          FILE_URL="${PROJECT_RAW_URL}/${MAIN_FILE}"
+
           echo "PROJECT_RAW_URL: ${PROJECT_RAW_URL}"
-          curl -Lo $SOURCE_PATH "${PROJECT_RAW_URL}/main/${MAIN_FILE}"
+          echo "FILE_URL: ${FILE_URL}"
+
+          curl -Lo $SOURCE_PATH "${FILE_URL}"
 
       - name: Update file parameters
         run: |
@@ -115,7 +119,7 @@ jobs:
           echo "profile_name: ${profile_name}"
           echo "profile_url: ${profile_url}"
           echo "project_url: ${project_url}"
-          echo "project_raw_url: ${project_url}"
+          echo "project_raw_url: ${project_raw_url}"
           echo "license_name: ${license_name}"
           echo "license_url: ${license_url}"
 
