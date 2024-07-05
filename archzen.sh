@@ -46,6 +46,7 @@ BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
 USER_NAME="archzen"       # your username
 USER_PASSWD="archzen"     # your password
 ROOT_PASSWD="archzen"     # root user password
+PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
 
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
@@ -470,10 +471,18 @@ install() {
 
 	# user and groups management
 	echo "Creating the user ${USER_NAME} and configuring the root user..."
-	arch_chroot useradd -m -G wheel,storage "$USER_NAME"
+	arch_chroot useradd --create-home --user-group --groups wheel,storage "$USER_NAME"
 	chpasswd --root "$root_mountpoint" <<<"root:${ROOT_PASSWD}"
 	chpasswd --root "$root_mountpoint" <<<"${USER_NAME}:${USER_PASSWD}"
-	sed -i "s/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" "${root_mountpoint}/etc/sudoers"
+	{
+		echo "Defaults insults"
+		echo "Defaults pwfeedback"
+		echo "Defaults passwd_timeout=${PASSWD_TIMEOUT}"
+	} >>"${root_mountpoint}/etc/sudoers"
+	{
+		echo "${USER_NAME} ALL=(ALL:ALL) ALL"
+		echo "%${USER_NAME} ALL=(ALL:ALL) ALL"
+	} >>"${root_mountpoint}/etc/sudoers.d/____${USER_NAME}"
 
 	# install bootloader (grub)
 	echo "Installing the boot loader..."
