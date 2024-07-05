@@ -46,6 +46,7 @@ BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
 USER_NAME="archzen"       # your username
 USER_PASSWD="archzen"     # your password
 ROOT_PASSWD="archzen"     # root user password
+PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
 
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
@@ -54,8 +55,6 @@ DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it
 
 EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
 BROWSER="chromium" # any available at https://archlinux.org/packages/
-
-INSTALL_AURBUILDER=true # aurbuilder is a helper script to install packages from aur logged in as root
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
@@ -343,16 +342,6 @@ arch_chroot() {
 	arch-chroot "$root_mountpoint" /usr/bin/bash -c "$command"
 }
 
-install_archzen_pkg() {
-	local pkg_name=$1
-	local root_dir=$2
-	local install_dir="${root_dir}/usr/bin"
-	local url="raw.githubusercontent.com/sirius-red/archzen/main/pkgs/${pkg_name}"
-	curl -LO "$url"
-	mv -f "$pkg_name" "${install_dir}/${pkg_name}"
-	chmod +x "${install_dir}/${pkg_name}"
-}
-
 install() {
 	########## start installation on live environment ##########
 	# test connection
@@ -482,10 +471,18 @@ install() {
 
 	# user and groups management
 	echo "Creating the user ${USER_NAME} and configuring the root user..."
-	arch_chroot useradd -m -G wheel,storage "$USER_NAME"
+	arch_chroot useradd --create-home --user-group --groups wheel,storage "$USER_NAME"
 	chpasswd --root "$root_mountpoint" <<<"root:${ROOT_PASSWD}"
 	chpasswd --root "$root_mountpoint" <<<"${USER_NAME}:${USER_PASSWD}"
-	sed -i "s/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" "${root_mountpoint}/etc/sudoers"
+	{
+		echo "Defaults insults"
+		echo "Defaults pwfeedback"
+		echo "Defaults passwd_timeout=${PASSWD_TIMEOUT}"
+	} >>"${root_mountpoint}/etc/sudoers"
+	{
+		echo "${USER_NAME} ALL=(ALL:ALL) ALL"
+		echo "%${USER_NAME} ALL=(ALL:ALL) ALL"
+	} >>"${root_mountpoint}/etc/sudoers.d/____${USER_NAME}"
 
 	# install bootloader (grub)
 	echo "Installing the boot loader..."
@@ -567,14 +564,6 @@ install() {
 		echo "Install manually after system installation is complete."
 		;;
 	esac
-
-	# install archzen packages
-	local archzen_packages=()
-	[[ "$INSTALL_AURBUILDER" = true ]] && archzen_packages+=(aurbuilder)
-	for pkg in "${archzen_packages[@]}"; do
-		echo "Installing ${pkg}..."
-		install_archzen_pkg "$pkg" "${root_mountpoint}" || print_error "Error: ${pkg} was not installed!"
-	done
 
 	# umount disks and reboot
 	echo "Unmounting the disks..."
