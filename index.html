@@ -56,7 +56,9 @@ DESKTOP_PROFILE="plasma"    # xorg | xorg-minimal | gnome | plasma | or leave it
 EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
 BROWSER=""         # any available at https://archlinux.org/packages/, or leave it blank to not install
 
-INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
+# If the addition of experimental features fails, the system installation will continue normally, these features will just not be added.
+EXPERIMENTAL_INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
+EXPERIMENTAL_AUR_PKGLIST=()          # packages to install from aur using aurbuilder
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
@@ -114,7 +116,6 @@ BASE_SYSTEM_PKGLIST=(
 	pipewire-docs
 	pipewire-ffado
 	pipewire-jack
-	pipewire-jack-client
 	pipewire-pulse
 	pipewire-roc
 	pipewire-session-manager
@@ -651,14 +652,15 @@ install() {
 		;;
 	esac
 
-	install_aurbuilder() {
-		curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
-		arch_chroot aurbuilder self create
+	add_experimental_features() {
+		if [ "$EXPERIMENTAL_INSTALL_AURBUILDER" = true ]; then
+			curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
+			arch_chroot aurbuilder self create
+			[ -n "${EXPERIMENTAL_AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder install "${EXPERIMENTAL_AUR_PKGLIST[@]}"
+		fi
 	}
 
-	[[ "$EXPERIMENTAL_INSTALL_AURBUILDER" = true || -n "${EXPERIMENTAL_AUR_PKGLIST[*]}" ]] && install_aurbuilder
-
-	[ -n "${EXPERIMENTAL_AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder "${EXPERIMENTAL_AUR_PKGLIST[@]}"
+	add_experimental_features || echo print_error "Error running experimental tasks!"
 
 	# umount disks and reboot
 	echo "Unmounting the disks..."
