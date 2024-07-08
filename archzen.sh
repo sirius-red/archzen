@@ -407,6 +407,8 @@ install() {
 	echo "		HOME ($(color cyan /dev/sda)): $(color cyan 3)"
 	echo "		SWAP ($(color cyan /dev/sda)): $(color cyan 4)"
 	echo
+	echo "NOTE: Specifically for the $(color purple HOME) partition, set the value $(color cyan 0) if you didn't want to use a separate partition for it."
+	echo
 	read -r -p "BOOT ($(color cyan "$DISK_DEVICE")): " boot_partition_number
 	read -r -p "ROOT ($(color cyan "$DISK_DEVICE")): " root_partition_number
 	read -r -p "HOME ($(color cyan "$DISK_DEVICE")): " home_partition_number
