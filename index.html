@@ -56,21 +56,31 @@ DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it
 EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
 BROWSER="chromium" # any available at https://archlinux.org/packages/, or leave it blank to not install
 
-EXPERIMENTAL_INSTALL_AURBUILDER=false # true | false; A helper to install packages from aur logged in as root using yay or makepkg
-EXPERIMENTAL_AUR_PKGLIST=()           # Packages to install from the AUR. Adding packages to this list will set `INSTALL_AURBUILDER=true` automatically
+INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
 BASE_SYSTEM_PKGLIST=(
+	# system
 	base
 	base-devel
+	sudo
+	linux-firmware
 	"$KERNEL"
 	"${KERNEL}-headers"
-	linux-firmware
 	"${CPU}-ucode"
-	sudo
+	# network
 	networkmanager
 	openssh
+	# tools
+	less
+	wget
+	curl
+	reflector
+	xdg-user-dirs
+	neofetch
+	vi
+	# filesystems
 	dosfstools
 	ntfs-3g
 	btrfs-progs
@@ -79,13 +89,50 @@ BASE_SYSTEM_PKGLIST=(
 	fuse2
 	fuse3
 	fuseiso
-	less
-	wget
-	curl
-	reflector
-	xdg-user-dirs
-	neofetch
-	vi
+	# generic drivers
+	xf86-input-libinput
+	# audio/video
+	gstreamer
+	gst-plugin-gtk
+	gst-plugin-libcamera
+	gst-plugin-msdk
+	gst-plugin-opencv
+	gst-plugin-pipewire
+	gst-plugin-qml6
+	gst-plugin-qmlgl
+	gst-plugin-qsv
+	gst-plugin-va
+	gst-plugin-wpe
+	gst-plugins-bad
+	gst-plugins-base
+	gst-plugins-good
+	gst-plugins-ugly
+	wireplumber
+	gst-plugin-pipewire
+	pipewire-alsa
+	pipewire-audio
+	pipewire-docs
+	pipewire-ffado
+	pipewire-jack
+	pipewire-jack-client
+	pipewire-pulse
+	pipewire-roc
+	pipewire-session-manager
+	pipewire-v4l2
+	pipewire-x11-bell
+	pipewire-zeroconf
+	realtime-privileges
+ 	rtkit
+	# fonts
+	noto-fonts
+	noto-fonts-cjk
+	noto-fonts-emoji
+	noto-fonts-extra
+	ttf-noto-nerd
+	ttf-fira-code
+ 	ttf-firacode-nerd
+  	ttf-jetbrains-mono
+  	ttf-jetbrains-mono-nerd
 )
 
 [ -n "$EDITOR" ] && BASE_SYSTEM_PKGLIST+=("$EDITOR")
@@ -166,11 +213,40 @@ GNOME_PKGLIST=(
 
 PLASMA_PKGLIST=(
 	plasma-meta
-	plasma-wayland-session
+	power-profiles-daemon
 	konsole
 	dolphin
+	dolphin-plugins
 	kate
 	ark
+	colord-kde
+	gwenview
+	kdegraphics-thumbnailers
+	spectacle
+	dragon
+	elisa
+	ffmpegthumbs
+	kmix
+	kdeconnect
+	kdenetwork-filesharing
+	kio-fuse
+	kio-admin
+	kio-extras
+	kio-zeroconf
+	krdc
+	krfb
+	ktorrent
+	signon-kwallet-extension
+	khelpcenter
+	partitionmanager
+	filelight
+	kalk
+	kcharselect
+	kdialog
+	kgpg
+	kimageformats
+	xdg-desktop-portal-gtk
+	xwaylandvideobridge
 	sddm
 )
 
