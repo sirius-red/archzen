@@ -51,10 +51,10 @@ PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt ti
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=true            # true | false; only for nvidia
-DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
+DESKTOP_PROFILE="plasma"    # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
 EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
-BROWSER="chromium" # any available at https://archlinux.org/packages/, or leave it blank to not install
+BROWSER=""         # any available at https://archlinux.org/packages/, or leave it blank to not install
 
 INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
 
