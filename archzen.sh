@@ -569,13 +569,12 @@ install() {
 		;;
 	esac
 
-	[ -n "${AUR_PKGLIST[*]}" ] && INSTALL_AURBUILDER=true
+	install_aurbuilder() { curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"; }
 
-	if [ "$INSTALL_AURBUILDER" = true ]; then
-		curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
-	fi
+	[ "$INSTALL_AURBUILDER" = true ] && install_aurbuilder
 
 	if [ -n "${AUR_PKGLIST[*]}" ]; then
+		install_aurbuilder
 		aurbuilder --chroot "$root_mountpoint" "${AUR_PKGLIST[@]}"
 	fi
 
