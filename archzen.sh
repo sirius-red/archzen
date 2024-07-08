@@ -53,8 +53,8 @@ GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=true            # true | false; only for nvidia
 DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
-EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
-BROWSER="chromium" # any available at https://archlinux.org/packages/
+EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
+BROWSER="chromium" # any available at https://archlinux.org/packages/, or leave it blank to not install
 
 EXPERIMENTAL_INSTALL_AURBUILDER=false # true | false; A helper to install packages from aur logged in as root using yay or makepkg
 EXPERIMENTAL_AUR_PKGLIST=()           # Packages to install from the AUR. Adding packages to this list will set `INSTALL_AURBUILDER=true` automatically
@@ -86,9 +86,10 @@ BASE_SYSTEM_PKGLIST=(
 	xdg-user-dirs
 	neofetch
 	vi
-	"$EDITOR"
-	"$BROWSER"
 )
+
+[ -n "$EDITOR" ] && BASE_SYSTEM_PKGLIST+=("$EDITOR")
+[ -n "$BROWSER" ] && BASE_SYSTEM_PKGLIST+=("$BROWSER")
 
 XORG_PKGLIST=(
 	xorg
