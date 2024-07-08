@@ -491,6 +491,9 @@ install() {
 		echo "%${USER_NAME} ALL=(ALL:ALL) ALL"
 	} >>"${root_mountpoint}/etc/sudoers.d/____${USER_NAME}"
 
+	# sets the default editor if it is not blank
+	[ -n "$EDITOR" ] && echo "EDITOR=${EDITOR}" >>"${root_mountpoint}/etc/environment"
+
 	# install bootloader (grub)
 	echo "Installing the boot loader..."
 	boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
