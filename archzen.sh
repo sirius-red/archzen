@@ -576,7 +576,7 @@ install() {
 	[ "$INSTALL_AURBUILDER" = true ] && install_aurbuilder
 
 	if [ -n "${AUR_PKGLIST[*]}" ]; then
-		install_aurbuilder
+		[ "$INSTALL_AURBUILDER" = true ] || install_aurbuilder
 		aurbuilder --chroot "$root_mountpoint" "${AUR_PKGLIST[@]}"
 	fi
 
