@@ -7,7 +7,7 @@ Stay zen and install Arch. This is a simple Arch Linux installation script
 1. In the arch iso live environment, download the script
 
 ```bash
-curl -LO sirius-who.github.io/archzen
+curl -LO sirius-red.github.io/archzen
 ```
 
 2. Open with your preferred editor and edit the settings at the top of the file
