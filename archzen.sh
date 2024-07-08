@@ -24,7 +24,7 @@ PING_URL="archlinux.org" # just to test the connection before installation
 MIRROR_COUNTRIES="BR,US" # use `reflector --list-countries` to list available countries
 MIRROR_SERVERS_LIMIT=20  # the higher the value, the longer the reflector will take to complete its execution
 PARALLEL_DOWNLOADS=20    # I don't recommend a value higher than that, but it's up to you
-ENABLE_MULTILIB=true     # enable (or not) the multilib repository
+ENABLE_MULTILIB=false    # enable (or not) the multilib repository
 
 KEYMAP="br-abnt2"            # use `localectl list-keymaps` to list available keymaps
 TIMEZONE="America/Sao_Paulo" # use `timedatectl list-timezones` to list available timezones
@@ -37,7 +37,7 @@ LANGUAGES=(
 
 DISK_MANAGER="cfdisk"  # cfdisk | cgdisk
 DISK_DEVICE="/dev/sda" # use `lsblk` to list disks
-KERNEL="linux-zen"     # linux | linux-lts | linux-zen | linux-hardened
+KERNEL="linux"         # linux | linux-lts | linux-zen | linux-hardened
 ENABLE_DUAL_BOOT=false # true | false
 CPU="intel"            # intel | amd
 
@@ -50,7 +50,7 @@ PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt ti
 
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
-ENABLE_DKMS=false           # true | false; only for nvidia
+ENABLE_DKMS=true            # true | false; only for nvidia
 DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
 EDITOR="vim"            # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
@@ -577,7 +577,7 @@ install() {
 
 	if [ -n "${AUR_PKGLIST[*]}" ]; then
 		[ "$INSTALL_AURBUILDER" = true ] || install_aurbuilder
-		aurbuilder --chroot "$root_mountpoint" "${AUR_PKGLIST[@]}"
+		"$root_mountpoint/usr/local/bin/aurbuilder" --chroot "$root_mountpoint" "${AUR_PKGLIST[@]}"
 	fi
 
 	# umount disks and reboot
