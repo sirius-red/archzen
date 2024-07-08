@@ -37,13 +37,13 @@ LANGUAGES=(
 
 DISK_MANAGER="cfdisk"  # cfdisk | cgdisk
 DISK_DEVICE="/dev/sda" # use `lsblk` to list disks
-KERNEL="linux"         # linux | linux-lts | linux-zen | linux-hardened
+KERNEL="linux-zen"     # linux | linux-lts | linux-zen | linux-hardened
 ENABLE_DUAL_BOOT=false # true | false
 CPU="intel"            # intel | amd
 
 HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
 BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
-USER_NAME="archzen"       # your username
+USER_NAME="sirius"       # your username
 USER_PASSWD="archzen"     # your password
 ROOT_PASSWD="archzen"     # root user password
 PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
@@ -51,6 +51,7 @@ PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt ti
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=true            # true | false; only for nvidia
+ENABLE_HVA=true             # true | false; only for nvidia (HVA -> Hardware Video Acceleration)
 DESKTOP_PROFILE="plasma"    # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
 EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
@@ -224,15 +225,13 @@ PLASMA_PKGLIST=(
 	gwenview
 	kdegraphics-thumbnailers
 	spectacle
-	dragon
-	elisa
 	ffmpegthumbs
-	kmix
 	kdeconnect
 	kdenetwork-filesharing
 	kio-fuse
 	kio-admin
 	kio-extras
+	kaccounts-providers
 	kio-zeroconf
 	krdc
 	krfb
@@ -599,13 +598,11 @@ install() {
 			driver="xf86-video-${GPU//nvidia-opensource/nouveau}"
 			opengl="mesa"
 			vulkan="vulkan-${GPU//amdgpu/radeon}"
-			ENABLE_DKMS=false
 			;;
 		*)
 			print_error "Invalid GPU value: ${GPU}"
 			echo "No GPU drivers will be installed!"
 			echo "Install manually after system installation is complete."
-			ENABLE_DKMS=false
 			proceed=false
 			;;
 		esac
@@ -619,11 +616,23 @@ install() {
 			fi
 			pacstrap "$root_mountpoint" "${gpu_packages[@]}"
 		fi
-		if [[ "$ENABLE_DKMS" = true ]]; then
+		if [[ "$GPU" = "nvidia" && "$ENABLE_DKMS" = true ]]; then
 			sed -i '/^MODULES=/ s/)/ nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "${root_mountpoint}/etc/mkinitcpio.conf"
-			sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ nvidia_drm.modeset=1\"/' "${root_mountpoint}/etc/default/grub"
+			sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1\"/' "${root_mountpoint}/etc/default/grub"
+			echo "options nvidia_drm modeset=1 fbdev=1" > "${root_mountpoint}/etc/modprobe.d/nvidia.conf"
 			arch_chroot mkinitcpio -P
 			arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
+		fi
+		if [[ "$GPU" = "nvidia" && "$ENABLE_HVA" = true ]]; then
+			{
+				echo "# enable hardware video acceleration"
+				echo "LIBVA_DRIVER_NAME=nvidia"
+				echo "# force wayland session"
+				echo "XDG_SESSION_TYPE=wayland"
+				echo "# force GBM as backend"
+				echo "GBM_BACKEND=nvidia-drm"
+				echo "__GLX_VENDOR_LIBRARY_NAME=nvidia"
+			} >> "${root_mountpoint}/etc/environment"
 		fi
 	fi
 
