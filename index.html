@@ -53,8 +53,11 @@ GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=false           # true | false; only for nvidia
 DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
-EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
-BROWSER="chromium" # any available at https://archlinux.org/packages/
+EDITOR="vim"            # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
+BROWSER="chromium"      # any available at https://archlinux.org/packages/
+INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
+
+AUR_PKGLIST=() # Packages to install from the AUR. Adding packages to this list will set `INSTALL_AURBUILDER=true` automatically
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
@@ -82,6 +85,7 @@ BASE_SYSTEM_PKGLIST=(
 	reflector
 	xdg-user-dirs
 	neofetch
+	vi
 	"$EDITOR"
 	"$BROWSER"
 )
@@ -564,6 +568,16 @@ install() {
 		echo "Install manually after system installation is complete."
 		;;
 	esac
+
+	[ -n "${AUR_PKGLIST[*]}" ] && INSTALL_AURBUILDER=true
+
+	if [ "$INSTALL_AURBUILDER" = true ]; then
+		curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
+	fi
+
+	if [ -n "${AUR_PKGLIST[*]}" ]; then
+		aurbuilder --chroot "$root_mountpoint" "${AUR_PKGLIST[@]}"
+	fi
 
 	# umount disks and reboot
 	echo "Unmounting the disks..."
