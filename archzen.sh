@@ -53,11 +53,11 @@ GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=true            # true | false; only for nvidia
 DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 
-EDITOR="vim"            # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
-BROWSER="chromium"      # any available at https://archlinux.org/packages/
-INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
+EDITOR="vim"       # any available at https://archlinux.org/packages/ (I recommend a terminal-based one)
+BROWSER="chromium" # any available at https://archlinux.org/packages/
 
-AUR_PKGLIST=() # Packages to install from the AUR. Adding packages to this list will set `INSTALL_AURBUILDER=true` automatically
+EXPERIMENTAL_INSTALL_AURBUILDER=false # true | false; A helper to install packages from aur logged in as root using yay or makepkg
+EXPERIMENTAL_AUR_PKGLIST=()           # Packages to install from the AUR. Adding packages to this list will set `INSTALL_AURBUILDER=true` automatically
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
@@ -571,14 +571,14 @@ install() {
 		;;
 	esac
 
-	install_aurbuilder() { curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"; }
+	install_aurbuilder() {
+		curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
+		arch_chroot aurbuilder self create
+	}
 
-	[ "$INSTALL_AURBUILDER" = true ] && install_aurbuilder
+	[[ "$EXPERIMENTAL_INSTALL_AURBUILDER" = true || -n "${EXPERIMENTAL_AUR_PKGLIST[*]}" ]] && install_aurbuilder
 
-	if [ -n "${AUR_PKGLIST[*]}" ]; then
-		[ "$INSTALL_AURBUILDER" = true ] || install_aurbuilder
-		"$root_mountpoint/usr/local/bin/aurbuilder" --chroot "$root_mountpoint" "${AUR_PKGLIST[@]}"
-	fi
+	[ -n "${EXPERIMENTAL_AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder "${EXPERIMENTAL_AUR_PKGLIST[@]}"
 
 	# umount disks and reboot
 	echo "Unmounting the disks..."
