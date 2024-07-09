@@ -600,7 +600,6 @@ install() {
 	# install base system
 	echo "Installing the base system..."
 	pacstrap -K -P "$root_mountpoint" "${BASE_SYSTEM_PKGLIST[@]}"
-	cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
 
 	# install cachyos repo if true or cachyos kernel selected
 	[[ "$KERNEL" =~ cachyos || "$ENABLE_CACHYOS_REPO" = true ]] && install_cachyos_repo
@@ -610,6 +609,7 @@ install() {
 
 	# install extra packages
 	pacstrap "$root_mountpoint" "${EXTRA_PKGLIST[@]}"
+	cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
 
 	# generate an fstab file
 	echo "Generating the fstab file..."
