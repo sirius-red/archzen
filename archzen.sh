@@ -605,10 +605,10 @@ install() {
 	[[ "$KERNEL" =~ cachyos || "$ENABLE_CACHYOS_REPO" = true ]] && install_cachyos_repo
 
 	# install kernel and microcode
-	pacstrap "$root_mountpoint" "${KERNEL_PKGLIST[@]}"
+	pacman --sysroot "$root_mountpoint" --noconfirm -S "${KERNEL_PKGLIST[@]}"
 
 	# install extra packages
-	pacstrap "$root_mountpoint" "${EXTRA_PKGLIST[@]}"
+	pacman --sysroot "$root_mountpoint" --noconfirm -S "${EXTRA_PKGLIST[@]}"
 	cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
 
 	# generate an fstab file
@@ -668,10 +668,10 @@ install() {
 	# install bootloader (grub)
 	echo "Installing the boot loader..."
 	boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
-	pacstrap "$root_mountpoint" grub efibootmgr
+	pacman --sysroot "$root_mountpoint" --noconfirm -S grub efibootmgr
 	arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
 	if [[ "$ENABLE_DUAL_BOOT" == true ]]; then
-		pacstrap "$root_mountpoint" os-prober
+		pacman --sysroot "$root_mountpoint" --noconfirm -S os-prober
 		echo "GRUB_DISABLE_OS_PROBER=false" >>"${root_mountpoint}/etc/default/grub"
 	fi
 	arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
@@ -713,7 +713,7 @@ install() {
 				[[ "$GPU_EXTRA_PACKAGES" =~ opengl|both ]] && gpu_packages+=("lib32-$opengl")
 				[[ "$GPU_EXTRA_PACKAGES" =~ vulkan|both ]] && gpu_packages+=("lib32-$vulkan")
 			fi
-			pacstrap "$root_mountpoint" "${gpu_packages[@]}"
+			pacman --sysroot "$root_mountpoint" --noconfirm -S "${gpu_packages[@]}"
 			if [[ "$GPU" = "nvidia" && "$ENABLE_DKMS" = true && ! "$KERNEL" =~ cachyos ]]; then
 				sed -i '/^MODULES=/ s/)/ nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "${root_mountpoint}/etc/mkinitcpio.conf"
 				sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1\"/' "${root_mountpoint}/etc/default/grub"
@@ -743,20 +743,20 @@ install() {
 	echo "Installing the desktop profile... PROFILE: ${DESKTOP_PROFILE}"
 	case $DESKTOP_PROFILE in
 	xorg)
-		pacstrap "$root_mountpoint" "${XORG_PKGLIST[@]}"
+		pacman --sysroot "$root_mountpoint" --noconfirm -S "${XORG_PKGLIST[@]}"
 		;;
 	xorg-minimal)
-		pacstrap "$root_mountpoint" "${XORG_MINIMAL_PKGLIST[@]}"
+		pacman --sysroot "$root_mountpoint" --noconfirm -S "${XORG_MINIMAL_PKGLIST[@]}"
 		;;
 	gnome)
-		pacstrap "$root_mountpoint" "${GNOME_PKGLIST[@]}"
+		pacman --sysroot "$root_mountpoint" --noconfirm -S "${GNOME_PKGLIST[@]}"
 		arch_chroot systemctl enable gdm.service
 		if [[ "$ENABLE_DKMS" = true || "$KERNEL" =~ cachyos ]] && [ "$FORCE_WAYLAND_SESSION" = true ]; then
 			ln -s /dev/null "${root_mountpoint}/etc/udev/rules.d/61-gdm.rules"
 		fi
 		;;
 	plasma)
-		pacstrap "$root_mountpoint" "${PLASMA_PKGLIST[@]}"
+		pacman --sysroot "$root_mountpoint" --noconfirm -S "${PLASMA_PKGLIST[@]}"
 		arch_chroot systemctl enable sddm.service
 		;;
 	*)
