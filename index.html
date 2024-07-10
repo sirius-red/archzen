@@ -20,11 +20,12 @@
 ########## EDIT THIS SETTINGS ↓ ##########
 
 TERMINAL_FONT="ter-122b" # font in the installation terminal; use `ls /usr/share/kbd/consolefonts` to list available ones
-PING_URL="archlinux.org" # just to test the connection before installation
+PING_URL="google.com"    # just to test the connection before installation
 MIRROR_COUNTRIES="BR,US" # use `reflector --list-countries` to list available countries
 MIRROR_SERVERS_LIMIT=20  # the higher the value, the longer the reflector will take to complete its execution
 PARALLEL_DOWNLOADS=20    # I don't recommend a value higher than that, but it's up to you
-ENABLE_MULTILIB=true     # enable (or not) the multilib repository
+ENABLE_MULTILIB=false    # enable (or not) the multilib repository
+ENABLE_CACHYOS_REPO=true # true | false; Setting a cachyos kernel to `KERNEL` will set this option to `true` automatically
 
 KEYMAP="br-abnt2"            # use `localectl list-keymaps` to list available keymaps
 TIMEZONE="America/Sao_Paulo" # use `timedatectl list-timezones` to list available timezones
@@ -38,8 +39,7 @@ LANGUAGES=(
 DISK_MANAGER="cfdisk"       # cfdisk | cgdisk
 DISK_DEVICE="/dev/sda"      # use `lsblk` to list disks
 ENABLE_DUAL_BOOT=false      # true | false
-ENABLE_CACHYOS_REPO=true    # true | false; Setting a cachyos kernel to `KERNEL` will set this option to `true` automatically
-KERNEL="linux-cachyos-bore" # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
+KERNEL="linux-cachyos"      # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
 CPU="intel"                 # intel | amd
 
 HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
@@ -50,18 +50,24 @@ ROOT_PASSWD="archzen"     # root user password
 PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
 
 GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
-GPU_EXTRA_PACKAGES="both"   # opengl | vulkan | both
+GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
 ENABLE_DKMS=true            # true | false; only for nvidia
 ENABLE_HVA=true             # true | false; only for nvidia (HVA -> Hardware Video Acceleration)
-DESKTOP_PROFILE="plasma"    # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
+DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 FORCE_WAYLAND_SESSION=true  # true | false; only for nvidia with plasma or gnome
 
 EDITOR="vim" # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
 BROWSER=""   # any available at https://archlinux.org/packages/, or leave it blank to not install
 
-# If the addition of experimental features fails, the system installation will continue normally, these features will just not be added.
-EXPERIMENTAL_INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
-EXPERIMENTAL_AUR_PKGLIST=()          # packages to install from aur using aurbuilder
+INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
+ADDITIONAL_PKGLIST=(
+	# packages to install from official repository after system installation
+)
+AUR_PKGLIST=(
+	# packages to install from aur using aurbuilder
+	yay
+	google-chrome
+)
 
 ########## EDIT THIS SETTINGS ↑ ##########
 
@@ -470,7 +476,7 @@ install_cachyos_repo() {
 
 		arch_chroot pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
 		arch_chroot pacman-key --lsign-key F3B607488DB35A47
-		arch_chroot pacman -U "${mirror_cachyos}/cachyos-keyring-20240331-1-any.pkg.tar.zst" \
+		arch_chroot pacman -U --noconfirm "${mirror_cachyos}/cachyos-keyring-20240331-1-any.pkg.tar.zst" \
 			"${mirror_cachyos}/cachyos-mirrorlist-18-1-any.pkg.tar.zst" \
 			"${mirror_cachyos}/cachyos-v3-mirrorlist-18-1-any.pkg.tar.zst" \
 			"${mirror_cachyos}/cachyos-v4-mirrorlist-6-1-any.pkg.tar.zst" \
@@ -509,6 +515,18 @@ install_cachyos_repo() {
 	run_first_setup || return 1
 	add_cachyos_repo || return 1
 	arch_chroot pacman -Syyu --noconfirm
+}
+
+umount_disks() {
+	local exit_code=$1
+
+	if [ "$exit_code" -eq 0 ]; then
+		echo "Unmounting the disks..."
+	else
+		color red "[ERROR] Unmounting the disks..."
+	fi
+	umount -R "$root_mountpoint"
+	swapoff "$swap_partition"
 }
 
 install() {
@@ -682,7 +700,7 @@ install() {
 	echo "Installing video drivers... GPU: ${GPU}"
 	if [ -n "$GPU" ]; then
 		local driver opengl vulkan gpu_packages
-		local gpu_packages=(xorg-server xorg-xinit)
+		local gpu_packages=()
 		local proceed=true
 		case $GPU in
 		nvidia)
@@ -768,15 +786,19 @@ install() {
 		;;
 	esac
 
-	add_experimental_features() {
-		if [ "$EXPERIMENTAL_INSTALL_AURBUILDER" = true ]; then
+	# install additional packages
+	install_additional_packages() {
+		[ -n "${ADDITIONAL_PKGLIST[*]}" ] && arch_chroot pacman --noconfirm -S "${ADDITIONAL_PKGLIST[@]}"
+	}
+	install_aur_packages() {
+		if [ "$INSTALL_AURBUILDER" = true ]; then
 			curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
 			arch_chroot aurbuilder self create
-			[ -n "${EXPERIMENTAL_AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder install "${EXPERIMENTAL_AUR_PKGLIST[@]}"
+			[ -n "${AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder install --noconfirm "${AUR_PKGLIST[@]}"
 		fi
 	}
-
-	add_experimental_features || echo print_error "Error running experimental tasks!"
+	install_additional_packages || echo print_error "Error installing additional packages!"
+	install_aur_packages || echo print_error "Error installing AUR packages!"
 
 	# umount disks and reboot
 	echo "Unmounting the disks..."
@@ -797,4 +819,5 @@ banner "cyan" "purple" "#" \
 	"ref:https://wiki.archlinux.org/index.php/Installation_guide" \
 	"ref:https://github.com/sirius-red/archzen/blob/main/LICENSE" \
 	"ref:https://www.gnu.org/licenses/gpl-3.0.html"
-confirm "Do you want to start the installation now?" && install
+confirm "Do you want to start the installation now?" || exit
+install || umount_disks 1
