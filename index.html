@@ -606,9 +606,9 @@ install() {
 	local boot_mountpoint="${root_mountpoint}/boot"
 
 	# format partitions
-	mkfs.ext4 "$root_partition"
+	mkfs.xfs "$root_partition"
 	mkfs.fat -F 32 "$boot_partition"
-	[[ ! "$home_partition" =~ 0$ ]] && mkfs.ext4 "$home_partition"
+	[[ ! "$home_partition" =~ 0$ ]] && mkfs.xfs "$home_partition"
 	mkswap "$swap_partition"
 
 	# mount partitions
