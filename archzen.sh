@@ -36,11 +36,11 @@ LANGUAGES=(
 	pt_BR.UTF-8
 )
 
-DISK_MANAGER="cfdisk"       # cfdisk | cgdisk
-DISK_DEVICE="/dev/sda"      # use `lsblk` to list disks
-ENABLE_DUAL_BOOT=false      # true | false
-KERNEL="linux-cachyos"      # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
-CPU="intel"                 # intel | amd
+DISK_MANAGER="cfdisk"  # cfdisk | cgdisk
+DISK_DEVICE="/dev/sda" # use `lsblk` to list disks
+KERNEL="linux-cachyos" # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
+CPU="intel"            # intel | amd
+ENABLE_DUAL_BOOT=false # true | false
 
 HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
 BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
@@ -49,13 +49,12 @@ USER_PASSWD="archzen"     # your password
 ROOT_PASSWD="archzen"     # root user password
 PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
 
-GPU="nvidia"                # nvidia | nvidia-opensource | amdgpu | intel | or leave it blank to not install
+GPU="nvidia"                # nvidia | nouveau | amd | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
-ENABLE_DKMS=true            # true | false; only for nvidia
-ENABLE_HVA=true             # true | false; only for nvidia (HVA -> Hardware Video Acceleration)
 DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
-FORCE_WAYLAND_SESSION=true  # true | false; only for nvidia with plasma or gnome
-
+ENABLE_DKMS=true            # true | false; works only for nvidia, otherwise it will be ignored
+ENABLE_HVA=true             # true | false; (HVA -> Hardware Video Acceleration)
+FORCE_WAYLAND_SESSION=false # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
 EDITOR="vim" # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
 BROWSER=""   # any available at https://archlinux.org/packages/, or leave it blank to not install
 
@@ -72,7 +71,6 @@ AUR_PKGLIST=(
 ########## EDIT THIS SETTINGS ↑ ##########
 
 BASE_SYSTEM_PKGLIST=(
-	# system
 	base
 	base-devel
 	sudo
@@ -110,6 +108,7 @@ EXTRA_PKGLIST=(
 	fuse2
 	fuse3
 	fuseiso
+	xfsprogs
 	# generic drivers
 	xf86-input-libinput
 	# audio/video
@@ -153,7 +152,6 @@ EXTRA_PKGLIST=(
 	ttf-firacode-nerd
 	ttf-jetbrains-mono
 	ttf-jetbrains-mono-nerd
-	# others
 )
 
 [ -n "$EDITOR" ] && EXTRA_PKGLIST+=("$EDITOR")
@@ -523,7 +521,8 @@ umount_disks() {
 	if [ "$exit_code" -eq 0 ]; then
 		echo "Unmounting the disks..."
 	else
-		color red "[ERROR] Unmounting the disks..."
+		color red "[ERROR] An error occurred during installation."
+		echo "Unmounting the disks..."
 	fi
 	umount -R "$root_mountpoint"
 	swapoff "$swap_partition"
@@ -699,24 +698,42 @@ install() {
 	# install gpu driver
 	echo "Installing video drivers... GPU: ${GPU}"
 	if [ -n "$GPU" ]; then
-		local driver opengl vulkan gpu_packages
+		local gpu_packages driver opengl vulkan driver_hva LIBVA_DRIVER_NAME
 		local gpu_packages=()
 		local proceed=true
 		case $GPU in
 		nvidia)
 			# shellcheck disable=SC2001
 			if [[ "$KERNEL" =~ cachyos ]]; then
-				driver="${KERNEL//linux-/}-nvidia"
+				driver="${KERNEL}-nvidia"
 			else
 				driver="nvidia$(echo "${KERNEL//linux/}" | sed 's/zen\|hardened/dkms/')"
 			fi
 			opengl="nvidia-utils"
 			vulkan="nvidia-utils"
+			driver_hva="nvidia-utils"
+			LIBVA_DRIVER_NAME="nvidia"
 			;;
-		amdgpu | intel | nvidia-opensource)
-			driver="xf86-video-${GPU//nvidia-opensource/nouveau}"
+		nouveau)
+			driver="xf86-video-nouveau"
 			opengl="mesa"
-			vulkan="vulkan-${GPU//amdgpu/radeon}"
+			vulkan="vulkan-nouveau"
+			driver_hva="libva-mesa-driver"
+			LIBVA_DRIVER_NAME="nouveau"
+			;;
+		amd)
+			driver="xf86-video-amdgpu"
+			opengl="mesa"
+			vulkan="vulkan-radeon"
+			driver_hva="libva-mesa-driver"
+			LIBVA_DRIVER_NAME="radeonsi"
+			;;
+		intel)
+			driver="xf86-video-intel"
+			opengl="mesa"
+			vulkan="vulkan-intel"
+			driver_hva="intel-media-driver"
+			LIBVA_DRIVER_NAME="iHD"
 			;;
 		*)
 			print_error "Invalid GPU value: ${GPU}"
@@ -733,6 +750,31 @@ install() {
 				[[ "$GPU_EXTRA_PACKAGES" =~ opengl|both ]] && gpu_packages+=("lib32-$opengl")
 				[[ "$GPU_EXTRA_PACKAGES" =~ vulkan|both ]] && gpu_packages+=("lib32-$vulkan")
 			fi
+			if [ "$ENABLE_HVA" = true ]; then
+				ENABLE_DKMS=true
+				gpu_packages+=("$driver_hva")
+				{
+					echo "# enable hardware video acceleration"
+					echo "LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME}"
+				} >>"${root_mountpoint}/etc/environment"
+			fi
+			if [[ "$DESKTOP_PROFILE" =~ gnome|plasma  &&  "$FORCE_WAYLAND_SESSION" = true ]]; then
+				{
+					echo "# force wayland session"
+					echo "XDG_SESSION_TYPE=wayland"
+					echo "WLR_NO_HARDWARE_CURSORS=1"
+				} >>"${root_mountpoint}/etc/environment"
+				if [ "$GPU" = "nvidia" ]; then
+					{
+						echo "# force GBM as backend"
+						echo "GBM_BACKEND=nvidia-drm"
+						echo "__GLX_VENDOR_LIBRARY_NAME=nvidia"
+					} >>"${root_mountpoint}/etc/environment"
+				fi
+			else
+				gpu_packages=(xorg-server "${gpu_packages[@]}")
+			fi
+			[ "$GPU" = nvidia ] && gpu_packages+=(nvidia-settings)
 			arch_chroot pacman --noconfirm -S "${gpu_packages[@]}"
 			if [[ "$GPU" = "nvidia" && "$ENABLE_DKMS" = true && ! "$KERNEL" =~ cachyos ]]; then
 				sed -i '/^MODULES=/ s/)/ nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "${root_mountpoint}/etc/mkinitcpio.conf"
@@ -740,21 +782,6 @@ install() {
 				echo "options nvidia_drm modeset=1 fbdev=1" >"${root_mountpoint}/etc/modprobe.d/nvidia.conf"
 				arch_chroot mkinitcpio -P
 				arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
-			fi
-			if [[ "$GPU" = "nvidia" && "$ENABLE_HVA" = true ]]; then
-				{
-					echo "# enable hardware video acceleration"
-					echo "LIBVA_DRIVER_NAME=nvidia"
-				} >>"${root_mountpoint}/etc/environment"
-			fi
-			if [ "$FORCE_WAYLAND_SESSION" = true ]; then
-				{
-					echo "# force wayland session"
-					echo "XDG_SESSION_TYPE=wayland"
-					echo "# force GBM as backend"
-					echo "GBM_BACKEND=nvidia-drm"
-					echo "__GLX_VENDOR_LIBRARY_NAME=nvidia"
-				} >>"${root_mountpoint}/etc/environment"
 			fi
 		fi
 	fi
@@ -771,9 +798,15 @@ install() {
 	gnome)
 		arch_chroot pacman --noconfirm -S "${GNOME_PKGLIST[@]}"
 		arch_chroot systemctl enable gdm.service
-		if [[ "$ENABLE_DKMS" = true || "$KERNEL" =~ cachyos ]] && [ "$FORCE_WAYLAND_SESSION" = true ]; then
+		if [ "$FORCE_WAYLAND_SESSION" = true ]; then
+			sed -i 's/#WaylandEnable=false/WaylandEnable=true/' "${root_mountpoint}/etc/gdm/custom.conf"
+			cp -f "${root_mountpoint}/etc/udev/rules.d/61-gdm.rules" "${root_mountpoint}/etc/udev/rules.d/61-gdm.rules.backup"
 			ln -s /dev/null "${root_mountpoint}/etc/udev/rules.d/61-gdm.rules"
 		fi
+		AUR_PKGLIST+=(
+			nautilus-admin-gtk4
+			extension-manager
+		)
 		;;
 	plasma)
 		arch_chroot pacman --noconfirm -S "${PLASMA_PKGLIST[@]}"
@@ -788,7 +821,7 @@ install() {
 
 	# install additional packages
 	install_additional_packages() {
-		[ -n "${ADDITIONAL_PKGLIST[*]}" ] && arch_chroot pacman --noconfirm -S "${ADDITIONAL_PKGLIST[@]}"
+		[ -n "${ADDITIONAL_PKGLIST[*]}" ] && arch_chroot pacman --noconfirm --needed -S "${ADDITIONAL_PKGLIST[@]}"
 	}
 	install_aur_packages() {
 		if [ "$INSTALL_AURBUILDER" = true ]; then
@@ -800,11 +833,8 @@ install() {
 	install_additional_packages || echo print_error "Error installing additional packages!"
 	install_aur_packages || echo print_error "Error installing AUR packages!"
 
-	# umount disks and reboot
-	echo "Unmounting the disks..."
-	umount -R "$root_mountpoint"
-	swapoff "$swap_partition"
-
+	# complete installation
+	umount_disks 0
 	confirm "Installation complete, do you want to reboot your system now?" && reboot
 }
 
