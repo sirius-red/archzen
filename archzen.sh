@@ -39,6 +39,7 @@ LANGUAGES=(
 DISK_MANAGER="cfdisk"  # cfdisk | cgdisk
 DISK_DEVICE="/dev/sda" # use `lsblk` to list disks
 KERNEL="linux-cachyos" # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
+FILESYSTEM="xfs"       # xfs | ext4
 CPU="intel"            # intel | amd
 ENABLE_DUAL_BOOT=false # true | false
 
@@ -605,9 +606,22 @@ install() {
 	local boot_mountpoint="${root_mountpoint}/boot"
 
 	# format partitions
-	mkfs.xfs "$root_partition"
+	local format
+	case $FILESYSTEM in
+	xfs)
+		format="mkfs.xfs"
+		;;
+	ext4)
+		format="mkfs.ext4"
+		;;
+	*)
+		color red "[ERROR] Invalid filesystem: $FILESYSTEM"
+		exit 1
+		;;
+	esac
+	$format "$root_partition"
 	mkfs.fat -F 32 "$boot_partition"
-	[[ ! "$home_partition" =~ 0$ ]] && mkfs.xfs "$home_partition"
+	[[ ! "$home_partition" =~ 0$ ]] && $format "$home_partition"
 	mkswap "$swap_partition"
 
 	# mount partitions
