@@ -331,9 +331,8 @@ color() {
 	fi
 }
 
-print_error() {
-	local message=$1
-	echo -e "Error in $(color red "${BASH_SOURCE[1]}") at line $(color red "${BASH_LINENO[0]}"): $(color red "$message")"
+error() {
+	echo "$(color red "[ERROR]") $1"
 }
 
 confirm() {
@@ -522,7 +521,7 @@ umount_disks() {
 	if [ "$exit_code" -eq 0 ]; then
 		echo "Unmounting the disks..."
 	else
-		color red "[ERROR] An error occurred during installation."
+		error "An error occurred during installation."
 		echo "Unmounting the disks..."
 	fi
 	umount -R "$root_mountpoint"
@@ -534,7 +533,7 @@ install() {
 	# test connection
 	echo "Check network connectivity with: ${PING_URL}..."
 	if ! ping -c 1 "$PING_URL"; then
-		print_error "Connect to the network first!"
+		error "Connect to the network first!"
 		exit 1
 	fi
 
@@ -615,7 +614,7 @@ install() {
 		format="mkfs.ext4"
 		;;
 	*)
-		color red "[ERROR] Invalid filesystem: $FILESYSTEM"
+		error "Invalid filesystem: $FILESYSTEM"
 		exit 1
 		;;
 	esac
@@ -750,7 +749,7 @@ install() {
 			LIBVA_DRIVER_NAME="iHD"
 			;;
 		*)
-			print_error "Invalid GPU value: ${GPU}"
+			error "Invalid GPU value: ${GPU}"
 			echo "No GPU drivers will be installed!"
 			echo "Install manually after system installation is complete."
 			proceed=false
@@ -827,7 +826,7 @@ install() {
 		arch_chroot systemctl enable sddm.service
 		;;
 	*)
-		print_error "Invalid DESKTOP_PROFILE value: ${DESKTOP_PROFILE}"
+		error "Invalid DESKTOP_PROFILE value: ${DESKTOP_PROFILE}"
 		echo "No desktop environments will be installed!"
 		echo "Install manually after system installation is complete."
 		;;
@@ -844,8 +843,8 @@ install() {
 			[ -n "${AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder install --noconfirm "${AUR_PKGLIST[@]}"
 		fi
 	}
-	install_additional_packages || echo print_error "Error installing additional packages!"
-	install_aur_packages || echo print_error "Error installing AUR packages!"
+	install_additional_packages || error "Error installing additional packages!"
+	install_aur_packages || error "Error installing AUR packages!"
 
 	# complete installation
 	umount_disks 0
