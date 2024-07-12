@@ -56,8 +56,18 @@ DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it
 ENABLE_DKMS=true            # true | false; works only for nvidia, otherwise it will be ignored
 ENABLE_HVA=true             # true | false; (HVA -> Hardware Video Acceleration)
 FORCE_WAYLAND_SESSION=false # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
-EDITOR="vim" # any available at https://archlinux.org/packages/ (I recommend a terminal-based one), or leave it blank to not install
-BROWSER=""   # any available at https://archlinux.org/packages/, or leave it blank to not install
+
+TERMINAL="alacritty" # if none is defined, the default terminal of the desktop environment chosen above will be installed
+EDITOR="vim"         # any terminal editor available at https://archlinux.org/packages/, or leave it blank to not install
+BROWSER=""           # any available at https://archlinux.org/packages/, or leave it blank to not install
+
+INSTALL_NETWORK_PKGS=true           # true | false
+INSTALL_TERMINAL_TOOLS_PKGS=true    # true | false
+INSTALL_FILESYSTEM_PKGS=true        # true | false
+INSTALL_GENERIC_DRIVERS_PKGS=true   # true | false
+INSTALL_MULTIMEDIA_PKGS=true        # true | false
+INSTALL_MULTIMEDIA_EXTRA_PKGS=false # true | false
+INSTALL_FONTS_PKGS=true             # true | false
 
 INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
 ADDITIONAL_PKGLIST=(
@@ -85,11 +95,12 @@ KERNEL_PKGLIST=(
 	"${CPU}-ucode"
 )
 
-EXTRA_PKGLIST=(
-	# network
+NETWORK_PKGLIST=(
 	networkmanager
 	openssh
-	# tools
+)
+
+TERMINAL_TOOLS_PKGLIST=(
 	less
 	wget
 	curl
@@ -100,7 +111,9 @@ EXTRA_PKGLIST=(
 	arch-install-scripts
 	git
 	mold
-	# filesystems
+)
+
+FILESYSTEM_PKGLIST=(
 	dosfstools
 	ntfs-3g
 	btrfs-progs
@@ -110,10 +123,25 @@ EXTRA_PKGLIST=(
 	fuse3
 	fuseiso
 	xfsprogs
-	# generic drivers
+)
+
+GENERIC_DRIVERS_PKGLIST=(
 	xf86-input-libinput
-	# audio/video
+)
+
+MULTIMEDIA_PKGLIST=(
+	wireplumber
+	pipewire-alsa
+	pipewire-audio
+	pipewire-pulse
+	pipewire-session-manager
 	gstreamer
+	gst-plugins-base
+	gst-plugins-good
+	gst-plugin-pipewire
+)
+
+[ "$INSTALL_MULTIMEDIA_EXTRA_PKGS" = true ] && MULTIMEDIA_PKGLIST+=(
 	gst-plugin-gtk
 	gst-plugin-libcamera
 	gst-plugin-msdk
@@ -125,35 +153,31 @@ EXTRA_PKGLIST=(
 	gst-plugin-va
 	gst-plugin-wpe
 	gst-plugins-bad
-	gst-plugins-base
-	gst-plugins-good
 	gst-plugins-ugly
-	wireplumber
-	gst-plugin-pipewire
-	pipewire-alsa
-	pipewire-audio
 	pipewire-docs
 	pipewire-ffado
 	pipewire-jack
-	pipewire-pulse
 	pipewire-roc
-	pipewire-session-manager
 	pipewire-v4l2
 	pipewire-x11-bell
 	pipewire-zeroconf
 	realtime-privileges
 	rtkit
-	# fonts
+)
+
+FONTS_PKGLIST=(
 	noto-fonts
 	noto-fonts-cjk
-	noto-fonts-emoji
 	noto-fonts-extra
+	ttf-joypixels
 	ttf-noto-nerd
 	ttf-fira-code
 	ttf-firacode-nerd
 	ttf-jetbrains-mono
 	ttf-jetbrains-mono-nerd
 )
+
+EXTRA_PKGLIST=()
 
 [ -n "$EDITOR" ] && EXTRA_PKGLIST+=("$EDITOR")
 [ -n "$BROWSER" ] && EXTRA_PKGLIST+=("$BROWSER")
@@ -166,8 +190,8 @@ XORG_MINIMAL_PKGLIST=(
 	xorg-server
 	xorg-xinit
 	xorg-xclock
-	xterm
 	htop
+	"${TERMINAL:-'xterm'}"
 )
 
 GNOME_PKGLIST=(
@@ -205,7 +229,6 @@ GNOME_PKGLIST=(
 	dconf-editor
 	file-roller
 	gedit
-	gnome-terminal
 	gnome-tweaks
 	fwupd
 	networkmanager
@@ -229,12 +252,12 @@ GNOME_PKGLIST=(
 	gnome-photos
 	gnome-sound-recorder
 	sysprof
+	"${TERMINAL:-'gnome-terminal'}"
 )
 
 PLASMA_PKGLIST=(
 	plasma-meta
 	power-profiles-daemon
-	konsole
 	dolphin
 	dolphin-plugins
 	kate
@@ -266,6 +289,7 @@ PLASMA_PKGLIST=(
 	xdg-desktop-portal-gtk
 	xwaylandvideobridge
 	sddm
+	"${TERMINAL:-'konsole'}"
 )
 
 is_integer() {
@@ -605,6 +629,7 @@ install() {
 	local boot_mountpoint="${root_mountpoint}/boot"
 
 	# format partitions
+	echo "Formatting partitions..."
 	local format
 	case $FILESYSTEM in
 	xfs)
@@ -624,6 +649,7 @@ install() {
 	mkswap "$swap_partition"
 
 	# mount partitions
+	echo "Mounting partitions..."
 	mount --mkdir "$root_partition" "$root_mountpoint"
 	mount --mkdir "$boot_partition" "$boot_mountpoint"
 	[[ ! "$home_partition" =~ 0$ ]] && mount --mkdir "$home_partition" "$home_mountpoint"
@@ -634,14 +660,58 @@ install() {
 	pacstrap -K -P "$root_mountpoint" "${BASE_SYSTEM_PKGLIST[@]}"
 
 	# install cachyos repo if true or cachyos kernel selected
-	[[ "$KERNEL" =~ cachyos || "$ENABLE_CACHYOS_REPO" = true ]] && install_cachyos_repo
+	if [[ "$KERNEL" =~ cachyos || "$ENABLE_CACHYOS_REPO" = true ]]; then
+		echo "Installing the CachyOS repository..."
+		install_cachyos_repo
+	fi
 
 	# install kernel and microcode
+	echo "Installing the kernel and microcode..."
 	arch_chroot pacman --noconfirm -S "${KERNEL_PKGLIST[@]}"
 
+	# install network packages
+	if [ "$INSTALL_NETWORK_PKGS" = true ]; then
+		echo "Installing network packages..."
+		arch_chroot pacman --noconfirm -S "${NETWORK_PKGLIST[@]}"
+	fi
+
+	# install terminal tools
+	if [ "$INSTALL_TERMINAL_TOOLS_PKGS" = true ]; then
+		echo "Installing terminal tools..."
+		arch_chroot pacman --noconfirm -S "${TERMINAL_TOOLS_PKGLIST[@]}"
+		cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
+	fi
+
+	# install filesystem packages
+	if [ "$INSTALL_FILESYSTEM_PKGS" = true ]; then
+		echo "Installing filesystem packages..."
+		arch_chroot pacman --noconfirm -S "${FILESYSTEM_PKGLIST[@]}"
+	fi
+
+	# install generic drivers
+	if [ "$INSTALL_GENERIC_DRIVERS_PKGS" = true ]; then
+		echo "Installing generic drivers..."
+		arch_chroot pacman --noconfirm -S "${GENERIC_DRIVERS_PKGLIST[@]}"
+	fi
+
+	# install multimedia packages
+	if [ "$INSTALL_MULTIMEDIA_PKGS" = true ]; then
+		echo "Installing multimedia packages..."
+		arch_chroot pacman --noconfirm -S "${MULTIMEDIA_PKGLIST[@]}"
+	fi
+
+	# install fonts
+	if [ "$INSTALL_FONTS_PKGS" = true ]; then
+		echo "Installing fonts..."
+		arch_chroot pacman --noconfirm -S "${FONTS_PKGLIST[@]}"
+	fi
+
 	# install extra packages
-	arch_chroot pacman --noconfirm -S "${EXTRA_PKGLIST[@]}"
-	cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
+	if [ -n "${EXTRA_PKGLIST[*]}" ]; then
+		echo "Installing extra packages..."
+		arch_chroot pacman --noconfirm -S "${EXTRA_PKGLIST[@]}"
+		[ -n "$EDITOR" ] && echo "EDITOR=${EDITOR}" >>"${root_mountpoint}/etc/environment"
+	fi
 
 	# generate an fstab file
 	echo "Generating the fstab file..."
@@ -693,9 +763,6 @@ install() {
 		echo "${USER_NAME} ALL=(ALL:ALL) ALL"
 		echo "%${USER_NAME} ALL=(ALL:ALL) ALL"
 	} >>"${root_mountpoint}/etc/sudoers.d/____${USER_NAME}"
-
-	# sets the default editor if it is not blank
-	[ -n "$EDITOR" ] && echo "EDITOR=${EDITOR}" >>"${root_mountpoint}/etc/environment"
 
 	# install bootloader (grub)
 	echo "Installing the boot loader..."
@@ -771,7 +838,7 @@ install() {
 					echo "LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME}"
 				} >>"${root_mountpoint}/etc/environment"
 			fi
-			if [[ "$DESKTOP_PROFILE" =~ gnome|plasma  &&  "$FORCE_WAYLAND_SESSION" = true ]]; then
+			if [[ "$DESKTOP_PROFILE" =~ gnome|plasma && "$FORCE_WAYLAND_SESSION" = true ]]; then
 				{
 					echo "# force wayland session"
 					echo "XDG_SESSION_TYPE=wayland"
@@ -834,15 +901,29 @@ install() {
 
 	# install additional packages
 	install_additional_packages() {
-		[ -n "${ADDITIONAL_PKGLIST[*]}" ] && arch_chroot pacman --noconfirm --needed -S "${ADDITIONAL_PKGLIST[@]}"
-	}
-	install_aur_packages() {
-		if [ "$INSTALL_AURBUILDER" = true ]; then
-			curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
-			[ -n "${AUR_PKGLIST[*]}" ] && aurbuilder --chroot "$root_mountpoint" install -y "${AUR_PKGLIST[@]}"
+		if [ -n "${ADDITIONAL_PKGLIST[*]}" ]; then
+			echo "Installing additional packages..."
+			arch_chroot pacman --noconfirm --needed -S "${ADDITIONAL_PKGLIST[@]}"
 		fi
 	}
 	install_additional_packages || error "Error installing additional packages!"
+
+	# install aur builder
+	install_aurbuilder() {
+		if [ "$INSTALL_AURBUILDER" = true ]; then
+			echo "Installing AUR Builder..."
+			curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
+		fi
+	}
+	install_aurbuilder || error "Error installing AUR Builder"
+
+	# install aur packages
+	install_aur_packages() {
+		if [[ "$INSTALL_AURBUILDER" = true && -n "${AUR_PKGLIST[*]}" ]]; then
+			echo "Installing AUR packages..."
+			aurbuilder --chroot "$root_mountpoint" install -y "${AUR_PKGLIST[@]}"
+		fi
+	}
 	install_aur_packages || error "Error installing AUR packages!"
 
 	# complete installation
