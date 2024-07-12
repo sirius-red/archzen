@@ -839,8 +839,7 @@ install() {
 	install_aur_packages() {
 		if [ "$INSTALL_AURBUILDER" = true ]; then
 			curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
-			arch_chroot aurbuilder self create
-			[ -n "${AUR_PKGLIST[*]}" ] && arch_chroot aurbuilder install --noconfirm "${AUR_PKGLIST[@]}"
+			[ -n "${AUR_PKGLIST[*]}" ] && aurbuilder --chroot "$root_mountpoint" install -y "${AUR_PKGLIST[@]}"
 		fi
 	}
 	install_additional_packages || error "Error installing additional packages!"
