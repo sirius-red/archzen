@@ -633,7 +633,7 @@ install() {
 	local format
 	case $FILESYSTEM in
 	xfs)
-		format="mkfs.xfs"
+		format="mkfs.xfs -f"
 		;;
 	ext4)
 		format="mkfs.ext4"
