@@ -903,7 +903,7 @@ install() {
 	install_additional_packages() {
 		if [ -n "${ADDITIONAL_PKGLIST[*]}" ]; then
 			echo "Installing additional packages..."
-			arch_chroot pacman --noconfirm --needed -S "${ADDITIONAL_PKGLIST[@]}"
+			arch_chroot pacman --needed --noconfirm --needed -S "${ADDITIONAL_PKGLIST[@]}"
 		fi
 	}
 	install_additional_packages || error "Error installing additional packages!"
