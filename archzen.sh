@@ -248,6 +248,7 @@ GNOME_PKGLIST=(
 	gnome-user-docs
 	grilo-plugins
 	totem
+ 	loupe
 	yelp
 	gnome-photos
 	gnome-sound-recorder
