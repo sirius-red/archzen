@@ -672,44 +672,44 @@ install() {
 	# install network packages
 	if [ "$INSTALL_NETWORK_PKGS" = true ]; then
 		echo "Installing network packages..."
-		arch_chroot pacman --noconfirm -S "${NETWORK_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${NETWORK_PKGLIST[@]}"
 	fi
 
 	# install terminal tools
 	if [ "$INSTALL_TERMINAL_TOOLS_PKGS" = true ]; then
 		echo "Installing terminal tools..."
-		arch_chroot pacman --noconfirm -S "${TERMINAL_TOOLS_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${TERMINAL_TOOLS_PKGLIST[@]}"
 		cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
 	fi
 
 	# install filesystem packages
 	if [ "$INSTALL_FILESYSTEM_PKGS" = true ]; then
 		echo "Installing filesystem packages..."
-		arch_chroot pacman --noconfirm -S "${FILESYSTEM_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${FILESYSTEM_PKGLIST[@]}"
 	fi
 
 	# install generic drivers
 	if [ "$INSTALL_GENERIC_DRIVERS_PKGS" = true ]; then
 		echo "Installing generic drivers..."
-		arch_chroot pacman --noconfirm -S "${GENERIC_DRIVERS_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${GENERIC_DRIVERS_PKGLIST[@]}"
 	fi
 
 	# install multimedia packages
 	if [ "$INSTALL_MULTIMEDIA_PKGS" = true ]; then
 		echo "Installing multimedia packages..."
-		arch_chroot pacman --noconfirm -S "${MULTIMEDIA_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${MULTIMEDIA_PKGLIST[@]}"
 	fi
 
 	# install fonts
 	if [ "$INSTALL_FONTS_PKGS" = true ]; then
 		echo "Installing fonts..."
-		arch_chroot pacman --noconfirm -S "${FONTS_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${FONTS_PKGLIST[@]}"
 	fi
 
 	# install extra packages
 	if [ -n "${EXTRA_PKGLIST[*]}" ]; then
 		echo "Installing extra packages..."
-		arch_chroot pacman --noconfirm -S "${EXTRA_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${EXTRA_PKGLIST[@]}"
 		[ -n "$EDITOR" ] && echo "EDITOR=${EDITOR}" >>"${root_mountpoint}/etc/environment"
 	fi
 
