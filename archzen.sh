@@ -503,7 +503,7 @@ install_cachyos_repo() {
 			"${mirror_cachyos}/cachyos-mirrorlist-18-1-any.pkg.tar.zst" \
 			"${mirror_cachyos}/cachyos-v3-mirrorlist-18-1-any.pkg.tar.zst" \
 			"${mirror_cachyos}/cachyos-v4-mirrorlist-6-1-any.pkg.tar.zst" \
-			"${mirror_cachyos}/pacman-6.1.0-5-x86_64.pkg.tar.zst"
+			"${mirror_cachyos}/pacman-7.0.0.r6.gc685ae6-2-x86_64.pkg.tar.zst"
 	}
 
 	add_repo_from_version() {
