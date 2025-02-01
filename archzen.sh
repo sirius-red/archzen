@@ -52,7 +52,7 @@ PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt ti
 
 GPU="nvidia"                # nvidia | nouveau | amd | intel | or leave it blank to not install
 GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
-DESKTOP_PROFILE="gnome"     # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
+DESKTOP_ENVIRONMENT="gnome" # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
 ENABLE_DKMS=true            # true | false; works only for nvidia, otherwise it will be ignored
 ENABLE_HVA=true             # true | false; (HVA -> Hardware Video Acceleration)
 FORCE_WAYLAND_SESSION=false # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
@@ -248,7 +248,7 @@ GNOME_PKGLIST=(
 	gnome-user-docs
 	grilo-plugins
 	totem
- 	loupe
+	loupe
 	yelp
 	gnome-photos
 	gnome-sound-recorder
@@ -465,6 +465,48 @@ arch_chroot() {
 	arch-chroot "$root_mountpoint" /usr/bin/bash -c "$command"
 }
 
+setup_pacman() {
+	local pacman_conf="${1}/etc/pacman.conf"
+
+	sed -i 's/#Color/Color/' "$pacman_conf"
+	sed -i "s/#ParallelDownloads = 5/ParallelDownloads = $PARALLEL_DOWNLOADS\nILoveCandy/" "$pacman_conf"
+
+	if [[ "$ENABLE_MULTILIB" = true ]]; then
+		local line
+		line=$(grep -n "\[multilib\]" "$pacman_conf" | cut -d: -f1)
+
+		sed -i "${line}s/#//" "$pacman_conf"
+		sed -i "$((line + 1))s/#//" "$pacman_conf"
+	fi
+
+	chmod 644 "$pacman_conf"
+}
+
+add_lines_to_file() {
+	local file_path="$1"
+	local mode="$2"
+	local add_blank_line="$3"
+	shift 3
+	local lines=("$@")
+
+	if [[ "$mode" == "w" || ! -f "$file_path" ]]; then
+		{
+			for line in "${lines[@]}"; do
+				echo "$line"
+			done
+		} > "$file_path"
+	else
+		{
+			[[ "$add_blank_line" == "true" ]] && echo ""
+			for line in "${lines[@]}"; do
+				echo "$line"
+			done
+		} >> "$file_path"
+	fi
+
+	chmod 644 "$file_path"
+}
+
 add_repo() {
 	local type="$1" # official | custom
 	local repo_name="$2"
@@ -480,11 +522,10 @@ add_repo() {
 	elif [[ $type == "custom" ]]; then
 		local sig_level="$4" # optional
 
-		{
-			echo -e "\n[$repo_name]"
-			echo "SigLevel = $sig_level"
-			echo "Server = $repo_url"
-		} >>"$pacman_conf"
+		add_lines_to_file "$pacman_conf" "a" true \
+			"[$repo_name]" \
+			"SigLevel = $sig_level" \
+			"Server = $repo_url"
 	else
 		echo "Invalid repository type"
 		return 1
@@ -540,6 +581,115 @@ install_cachyos_repo() {
 	arch_chroot pacman -Syyu --noconfirm
 }
 
+convert_keymap() {
+	local keymap="$1"
+	localectl list-keymaps | grep -q "^$keymap$"
+
+	if [[ $? -eq 0 ]]; then
+		echo "$keymap" | sed -E 's/-abnt2$//;s/-nodeadkeys$//;s/-latin1$//;s/-legacy$//'
+	else
+		color yellow "Warning: Keymap '$keymap' is not recognized. Using default 'us'."
+		echo "us"
+	fi
+}
+
+set_keyboard_layout() {
+	local root_dir="${1:-}"
+	local layout
+
+	if [[ -n "$KEYMAP" ]]; then
+		layout=$(convert_keymap "$KEYMAP")
+	else
+		layout="us"
+	fi
+
+	local xorg_conf="${root_dir}/etc/X11/xorg.conf.d/00-keyboard.conf"
+	local sddm_conf="${root_dir}/etc/sddm.conf.d/keyboard.conf"
+	local plasma_conf="${root_dir}/etc/xdg/kxkbrc"
+
+	if [[ -z "$DESKTOP_PROFILE" ]]; then
+		color red "Error: DESKTOP_PROFILE is not set."
+		color yellow "Set DESKTOP_PROFILE to 'xorg', 'plasma', or 'gnome'."
+		return 1
+	fi
+
+	color cyan "Setting keyboard layout to '$layout' for '$DESKTOP_PROFILE'..."
+
+	configure_xorg() {
+		mkdir -p "$(dirname "$xorg_conf")"
+		local mode="w"
+		local add_blank="false"
+		[[ -f "$xorg_conf" ]] && mode="a" && add_blank="true"
+
+		color blue "Updating $xorg_conf..."
+		add_lines_to_file "$xorg_conf" "$mode" "$add_blank" \
+			"Section \"InputClass\"" \
+			"    Identifier \"Keyboard Layout\"" \
+			"    MatchIsKeyboard \"on\"" \
+			"    Option \"XkbLayout\" \"$layout\"" \
+			"EndSection"
+	}
+
+	configure_plasma() {
+		mkdir -p "$(dirname "$sddm_conf")"
+		local mode="w"
+		local add_blank="false"
+		[[ -f "$sddm_conf" ]] && mode="a" && add_blank="true"
+
+		color blue "Updating $sddm_conf..."
+		add_lines_to_file "$sddm_conf" "$mode" "$add_blank" \
+			"[General]" \
+			"InputMethod=" \
+			"" \
+			"[Keyboard]" \
+			"Layout=$layout"
+
+		mkdir -p "$(dirname "$plasma_conf")"
+		mode="w"
+		add_blank="false"
+		[[ -f "$plasma_conf" ]] && mode="a" && add_blank="true"
+
+		color blue "Updating $plasma_conf..."
+		add_lines_to_file "$plasma_conf" "$mode" "$add_blank" \
+			"[Layout]" \
+			"LayoutList=$layout" \
+			"Use=true"
+	}
+
+	configure_gnome() {
+		color blue "Configuring GNOME keyboard layout..."
+		for user_home in "${root_dir}/home/"*; do
+			local user
+			user=$(basename "$user_home")
+
+			if id "$user" &>/dev/null; then
+				sudo -u "$user" dbus-launch gsettings set org.gnome.desktop.input-sources sources "[('xkb', '$layout')]"
+			fi
+		done
+	}
+
+	case "$DESKTOP_PROFILE" in
+		xorg)
+			configure_xorg
+			;;
+		plasma)
+			configure_xorg
+			configure_plasma
+			;;
+		gnome)
+			configure_xorg
+			configure_gnome
+			;;
+		*)
+			color red "Error: '$DESKTOP_PROFILE' is not valid. Use 'xorg', 'plasma', or 'gnome'."
+			return 1
+			;;
+	esac
+
+	color green "Keyboard configuration applied successfully! Reboot to ensure changes take effect."
+}
+
+
 umount_disks() {
 	local exit_code=$1
 
@@ -564,15 +714,7 @@ install() {
 
 	# setup pacman settings
 	echo "Updating pacman.conf settings..."
-	local pacman_conf="/etc/pacman.conf"
-	sed -i 's/#Color/Color/' "$pacman_conf"
-	sed -i "s/#ParallelDownloads = 5/ParallelDownloads = $PARALLEL_DOWNLOADS\nILoveCandy/" "$pacman_conf"
-	if [[ "$ENABLE_MULTILIB" = true ]]; then
-		local line
-		line=$(grep -n "\[multilib\]" "$pacman_conf" | cut -d: -f1)
-		sed -i "${line}s/#//" "$pacman_conf"
-		sed -i "$((line + 1))s/#//" "$pacman_conf"
-	fi
+	setup_pacman
 
 	# initializes and populates GPG keys
 	echo "Initializing and populating pacman keys..."
@@ -586,16 +728,14 @@ install() {
 	# select mirrors
 	echo "Configuring the reflector and raffling off mirrors..."
 	local reflector_conf="/etc/xdg/reflector/reflector.conf"
-	[ -e "$reflector_conf" ] && rm "$reflector_conf"
-	{
-		echo "--save /etc/pacman.d/mirrorlist"
-		echo "--ipv4"
-		echo "--ipv6"
-		echo "--protocol https"
-		echo "--country ${MIRROR_COUNTRIES}"
-		echo "--latest ${MIRROR_SERVERS_LIMIT}"
-		echo "--sort rate"
-	} >"$reflector_conf"
+	add_lines_to_file "$reflector_conf" "w" false \
+		"--save /etc/pacman.d/mirrorlist" \
+		"--ipv4" \
+		"--ipv6" \
+		"--protocol https" \
+		"--country ${MIRROR_COUNTRIES}" \
+		"--latest ${MIRROR_SERVERS_LIMIT}" \
+		"--sort rate"
 	systemctl start reflector.service
 
 	# set keyboard layout
@@ -665,6 +805,9 @@ install() {
 		echo "Installing the CachyOS repository..."
 		install_cachyos_repo
 	fi
+
+	# setup pacman on installed system
+	setup_pacman $root_mountpoint
 
 	# install kernel and microcode
 	echo "Installing the kernel and microcode..."
@@ -739,11 +882,10 @@ install() {
 	# setup network
 	echo "Configuring the network... Hostname: ${HOSTNAME}"
 	echo "${HOSTNAME}" >"${root_mountpoint}/etc/hostname"
-	{
-		echo "127.0.0.1    localhost"
-		echo "::1          localhost"
-		echo "127.0.0.1    ${HOSTNAME}.localdomain    ${HOSTNAME}"
-	} >>"${root_mountpoint}/etc/hosts"
+	add_lines_to_file "${root_mountpoint}/etc/hosts" "w" false \
+		"127.0.0.1    localhost" \
+		"::1          localhost" \
+		"127.0.0.1    ${HOSTNAME}.localdomain    ${HOSTNAME}"
 	arch_chroot systemctl enable NetworkManager.service
 
 	# create the initramfs
@@ -755,15 +897,13 @@ install() {
 	arch_chroot useradd --create-home --user-group --groups wheel,storage "$USER_NAME"
 	chpasswd --root "$root_mountpoint" <<<"root:${ROOT_PASSWD}"
 	chpasswd --root "$root_mountpoint" <<<"${USER_NAME}:${USER_PASSWD}"
-	{
-		echo "Defaults insults"
-		echo "Defaults pwfeedback"
+	add_lines_to_file "${root_mountpoint}/etc/sudoers" "a" true \
+		echo "Defaults insults" \
+		echo "Defaults pwfeedback" \
 		echo "Defaults passwd_timeout=${PASSWD_TIMEOUT}"
-	} >>"${root_mountpoint}/etc/sudoers"
-	{
-		echo "${USER_NAME} ALL=(ALL:ALL) ALL"
+	add_lines_to_file "${root_mountpoint}/etc/sudoers.d/____${USER_NAME}" "w" false \
+		echo "${USER_NAME} ALL=(ALL:ALL) ALL" \
 		echo "%${USER_NAME} ALL=(ALL:ALL) ALL"
-	} >>"${root_mountpoint}/etc/sudoers.d/____${USER_NAME}"
 
 	# install bootloader (grub)
 	echo "Installing the boot loader..."
@@ -834,23 +974,20 @@ install() {
 			if [ "$ENABLE_HVA" = true ]; then
 				ENABLE_DKMS=true
 				gpu_packages+=("$driver_hva")
-				{
-					echo "# enable hardware video acceleration"
+				add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
+					echo "# enable hardware video acceleration" \
 					echo "LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME}"
-				} >>"${root_mountpoint}/etc/environment"
 			fi
-			if [[ "$DESKTOP_PROFILE" =~ gnome|plasma && "$FORCE_WAYLAND_SESSION" = true ]]; then
-				{
-					echo "# force wayland session"
-					echo "XDG_SESSION_TYPE=wayland"
-					echo "WLR_NO_HARDWARE_CURSORS=1"
-				} >>"${root_mountpoint}/etc/environment"
+			if [[ "$DESKTOP_ENVIRONMENT" =~ gnome|plasma && "$FORCE_WAYLAND_SESSION" = true ]]; then
+				add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
+					"# force wayland session" \
+					"XDG_SESSION_TYPE=wayland" \
+					"WLR_NO_HARDWARE_CURSORS=1"
 				if [ "$GPU" = "nvidia" ]; then
-					{
-						echo "# force GBM as backend"
-						echo "GBM_BACKEND=nvidia-drm"
-						echo "__GLX_VENDOR_LIBRARY_NAME=nvidia"
-					} >>"${root_mountpoint}/etc/environment"
+					add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
+						"# force GBM as backend" \
+						"GBM_BACKEND=nvidia-drm" \
+						"__GLX_VENDOR_LIBRARY_NAME=nvidia"
 				fi
 			else
 				gpu_packages=(xorg-server "${gpu_packages[@]}")
@@ -867,9 +1004,10 @@ install() {
 		fi
 	fi
 
-	# install desktop profile
-	echo "Installing the desktop profile... PROFILE: ${DESKTOP_PROFILE}"
-	case $DESKTOP_PROFILE in
+	# install desktop environment
+	echo "Installing ${DESKTOP_ENVIRONMENT} desktop environment"
+	local desktop_environment_installed=true
+	case $DESKTOP_ENVIRONMENT in
 	xorg)
 		arch_chroot pacman --noconfirm -S "${XORG_PKGLIST[@]}"
 		;;
@@ -894,11 +1032,13 @@ install() {
 		arch_chroot systemctl enable sddm.service
 		;;
 	*)
-		error "Invalid DESKTOP_PROFILE value: ${DESKTOP_PROFILE}"
+		desktop_environment_installed=false
+		error "Invalid DESKTOP_PROFILE value: ${DESKTOP_ENVIRONMENT}"
 		echo "No desktop environments will be installed!"
 		echo "Install manually after system installation is complete."
 		;;
 	esac
+	[[ "$desktop_environment_installed" = true ]] && set_keyboard_layout "$root_mountpoint"
 
 	# install additional packages
 	install_additional_packages() {
