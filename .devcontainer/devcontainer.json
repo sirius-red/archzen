@@ -1,3 +1,14 @@
 {
-  "image": "docker.io/library/archlinux:latest"
+    "image": "docker.io/library/archlinux:latest",
+    "features": {
+        "ghcr.io/va-h/devcontainers-features/uv:1": {
+            "shellautocompletion": true
+        },
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts",
+            "nvmVersion": "latest",
+            "pnpmVersion": "latest",
+            "installYarnUsingApt": false
+        }
+    }
 }
