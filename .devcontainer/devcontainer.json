@@ -1,5 +1,23 @@
 {
     "build": {
         "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "woozy-masta.shell-script-ide",
+                "JonathanHarty.gruvbox-material-icon-theme",
+                "miguelsolorio.fluent-icons",
+                "ms-azuretools.vscode-docker"
+            ],
+            "settings": {
+                "editor.fontFamily": "JetBrains Mono",
+                "editor.fontSize": 16,
+                "editor.lineHeight": 1.6,
+                "terminal.integrated.fontFamily": "JetBrainsMono Nerd Font",
+                "terminal.integrated.fontSize": 16,
+                "terminal.integrated.lineHeight": 1.2
+            }
+        }
     }
 }
