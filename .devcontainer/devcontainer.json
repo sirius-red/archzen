@@ -9,7 +9,9 @@
                 "JonathanHarty.gruvbox-material-icon-theme",
                 "miguelsolorio.fluent-icons",
                 "ms-azuretools.vscode-docker",
-                "matthiesen-technology.yaml-with-script"
+                "matthiesen-technology.yaml-with-script",
+                "adam-bender.commit-message-editor",
+                "joyceerhl.git-commit-formatter"
             ],
             "settings": {
                 "[shellscript]": {
