@@ -11,12 +11,32 @@
                 "ms-azuretools.vscode-docker"
             ],
             "settings": {
+                "[shellscript]": {
+                    "editor.codeActionsOnSave": {
+                        "source.fixAll.shellcheck": "explicit"
+                    },
+                    "editor.defaultFormatter": "foxundermoon.shell-format"
+                },
+                "editor.codeActionsOnSave": {
+                    "source": "explicit"
+                },
+                "editor.cursorSmoothCaretAnimation": "on",
                 "editor.fontFamily": "JetBrains Mono",
                 "editor.fontSize": 16,
+                "editor.formatOnSave": true,
                 "editor.lineHeight": 1.6,
+                "editor.minimap.enabled": false,
+                "editor.renderLineHighlight": "gutter",
                 "terminal.integrated.fontFamily": "JetBrainsMono Nerd Font",
                 "terminal.integrated.fontSize": 16,
-                "terminal.integrated.lineHeight": 1.2
+                "terminal.integrated.lineHeight": 1.2,
+                "workbench.colorTheme": "Default Dark Modern",
+                "workbench.iconTheme": "gruvbox-material-icon-theme",
+                "workbench.preferredDarkColorTheme": "Default Dark Modern",
+                "workbench.preferredHighContrastColorTheme": "Default High Contrast",
+                "workbench.preferredHighContrastLightColorTheme": "Default High Contrast Light",
+                "workbench.preferredLightColorTheme": "Default Light Modern",
+                "workbench.productIconTheme": "fluent-icons"
             }
         }
     }
