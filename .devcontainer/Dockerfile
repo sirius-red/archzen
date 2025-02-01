@@ -1,9 +1,9 @@
 FROM archlinux:base-devel
 
-RUN pacman -Syu --noconfirm
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN pacman -S --noconfirm --needed git vim uv
-
-RUN curl -L https://sirius-red.github.io/aurbuilder/install | sh
-
-RUN command -v aurbuilder && aurbuilder install -y yay nvm
+RUN pacman -Syu --noconfirm \
+    pacman -S --noconfirm --needed git github-cli vim neofetch htop uv ttf-jetbrains-mono shellcheck shfmt; \
+    curl -L https://sirius-red.github.io/aurbuilder/install | sh \
+    command -v aurbuilder && \
+    aurbuilder install -y yay-bin nvm hadolint-bin
