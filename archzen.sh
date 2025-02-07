@@ -43,6 +43,7 @@ FILESYSTEM="xfs"           # xfs | ext4
 CPU="intel"                # intel | amd
 BOOT_LOADER="systemd-boot" # systemd-boot (Only for UEFI) | grub
 ENABLE_DUAL_BOOT=false     # true | false
+ENABLE_ZRAM=true           # true | false
 
 HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
 BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
@@ -70,13 +71,21 @@ INSTALL_GENERIC_DRIVERS_PKGS=true   # true | false
 INSTALL_MULTIMEDIA_PKGS=true        # true | false
 INSTALL_MULTIMEDIA_EXTRA_PKGS=false # true | false
 INSTALL_FONTS_PKGS=true             # true | false
+INSTALL_AURBUILDER=true             # true | false; A helper to install packages from aur logged in as root using yay (or makepkg if yay is not installed)
 
-INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur logged in as root using yay or makepkg
 ADDITIONAL_PKGLIST=(
 	# packages to install from official repository after system installation
 )
 ADDITIONAL_AUR_PKGLIST=(
 	# packages to install from aur using aurbuilder
+)
+
+KERNEL_PARAMETERS=( # Do not change this unless you know what you are doing
+	rw
+	nowatchdog
+	quiet
+	splash
+	"zswap.enabled=0"
 )
 
 ########## EDIT THIS SETTINGS ↑ ##########
@@ -270,6 +279,8 @@ PLASMA_PKGLIST=(
 
 [ -d /sys/firmware/efi/efivars ] || BOOT_LOADER="grub"
 
+[[ "$KERNEL" =~ cachyos || "$GPU" = "auto" ]] && ENABLE_CACHYOS_REPO=true
+
 [ "$INSTALL_MULTIMEDIA_EXTRA_PKGS" = true ] && MULTIMEDIA_PKGLIST+=(
 	gst-plugin-gtk
 	gst-plugin-libcamera
@@ -293,8 +304,6 @@ PLASMA_PKGLIST=(
 	realtime-privileges
 	rtkit
 )
-
-[[ "$KERNEL" =~ cachyos || "$GPU" = "auto" ]] && ENABLE_CACHYOS_REPO=true
 
 if [ -n "$BROWSER" ]; then
 	if pacman -Ss "$BROWSER"; then
@@ -495,23 +504,6 @@ arch_chroot() {
 	arch-chroot "$root_mountpoint" /usr/bin/bash -c "$command"
 }
 
-setup_pacman() {
-	local pacman_conf="${1}/etc/pacman.conf"
-
-	sed -i 's/#Color/Color/' "$pacman_conf"
-	sed -i "s/#ParallelDownloads = 5/ParallelDownloads = $PARALLEL_DOWNLOADS\nILoveCandy/" "$pacman_conf"
-
-	if [[ "$ENABLE_MULTILIB" = true ]]; then
-		local line
-		line=$(grep -n "\[multilib\]" "$pacman_conf" | cut -d: -f1)
-
-		sed -i "${line}s/#//" "$pacman_conf"
-		sed -i "$((line + 1))s/#//" "$pacman_conf"
-	fi
-
-	chmod 644 "$pacman_conf"
-}
-
 add_lines_to_file() {
 	local file_path="$1"
 	local mode="$2"
@@ -538,6 +530,49 @@ add_lines_to_file() {
 	fi
 
 	chmod 644 "$file_path"
+}
+
+define_partitions_to_exclude() {
+	export EXCLUDE_PARTITIONS=()
+	local partitions=("$@")
+
+	for partition in "${partitions[@]}"; do
+		[[ "$partition" =~ _$ ]] && EXCLUDE_PARTITIONS+=("$partition")
+	done
+}
+
+partition_must_be_exclude() {
+	local partition="$1"
+
+	[[ "${EXCLUDE_PARTITIONS[*]}" =~ $partition ]]
+}
+
+setup_optional_partition() {
+	local partition="$1"
+	local format_command="${2//{partition/}/$partition}"
+	local mount_command="${3//{partition/}/$partition}"
+
+	if ! partition_must_be_exclude "$partition"; then
+		[ -n "$format_command" ] && eval "$format_command"
+		[ -n "$mount_command" ] && eval "$mount_command"
+	fi
+}
+
+setup_pacman() {
+	local pacman_conf="${1}/etc/pacman.conf"
+
+	sed -i 's/#Color/Color/' "$pacman_conf"
+	sed -i "s/#ParallelDownloads = 5/ParallelDownloads = $PARALLEL_DOWNLOADS\nILoveCandy/" "$pacman_conf"
+
+	if [[ "$ENABLE_MULTILIB" = true ]]; then
+		local line
+		line=$(grep -n "\[multilib\]" "$pacman_conf" | cut -d: -f1)
+
+		sed -i "${line}s/#//" "$pacman_conf"
+		sed -i "$((line + 1))s/#//" "$pacman_conf"
+	fi
+
+	chmod 644 "$pacman_conf"
 }
 
 add_repo() {
@@ -624,6 +659,21 @@ install_cachyos_repo() {
 	add_cachyos_repo || return 1
 	arch_chroot pacman -Syyu --noconfirm
 	arch_chroot cachyos-rate-mirrors
+}
+
+enable_zram() {
+	local zram_generator_conf="/etc/systemd/zram-generator.conf"
+	local zram_generator_conf_lines=(
+		"[zram0]"
+		"zram-size = min(ram / 10, ram / 2)"
+		"compression-algorithm = zstd lz4 (type=huge)"
+		"swap-priority = 100"
+		"fs-type = swap"
+		"mount-point = /run/zram-swap"
+	)
+
+	arch_chroot pacman -S --noconfirm zram-generator
+	add_lines_to_file "$zram_generator_conf" "w" false "${zram_generator_conf_lines[@]}"
 }
 
 convert_keymap() {
@@ -743,7 +793,7 @@ umount_disks() {
 		echo "Unmounting the disks..."
 	fi
 	umount -R "$root_mountpoint"
-	swapoff "$swap_partition"
+	[ "$ENABLE_ZRAM" = false ] && swapoff "$swap_partition"
 }
 
 install() {
@@ -797,12 +847,17 @@ install() {
 	echo "		HOME ($(color cyan /dev/sda)): $(color cyan 3)"
 	echo "		SWAP ($(color cyan /dev/sda)): $(color cyan 4)"
 	echo
-	echo "NOTE: Specifically for the $(color purple HOME) partition, set the value $(color cyan 0) if you didn't want to use a separate partition for it."
+	echo "NOTE: Specifically for the $(color purple HOME) partition, set the value \"$(color cyan _)\""
+	echo "      if you didn't want to use a separate partition for it."
 	echo
 	read -r -p "BOOT ($(color cyan "$DISK_DEVICE")): " boot_partition_number
 	read -r -p "ROOT ($(color cyan "$DISK_DEVICE")): " root_partition_number
 	read -r -p "HOME ($(color cyan "$DISK_DEVICE")): " home_partition_number
-	read -r -p "SWAP ($(color cyan "$DISK_DEVICE")): " swap_partition_number
+	if [ "$ENABLE_ZRAM" = true ]; then
+		local swap_partition_number="_"
+	else
+		read -r -p "SWAP ($(color cyan "$DISK_DEVICE")): " swap_partition_number
+	fi
 	echo -e "\n\n"
 	local boot_partition="${DISK_DEVICE}${boot_partition_number:-1}"
 	local root_partition="${DISK_DEVICE}${root_partition_number:-2}"
@@ -811,6 +866,8 @@ install() {
 	export root_mountpoint="/mnt/archzen"
 	local home_mountpoint="${root_mountpoint}/home"
 	local boot_mountpoint="${root_mountpoint}/boot"
+
+	define_partitions_to_exclude "$boot_partition" "$root_partition" "$home_partition" "$swap_partition"
 
 	# format partitions
 	echo "Formatting partitions..."
@@ -829,15 +886,15 @@ install() {
 	esac
 	$format "$root_partition"
 	mkfs.fat -F 32 "$boot_partition"
-	[[ ! "$home_partition" =~ 0$ ]] && $format "$home_partition"
-	mkswap "$swap_partition"
 
 	# mount partitions
 	echo "Mounting partitions..."
 	mount --mkdir "$root_partition" "$root_mountpoint"
 	mount --mkdir "$boot_partition" "$boot_mountpoint"
-	[[ ! "$home_partition" =~ 0$ ]] && mount --mkdir "$home_partition" "$home_mountpoint"
-	swapon "$swap_partition"
+
+	# format and mount optional partitions
+	setup_optional_partition "$home_partition" "${format} {partition}" "mount --mkdir {partition} ${home_mountpoint}"
+	setup_optional_partition "$swap_partition" "mkswap {partition}" "swapon {partition}"
 
 	# install base system
 	echo "Installing the base system..."
@@ -852,6 +909,9 @@ install() {
 	# setup pacman on installed system
 	setup_pacman $root_mountpoint
 	cp /etc/pacman.d/mirrorlist "${root_mountpoint}/etc/pacman.d/mirrorlist"
+
+	# Enable (or not) zram
+	[ "$ENABLE_ZRAM" = true ] && enable_zram
 
 	# install kernel and microcode
 	echo "Installing the kernel and microcode..."
@@ -968,13 +1028,6 @@ install() {
 
 	# install boot loader
 	echo "Installing the boot loader..."
-	local kernel_parameters=(
-		rw
-		nowatchdog
-		quiet
-		splash
-		zswap.enabled=0
-	)
 	case $BOOT_LOADER in
 	systemd-boot)
 		local os_name="ArchZen Linux"
@@ -992,12 +1045,12 @@ install() {
 			"console-mode ${sd_console_mode}" \
 			"editor ${sd_editor}"
 		add_lines_to_file "${root_mountpoint}/loader/entries/${os_entry_name}.conf" "w" false \
-			"title   ${os_name} Linux" \
-			"options root=UUID=${partition_uuid} ${kernel_parameters[*]}" \
+			"title   ${os_name}" \
+			"options root=UUID=${partition_uuid} ${KERNEL_PARAMETERS[*]}" \
 			"linux   /vmlinuz-${KERNEL}" \
 			"initrd  /initramfs-${KERNEL}.img"
 		add_lines_to_file "${root_mountpoint}/loader/entries/${os_entry_name}-fallback.conf" "w" false \
-			"title   ${os_name} Linux (Fallback)" \
+			"title   ${os_name} (Fallback)" \
 			"options root=UUID=${partition_uuid} rw" \
 			"linux   /vmlinuz-${KERNEL}" \
 			"initrd  /initramfs-${KERNEL}-fallback.img"
@@ -1006,7 +1059,7 @@ install() {
 		boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
 		arch_chroot pacman --noconfirm -S grub efibootmgr
 		arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
-		sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ ${kernel_parameters[*]}\"/" "${root_mountpoint}/etc/default/grub"
+		sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ ${KERNEL_PARAMETERS[*]}\"/" "${root_mountpoint}/etc/default/grub"
 		if [[ "$ENABLE_DUAL_BOOT" == true ]]; then
 			arch_chroot pacman --noconfirm -S os-prober
 			echo "GRUB_DISABLE_OS_PROBER=false" >>"${root_mountpoint}/etc/default/grub"
@@ -1118,7 +1171,7 @@ install() {
 				arch_chroot mkinitcpio -P
 				case $BOOT_LOADER in
 				systemd-bood)
-					error "DKMS enabling is not implemented yet for systemd-boot"
+					sed -i 's/^\(options\s*\)\(.*\)$/\1\2 nvidia_drm.modeset=1 nvidia_drm.fbdev=1/' "${root_mountpoint}/loader/entries/${os_entry_name}.conf"
 					;;
 				grub)
 					sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1\"/' "${root_mountpoint}/etc/default/grub"
