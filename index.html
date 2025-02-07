@@ -36,12 +36,13 @@ LANGUAGES=(
 	pt_BR.UTF-8
 )
 
-DISK_MANAGER="cfdisk"  # cfdisk | cgdisk
-DISK_DEVICE="/dev/sda" # use `lsblk` to list disks
-KERNEL="linux-cachyos" # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
-FILESYSTEM="xfs"       # xfs | ext4
-CPU="intel"            # intel | amd
-ENABLE_DUAL_BOOT=false # true | false
+DISK_MANAGER="cfdisk"      # cfdisk | cgdisk
+DISK_DEVICE="/dev/sda"     # use `lsblk` to list disks
+KERNEL="linux-cachyos"     # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
+FILESYSTEM="xfs"           # xfs | ext4
+CPU="intel"                # intel | amd
+BOOT_LOADER="systemd-boot" # systemd-boot (Only for UEFI) | grub
+ENABLE_DUAL_BOOT=false     # true | false
 
 HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
 BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
@@ -50,16 +51,17 @@ USER_PASSWD="archzen"     # your password
 ROOT_PASSWD="archzen"     # root user password
 PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
 
-GPU="nvidia"                # nvidia | nouveau | amd | intel | or leave it blank to not install
-GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
-DESKTOP_ENVIRONMENT="gnome" # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
-ENABLE_DKMS=true            # true | false; works only for nvidia, otherwise it will be ignored
-ENABLE_HVA=true             # true | false; (HVA -> Hardware Video Acceleration)
-FORCE_WAYLAND_SESSION=false # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
+GPU="auto"                   # auto | nvidia | nvidia-open | nouveau | amd | intel | or leave it blank to not install
+GPU_EXTRA_PACKAGES="opengl"  # opengl | vulkan | both
+DESKTOP_ENVIRONMENT="plasma" # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
+ENABLE_DKMS=true             # true | false; works only for nvidia, otherwise it will be ignored
+ENABLE_HVA=true              # true | false; (HVA -> Hardware Video Acceleration)
+FORCE_WAYLAND_SESSION=false  # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
 
-TERMINAL="alacritty" # if none is defined, the default terminal of the desktop environment chosen above will be installed
-EDITOR="vim"         # any terminal editor available at https://archlinux.org/packages/, or leave it blank to not install
-BROWSER=""           # any available at https://archlinux.org/packages/, or leave it blank to not install
+TERMINAL="alacritty"      # if none is defined, the default terminal of the desktop environment chosen above will be installed
+EDITOR="vim"              # any terminal editor available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
+BROWSER="zen-browser-bin" # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
+AUR_HELPER="paru-bin"     # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
 
 INSTALL_NETWORK_PKGS=true           # true | false
 INSTALL_TERMINAL_TOOLS_PKGS=true    # true | false
@@ -73,10 +75,8 @@ INSTALL_AURBUILDER=true # true | false; A helper to install packages from aur lo
 ADDITIONAL_PKGLIST=(
 	# packages to install from official repository after system installation
 )
-AUR_PKGLIST=(
+ADDITIONAL_AUR_PKGLIST=(
 	# packages to install from aur using aurbuilder
-	yay
-	google-chrome
 )
 
 ########## EDIT THIS SETTINGS ↑ ##########
@@ -141,30 +141,6 @@ MULTIMEDIA_PKGLIST=(
 	gst-plugin-pipewire
 )
 
-[ "$INSTALL_MULTIMEDIA_EXTRA_PKGS" = true ] && MULTIMEDIA_PKGLIST+=(
-	gst-plugin-gtk
-	gst-plugin-libcamera
-	gst-plugin-msdk
-	gst-plugin-opencv
-	gst-plugin-pipewire
-	gst-plugin-qml6
-	gst-plugin-qmlgl
-	gst-plugin-qsv
-	gst-plugin-va
-	gst-plugin-wpe
-	gst-plugins-bad
-	gst-plugins-ugly
-	pipewire-docs
-	pipewire-ffado
-	pipewire-jack
-	pipewire-roc
-	pipewire-v4l2
-	pipewire-x11-bell
-	pipewire-zeroconf
-	realtime-privileges
-	rtkit
-)
-
 FONTS_PKGLIST=(
 	noto-fonts
 	noto-fonts-cjk
@@ -179,8 +155,7 @@ FONTS_PKGLIST=(
 
 EXTRA_PKGLIST=()
 
-[ -n "$EDITOR" ] && EXTRA_PKGLIST+=("$EDITOR")
-[ -n "$BROWSER" ] && EXTRA_PKGLIST+=("$BROWSER")
+AUR_PKGLIST=()
 
 XORG_PKGLIST=(
 	xorg
@@ -191,7 +166,7 @@ XORG_MINIMAL_PKGLIST=(
 	xorg-xinit
 	xorg-xclock
 	htop
-	"${TERMINAL:-'xterm'}"
+	"${TERMINAL:-xterm}"
 )
 
 GNOME_PKGLIST=(
@@ -253,7 +228,7 @@ GNOME_PKGLIST=(
 	gnome-photos
 	gnome-sound-recorder
 	sysprof
-	"${TERMINAL:-'gnome-terminal'}"
+	"${TERMINAL:-gnome-terminal}"
 )
 
 PLASMA_PKGLIST=(
@@ -290,8 +265,63 @@ PLASMA_PKGLIST=(
 	xdg-desktop-portal-gtk
 	xwaylandvideobridge
 	sddm
-	"${TERMINAL:-'konsole'}"
+	"${TERMINAL:-konsole}"
 )
+
+[ -d /sys/firmware/efi/efivars ] || BOOT_LOADER="grub"
+
+[ "$INSTALL_MULTIMEDIA_EXTRA_PKGS" = true ] && MULTIMEDIA_PKGLIST+=(
+	gst-plugin-gtk
+	gst-plugin-libcamera
+	gst-plugin-msdk
+	gst-plugin-opencv
+	gst-plugin-pipewire
+	gst-plugin-qml6
+	gst-plugin-qmlgl
+	gst-plugin-qsv
+	gst-plugin-va
+	gst-plugin-wpe
+	gst-plugins-bad
+	gst-plugins-ugly
+	pipewire-docs
+	pipewire-ffado
+	pipewire-jack
+	pipewire-roc
+	pipewire-v4l2
+	pipewire-x11-bell
+	pipewire-zeroconf
+	realtime-privileges
+	rtkit
+)
+
+[[ "$KERNEL" =~ cachyos || "$GPU" = "auto" ]] && ENABLE_CACHYOS_REPO=true
+
+if [ -n "$BROWSER" ]; then
+	if pacman -Ss "$BROWSER"; then
+		EXTRA_PKGLIST+=("$BROWSER")
+	else
+		AUR_PKGLIST+=("$BROWSER")
+	fi
+fi
+
+if [ -n "$EDITOR" ]; then
+	if pacman -Ss "$EDITOR"; then
+		EXTRA_PKGLIST+=("$EDITOR")
+	else
+		AUR_PKGLIST+=("$EDITOR")
+	fi
+fi
+
+if [ -n "$AUR_HELPER" ]; then
+	if pacman -Ss "$AUR_HELPER"; then
+		EXTRA_PKGLIST+=("$AUR_HELPER")
+	else
+		AUR_PKGLIST+=("$AUR_HELPER")
+	fi
+fi
+
+EXTRA_PKGLIST+=("${ADDITIONAL_PKGLIST[@]}")
+AUR_PKGLIST+=("${ADDITIONAL_AUR_PKGLIST[@]}")
 
 is_integer() {
 	[[ "$1" =~ ^[0-9]+$ ]]
@@ -490,18 +520,21 @@ add_lines_to_file() {
 	local lines=("$@")
 
 	if [[ "$mode" == "w" || ! -f "$file_path" ]]; then
+		local file_dir=$(dirname "$file_path")
+
+		[ -d "$file_dir" ] || mkdir -p "$file_dir"
 		{
 			for line in "${lines[@]}"; do
 				echo "$line"
 			done
-		} > "$file_path"
+		} >"$file_path"
 	else
 		{
 			[[ "$add_blank_line" == "true" ]] && echo ""
 			for line in "${lines[@]}"; do
 				echo "$line"
 			done
-		} >> "$file_path"
+		} >>"$file_path"
 	fi
 
 	chmod 644 "$file_path"
@@ -537,14 +570,25 @@ install_cachyos_repo() {
 
 	run_first_setup() {
 		local mirror_cachyos="https://mirror.cachyos.org/repo/x86_64/cachyos"
+		local cachyos_packages=(
+			"${mirror_cachyos}/cachyos-keyring-20240331-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-mirrorlist-18-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-v3-mirrorlist-18-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-v4-mirrorlist-6-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/pacman-7.0.0.r6.gc685ae6-2-x86_64.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-ananicy-rules-1:1.0.5-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-hooks-2025.01-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-kernel-manager-1.13.9-1-x86_64.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-settings-1:1.1.8-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-rate-mirrors-8-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/chwd-1.11.5-2-x86_64.pkg.tar.zst"
+		)
+
+		[ "$BOOT_LOADER" = "systemd-boot" ] && cachyos_packages+=("${mirror_cachyos}/systemd-boot-manager-15-1-any.pkg.tar.zst")
 
 		arch_chroot pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
 		arch_chroot pacman-key --lsign-key F3B607488DB35A47
-		arch_chroot pacman -U --noconfirm "${mirror_cachyos}/cachyos-keyring-20240331-1-any.pkg.tar.zst" \
-			"${mirror_cachyos}/cachyos-mirrorlist-18-1-any.pkg.tar.zst" \
-			"${mirror_cachyos}/cachyos-v3-mirrorlist-18-1-any.pkg.tar.zst" \
-			"${mirror_cachyos}/cachyos-v4-mirrorlist-6-1-any.pkg.tar.zst" \
-			"${mirror_cachyos}/pacman-7.0.0.r6.gc685ae6-2-x86_64.pkg.tar.zst"
+		arch_chroot pacman -U --noconfirm "${cachyos_packages[@]}"
 	}
 
 	add_repo_from_version() {
@@ -579,13 +623,13 @@ install_cachyos_repo() {
 	run_first_setup || return 1
 	add_cachyos_repo || return 1
 	arch_chroot pacman -Syyu --noconfirm
+	arch_chroot cachyos-rate-mirrors
 }
 
 convert_keymap() {
 	local keymap="$1"
-	localectl list-keymaps | grep -q "^$keymap$"
 
-	if [[ $? -eq 0 ]]; then
+	if localectl list-keymaps | grep -qe "^$keymap\$"; then
 		echo "$keymap" | sed -E 's/-abnt2$//;s/-nodeadkeys$//;s/-latin1$//;s/-legacy$//'
 	else
 		color yellow "Warning: Keymap '$keymap' is not recognized. Using default 'us'."
@@ -669,26 +713,25 @@ set_keyboard_layout() {
 	}
 
 	case "$DESKTOP_PROFILE" in
-		xorg)
-			configure_xorg
-			;;
-		plasma)
-			configure_xorg
-			configure_plasma
-			;;
-		gnome)
-			configure_xorg
-			configure_gnome
-			;;
-		*)
-			color red "Error: '$DESKTOP_PROFILE' is not valid. Use 'xorg', 'plasma', or 'gnome'."
-			return 1
-			;;
+	xorg)
+		configure_xorg
+		;;
+	plasma)
+		configure_xorg
+		configure_plasma
+		;;
+	gnome)
+		configure_xorg
+		configure_gnome
+		;;
+	*)
+		color red "Error: '$DESKTOP_PROFILE' is not valid. Use 'xorg', 'plasma', or 'gnome'."
+		return 1
+		;;
 	esac
 
 	color green "Keyboard configuration applied successfully! Reboot to ensure changes take effect."
 }
-
 
 umount_disks() {
 	local exit_code=$1
@@ -801,13 +844,14 @@ install() {
 	pacstrap -K -P "$root_mountpoint" "${BASE_SYSTEM_PKGLIST[@]}"
 
 	# install cachyos repo if true or cachyos kernel selected
-	if [[ "$KERNEL" =~ cachyos || "$ENABLE_CACHYOS_REPO" = true ]]; then
+	if [ "$ENABLE_CACHYOS_REPO" = true ]; then
 		echo "Installing the CachyOS repository..."
 		install_cachyos_repo
 	fi
 
 	# setup pacman on installed system
 	setup_pacman $root_mountpoint
+	cp /etc/pacman.d/mirrorlist "${root_mountpoint}/etc/pacman.d/mirrorlist"
 
 	# install kernel and microcode
 	echo "Installing the kernel and microcode..."
@@ -853,9 +897,26 @@ install() {
 	# install extra packages
 	if [ -n "${EXTRA_PKGLIST[*]}" ]; then
 		echo "Installing extra packages..."
-		arch_chroot pacman --needed --noconfirm -S "${EXTRA_PKGLIST[@]}"
-		[ -n "$EDITOR" ] && echo "EDITOR=${EDITOR}" >>"${root_mountpoint}/etc/environment"
+		if ! arch_chroot pacman --needed --noconfirm -S "${EXTRA_PKGLIST[@]}"; then
+			echo "Error installing extra packages!"
+		fi
 	fi
+
+	# install aur packages
+	if [[ "$INSTALL_AURBUILDER" = true || -n "${AUR_PKGLIST[*]}" ]]; then
+		echo "Installing AUR Builder..."
+		if ! curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"; then
+			error "Error installing AUR Builder"
+		fi
+		if [ -n "${AUR_PKGLIST[*]}" ]; then
+			if ! aurbuilder --chroot "$root_mountpoint" install -y "${AUR_PKGLIST[@]}"; then
+				error "Error installing AUR packages!"
+			fi
+		fi
+	fi
+
+	# set a default editor
+	[ -n "$EDITOR" ] && echo "EDITOR=${EDITOR}" >>"${root_mountpoint}/etc/environment"
 
 	# generate an fstab file
 	echo "Generating the fstab file..."
@@ -898,63 +959,119 @@ install() {
 	chpasswd --root "$root_mountpoint" <<<"root:${ROOT_PASSWD}"
 	chpasswd --root "$root_mountpoint" <<<"${USER_NAME}:${USER_PASSWD}"
 	add_lines_to_file "${root_mountpoint}/etc/sudoers" "a" true \
-		echo "Defaults insults" \
-		echo "Defaults pwfeedback" \
-		echo "Defaults passwd_timeout=${PASSWD_TIMEOUT}"
+		"Defaults insults" \
+		"Defaults pwfeedback" \
+		"Defaults passwd_timeout=${PASSWD_TIMEOUT}"
 	add_lines_to_file "${root_mountpoint}/etc/sudoers.d/____${USER_NAME}" "w" false \
-		echo "${USER_NAME} ALL=(ALL:ALL) ALL" \
-		echo "%${USER_NAME} ALL=(ALL:ALL) ALL"
+		"${USER_NAME} ALL=(ALL:ALL) ALL" \
+		"%${USER_NAME} ALL=(ALL:ALL) ALL"
 
-	# install bootloader (grub)
+	# install boot loader
 	echo "Installing the boot loader..."
-	boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
-	arch_chroot pacman --noconfirm -S grub efibootmgr
-	arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
-	if [[ "$ENABLE_DUAL_BOOT" == true ]]; then
-		arch_chroot pacman --noconfirm -S os-prober
-		echo "GRUB_DISABLE_OS_PROBER=false" >>"${root_mountpoint}/etc/default/grub"
-	fi
-	arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
+	local kernel_parameters=(
+		rw
+		nowatchdog
+		quiet
+		splash
+		zswap.enabled=0
+	)
+	case $BOOT_LOADER in
+	systemd-boot)
+		local os_name="ArchZen Linux"
+		local os_entry_name="${os_name// /}"
+		# systemd-boot settings
+		local sd_default=$(if [ "$ENABLE_DUAL_BOOT" = true ]; then echo "@saved"; else echo "${os_entry_name}.conf"; fi)
+		local sd_timeout=3
+		local sd_console_mode="max" # auto | max | keep
+		local sd_editor="no"        # yes | no
+		local partition_uuid=$(blkid -s UUID -o value "$root_partition")
+		bootctl --root="$root_mountpoint" install
+		add_lines_to_file "${root_mountpoint}/loader/loader.conf" "w" false \
+			"default ${sd_default}" \
+			"timeout ${sd_timeout}" \
+			"console-mode ${sd_console_mode}" \
+			"editor ${sd_editor}"
+		add_lines_to_file "${root_mountpoint}/loader/entries/${os_entry_name}.conf" "w" false \
+			"title   ${os_name} Linux" \
+			"options root=UUID=${partition_uuid} ${kernel_parameters[*]}" \
+			"linux   /vmlinuz-${KERNEL}" \
+			"initrd  /initramfs-${KERNEL}.img"
+		add_lines_to_file "${root_mountpoint}/loader/entries/${os_entry_name}-fallback.conf" "w" false \
+			"title   ${os_name} Linux (Fallback)" \
+			"options root=UUID=${partition_uuid} rw" \
+			"linux   /vmlinuz-${KERNEL}" \
+			"initrd  /initramfs-${KERNEL}-fallback.img"
+		;;
+	grub)
+		boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
+		arch_chroot pacman --noconfirm -S grub efibootmgr
+		arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
+		sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ ${kernel_parameters[*]}\"/" "${root_mountpoint}/etc/default/grub"
+		if [[ "$ENABLE_DUAL_BOOT" == true ]]; then
+			arch_chroot pacman --noconfirm -S os-prober
+			echo "GRUB_DISABLE_OS_PROBER=false" >>"${root_mountpoint}/etc/default/grub"
+		fi
+		arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
+		;;
+	*)
+		error "Invalid BOOT_LOADER value: ${GPU}"
+		echo "No boot loader will be installed!"
+		echo "Install manually after system installation is complete."
+		;;
+	esac
 
 	# install gpu driver
 	echo "Installing video drivers... GPU: ${GPU}"
-	if [ -n "$GPU" ]; then
-		local gpu_packages driver opengl vulkan driver_hva LIBVA_DRIVER_NAME
+	if [[ -n "$GPU" && "$ENABLE_CACHYOS_REPO" = true ]]; then
+		case $GPU in
+		auto)
+			arch_chroot chwd -a
+			;;
+		nvidia | nvidia-open)
+			arch_chroot chwd -i "${GPU}-dkms"
+			;;
+		nouveau | amd | intel)
+			arch_chroot chwd -i "$GPU"
+			;;
+		*)
+			error "Invalid GPU value: ${GPU}"
+			echo "No GPU drivers will be installed!"
+			echo "Install manually after system installation is complete."
+			;;
+		esac
+	elif [ -n "$GPU" ]; then
+		local gpu_packages driver opengl vulkan driver_hva libva_driver_name
 		local gpu_packages=()
 		local proceed=true
 		case $GPU in
-		nvidia)
+		nvidia | nvidia-open)
 			# shellcheck disable=SC2001
-			if [[ "$KERNEL" =~ cachyos ]]; then
-				driver="${KERNEL}-nvidia"
-			else
-				driver="nvidia$(echo "${KERNEL//linux/}" | sed 's/zen\|hardened/dkms/')"
-			fi
-			opengl="nvidia-utils"
+			driver="${GPU}$(echo "${KERNEL//linux/}" | sed 's/zen\|hardened/dkms/')"
+			opengl="opencl-nvidia"
 			vulkan="nvidia-utils"
-			driver_hva="nvidia-utils"
-			LIBVA_DRIVER_NAME="nvidia"
+			driver_hva="libva-nvidia-driver"
+			libva_driver_name="nvidia"
 			;;
 		nouveau)
 			driver="xf86-video-nouveau"
 			opengl="mesa"
 			vulkan="vulkan-nouveau"
 			driver_hva="libva-mesa-driver"
-			LIBVA_DRIVER_NAME="nouveau"
+			libva_driver_name="nouveau"
 			;;
 		amd)
 			driver="xf86-video-amdgpu"
 			opengl="mesa"
 			vulkan="vulkan-radeon"
 			driver_hva="libva-mesa-driver"
-			LIBVA_DRIVER_NAME="radeonsi"
+			libva_driver_name="radeonsi"
 			;;
 		intel)
 			driver="xf86-video-intel"
 			opengl="mesa"
 			vulkan="vulkan-intel"
 			driver_hva="intel-media-driver"
-			LIBVA_DRIVER_NAME="iHD"
+			libva_driver_name="iHD"
 			;;
 		*)
 			error "Invalid GPU value: ${GPU}"
@@ -965,6 +1082,7 @@ install() {
 		esac
 		if [[ "$proceed" = true ]]; then
 			gpu_packages+=("$driver")
+			[[ "$GPU_EXTRA_PACKAGES" =~ opengl|vulkan|both && "$GPU" =~ nvidia|nvidia-open ]] && gpu_packages+=("nvidia-utils")
 			[[ "$GPU_EXTRA_PACKAGES" =~ opengl|both ]] && gpu_packages+=("$opengl")
 			[[ "$GPU_EXTRA_PACKAGES" =~ vulkan|both ]] && gpu_packages+=("$vulkan")
 			if [[ "$ENABLE_MULTILIB" = true ]]; then
@@ -976,14 +1094,14 @@ install() {
 				gpu_packages+=("$driver_hva")
 				add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
 					echo "# enable hardware video acceleration" \
-					echo "LIBVA_DRIVER_NAME=${LIBVA_DRIVER_NAME}"
+					echo "LIBVA_DRIVER_NAME=${libva_driver_name}"
 			fi
 			if [[ "$DESKTOP_ENVIRONMENT" =~ gnome|plasma && "$FORCE_WAYLAND_SESSION" = true ]]; then
 				add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
 					"# force wayland session" \
 					"XDG_SESSION_TYPE=wayland" \
 					"WLR_NO_HARDWARE_CURSORS=1"
-				if [ "$GPU" = "nvidia" ]; then
+				if [[ "$GPU" =~ nvidia|nvidia-open ]]; then
 					add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
 						"# force GBM as backend" \
 						"GBM_BACKEND=nvidia-drm" \
@@ -992,14 +1110,21 @@ install() {
 			else
 				gpu_packages=(xorg-server "${gpu_packages[@]}")
 			fi
-			[ "$GPU" = nvidia ] && gpu_packages+=(nvidia-settings)
+			[[ "$GPU" =~ nvidia|nvidia-open ]] && gpu_packages+=(nvidia-settings)
 			arch_chroot pacman --noconfirm -S "${gpu_packages[@]}"
-			if [[ "$GPU" = "nvidia" && "$ENABLE_DKMS" = true && ! "$KERNEL" =~ cachyos ]]; then
+			if [[ "$GPU" =~ nvidia|nvidia-open && "$ENABLE_DKMS" = true ]]; then
 				sed -i '/^MODULES=/ s/)/ nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' "${root_mountpoint}/etc/mkinitcpio.conf"
-				sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1\"/' "${root_mountpoint}/etc/default/grub"
 				echo "options nvidia_drm modeset=1 fbdev=1" >"${root_mountpoint}/etc/modprobe.d/nvidia.conf"
 				arch_chroot mkinitcpio -P
-				arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
+				case $BOOT_LOADER in
+				systemd-bood)
+					error "DKMS enabling is not implemented yet for systemd-boot"
+					;;
+				grub)
+					sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1\"/' "${root_mountpoint}/etc/default/grub"
+					arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
+					;;
+				esac
 			fi
 		fi
 	fi
@@ -1030,6 +1155,56 @@ install() {
 	plasma)
 		arch_chroot pacman --noconfirm -S "${PLASMA_PKGLIST[@]}"
 		arch_chroot systemctl enable sddm.service
+		if [[ "${PLASMA_PKGLIST[*]}" =~ sddm ]]; then
+			add_lines_to_file "/usr/lib/sddm/sddm.conf.d/general.conf" "w" false \
+				'[Autologin]' \
+				'Relogin=false' \
+				'Session=plasma' \
+				'' \
+				'[General]' \
+				'HaltCommand=/usr/bin/systemctl poweroff' \
+				'InputMethod=qtvirtualkeyboard' \
+				'Numlock=on' \
+				'RebootCommand=/usr/bin/systemctl reboot' \
+				'' \
+				'[Theme]' \
+				'Current=breeze' \
+				'' \
+				'[Users]' \
+				'DefaultPath=/usr/local/sbin:/usr/local/bin:/usr/bin' \
+				'HideShells=' \
+				'HideUsers=' \
+				'MaximumUid=60000' \
+				'MinimumUid=1000' \
+				'RememberLastSession=true' \
+				'RememberLastUser=true' \
+				'ReuseSession=false' \
+				'' \
+				'[Wayland]' \
+				'EnableHiDPI=true' \
+				'SessionCommand=/usr/share/sddm/scripts/wayland-session' \
+				'SessionDir=/usr/share/wayland-sessions' \
+				'SessionLogFile=.local/share/sddm/wayland-session.log' \
+				'' \
+				'[X11]' \
+				'EnableHiDPI=true' \
+				'MinimumVT=1' \
+				'ServerArguments=-nolisten tcp' \
+				'ServerPath=/usr/bin/X' \
+				'SessionCommand=/usr/share/sddm/scripts/Xsession' \
+				'SessionDir=/usr/share/xsessions' \
+				'SessionLogFile=.local/share/sddm/xorg-session.log' \
+				'UserAuthFile=.Xauthority' \
+				'XauthPath=/usr/bin/xauth' \
+				'XephyrPath=/usr/bin/Xephyr'
+			add_lines_to_file "/etc/sddm.conf.d/01-wayland.conf" "w" false \
+				'[General]' \
+				'DisplayServer=wayland' \
+				'GreeterEnvironment=QT_WAYLAND_SHELL_INTEGRATION=layer-shell' \
+				'' \
+				'[Wayland]' \
+				'CompositorCommand=kwin_wayland --drm --no-lockscreen --no-global-shortcuts --locale1'
+		fi
 		;;
 	*)
 		desktop_environment_installed=false
@@ -1039,33 +1214,6 @@ install() {
 		;;
 	esac
 	[[ "$desktop_environment_installed" = true ]] && set_keyboard_layout "$root_mountpoint"
-
-	# install additional packages
-	install_additional_packages() {
-		if [ -n "${ADDITIONAL_PKGLIST[*]}" ]; then
-			echo "Installing additional packages..."
-			arch_chroot pacman --needed --noconfirm --needed -S "${ADDITIONAL_PKGLIST[@]}"
-		fi
-	}
-	install_additional_packages || error "Error installing additional packages!"
-
-	# install aur builder
-	install_aurbuilder() {
-		if [ "$INSTALL_AURBUILDER" = true ]; then
-			echo "Installing AUR Builder..."
-			curl -L https://sirius-red.github.io/aurbuilder/install | sh -s -- --chroot "$root_mountpoint"
-		fi
-	}
-	install_aurbuilder || error "Error installing AUR Builder"
-
-	# install aur packages
-	install_aur_packages() {
-		if [[ "$INSTALL_AURBUILDER" = true && -n "${AUR_PKGLIST[*]}" ]]; then
-			echo "Installing AUR packages..."
-			aurbuilder --chroot "$root_mountpoint" install -y "${AUR_PKGLIST[@]}"
-		fi
-	}
-	install_aur_packages || error "Error installing AUR packages!"
 
 	# complete installation
 	umount_disks 0
