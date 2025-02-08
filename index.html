@@ -23,7 +23,7 @@ TERMINAL_FONT="ter-122b" # font in the installation terminal; use `ls /usr/share
 PING_URL="google.com"    # just to test the connection before installation
 MIRROR_COUNTRIES="BR,US" # use `reflector --list-countries` to list available countries
 MIRROR_SERVERS_LIMIT=20  # the higher the value, the longer the reflector will take to complete its execution
-PARALLEL_DOWNLOADS=20    # I don't recommend a value higher than that, but it's up to you
+PARALLEL_DOWNLOADS=10    # I don't recommend a value higher than that, but it's up to you
 ENABLE_MULTILIB=false    # enable (or not) the multilib repository
 ENABLE_CACHYOS_REPO=true # true | false; Setting a cachyos kernel to `KERNEL` will set this option to `true` automatically
 
@@ -52,12 +52,12 @@ USER_PASSWD="archzen"     # your password
 ROOT_PASSWD="archzen"     # root user password
 PASSWD_TIMEOUT=0          # number of minutes before the sudo password prompt times out, or 0 for no timeout
 
-GPU="auto"                   # auto | nvidia | nvidia-open | nouveau | amd | intel | or leave it blank to not install
-GPU_EXTRA_PACKAGES="opengl"  # opengl | vulkan | both
-DESKTOP_ENVIRONMENT="plasma" # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
-ENABLE_DKMS=true             # true | false; works only for nvidia, otherwise it will be ignored
-ENABLE_HVA=true              # true | false; (HVA -> Hardware Video Acceleration)
-FORCE_WAYLAND_SESSION=false  # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
+GPU="auto"                  # auto | nvidia | nvidia-open | nouveau | amd | intel | or leave it blank to not install
+GPU_EXTRA_PACKAGES="opengl" # opengl | vulkan | both
+DESKTOP_PROFILE="plasma"    # xorg | xorg-minimal | gnome | plasma | or leave it blank to not install
+ENABLE_DKMS=true            # true | false; works only for nvidia, otherwise it will be ignored
+ENABLE_HVA=true             # true | false; (HVA -> Hardware Video Acceleration)
+FORCE_WAYLAND_SESSION=false # true | false; # works only for plasma and gnome, otherwise it will be ignored; can cause bugs in gnome and gdm with nvidia proprietary driver
 
 TERMINAL="alacritty"      # if none is defined, the default terminal of the desktop environment chosen above will be installed
 EDITOR="vim"              # any terminal editor available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
@@ -963,11 +963,11 @@ install() {
 
 	# install kernel and microcode
 	echo "Installing the kernel and microcode..."
-	arch_chroot pacman --noconfirm -S "${KERNEL_PKGLIST[@]}"
+	arch_chroot pacman --needed --noconfirm -S "${KERNEL_PKGLIST[@]}"
 
 	# install hardware packages
 	echo "Installing hardware packages..."
-	arch_chroot pacman --noconfirm -S "${HARDWARE_PKGLIST[@]}"
+	arch_chroot pacman --needed --noconfirm -S "${HARDWARE_PKGLIST[@]}"
 
 	# install network packages
 	if [ "$INSTALL_NETWORK_PKGS" = true ]; then
@@ -1207,7 +1207,7 @@ install() {
 					echo "# enable hardware video acceleration" \
 					echo "LIBVA_DRIVER_NAME=${libva_driver_name}"
 			fi
-			if [[ "$DESKTOP_ENVIRONMENT" =~ gnome|plasma && "$FORCE_WAYLAND_SESSION" = true ]]; then
+			if [[ "$DESKTOP_PROFILE" =~ gnome|plasma && "$FORCE_WAYLAND_SESSION" = true ]]; then
 				add_lines_to_file "${root_mountpoint}/etc/environment" "a" true \
 					"# force wayland session" \
 					"XDG_SESSION_TYPE=wayland" \
@@ -1240,11 +1240,11 @@ install() {
 		fi
 	fi
 
-	# install desktop environment
-	echo "Installing ${DESKTOP_ENVIRONMENT} desktop environment"
-	local desktop_environment_installed=true
+	# install desktop profile
+	echo "Installing \"${DESKTOP_PROFILE}\" desktop profile"
+	local desktop_profile_installed=true
 	arch_chroot pacman --noconfirm -S "${XORG_MINIMAL_PKGLIST[@]}"
-	case $DESKTOP_ENVIRONMENT in
+	case $DESKTOP_PROFILE in
 	xorg)
 		arch_chroot pacman --noconfirm -S "${XORG_PKGLIST[@]}"
 		;;
@@ -1319,13 +1319,13 @@ install() {
 		fi
 		;;
 	*)
-		desktop_environment_installed=false
-		error "Invalid DESKTOP_PROFILE value: ${DESKTOP_ENVIRONMENT}"
+		desktop_profile_installed=false
+		error "Invalid DESKTOP_PROFILE value: ${DESKTOP_PROFILE}"
 		echo "No desktop environments will be installed!"
 		echo "Install manually after system installation is complete."
 		;;
 	esac
-	[[ "$desktop_environment_installed" = true ]] && set_keyboard_layout "$root_mountpoint"
+	[[ "$desktop_profile_installed" = true ]] && set_keyboard_layout "$root_mountpoint"
 
 	# complete installation
 	umount_disks 0
