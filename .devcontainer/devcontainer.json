@@ -1,4 +1,5 @@
 {
+    "name": "ArchZen Dev Container",
     "build": {
         "dockerfile": "Dockerfile"
     },
