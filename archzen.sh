@@ -1096,7 +1096,7 @@ install() {
 		local sd_console_mode="max" # auto | max | keep
 		local sd_editor="no"        # yes | no
 		local partition_uuid=$(blkid -s UUID -o value "$root_partition")
-		bootctl --root="$root_mountpoint" install
+		arch_chroot bootctl install
 		add_lines_to_file "${root_mountpoint}/loader/loader.conf" "w" false \
 			"default ${sd_default}" \
 			"timeout ${sd_timeout}" \
@@ -1112,6 +1112,7 @@ install() {
 			"options root=UUID=${partition_uuid} rw" \
 			"linux   /vmlinuz-${KERNEL}" \
 			"initrd  /initramfs-${KERNEL}-fallback.img"
+		arch_chroot bootctl update
 		;;
 	grub)
 		boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
