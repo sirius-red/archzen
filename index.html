@@ -64,20 +64,21 @@ EDITOR="vim"              # any terminal editor available at https://archlinux.o
 BROWSER="zen-browser-bin" # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
 AUR_HELPER="paru-bin"     # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
 
-INSTALL_NETWORK_PKGS=true           # true | false
-INSTALL_TERMINAL_TOOLS_PKGS=true    # true | false
-INSTALL_FILESYSTEM_PKGS=true        # true | false
-INSTALL_GENERIC_DRIVERS_PKGS=true   # true | false
-INSTALL_MULTIMEDIA_PKGS=true        # true | false
-INSTALL_MULTIMEDIA_EXTRA_PKGS=false # true | false
-INSTALL_FONTS_PKGS=true             # true | false
-INSTALL_AURBUILDER=true             # true | false; A helper to install packages from aur logged in as root using yay (or makepkg if yay is not installed)
+INSTALL_NETWORK_PKGS=true            # true | false
+INSTALL_PACKAGE_MANAGER_PKGLIST=true # true | false
+INSTALL_TERMINAL_TOOLS_PKGS=true     # true | false
+INSTALL_FILESYSTEM_PKGS=true         # true | false
+INSTALL_BLUETOOTH_PKGLIST=true       # true | false
+INSTALL_MULTIMEDIA_PKGS=true         # true | false
+INSTALL_FONTS_PKGS=true              # true | false
+INSTALL_AURBUILDER=true              # true | false; A helper to install packages from aur logged in as root using yay (or makepkg if yay is not installed)
 
 ADDITIONAL_PKGLIST=(
 	# packages to install from official repository after system installation
 )
 ADDITIONAL_AUR_PKGLIST=(
 	# packages to install from aur using aurbuilder
+	octopi
 )
 
 KERNEL_PARAMETERS=( # Do not change this unless you know what you are doing
@@ -94,7 +95,6 @@ BASE_SYSTEM_PKGLIST=(
 	base
 	base-devel
 	sudo
-	linux-firmware
 )
 
 KERNEL_PKGLIST=(
@@ -104,22 +104,59 @@ KERNEL_PKGLIST=(
 	"${CPU}-ucode"
 )
 
-NETWORK_PKGLIST=(
-	networkmanager
-	openssh
+HARDWARE_PKGLIST=(
+	linux-firmware
+	sof-firmware
+	hwdetect
+	mtools
+
 )
 
-TERMINAL_TOOLS_PKGLIST=(
+NETWORK_PKGLIST=(
+	networkmanager
+	networkmanager-openvpn
+	dhcpcd
+	dnsmasq
+	wpa_supplicant
+	modemmanager
+	usb_modeswitch
+)
+
+PACKAGE_MANAGER_PKGLIST=(
+	reflector
+	pkgfile
+	rebuild-detector
+	pacman-contrib
+	# BEGIN optional dependencies from `pacman-contrib`
+	diffutils
+	fakeroot
+	findutils
+	mlocate
+	perl
+	# END optional dependencies from `pacman-contrib`️
+)
+
+TERMINAL_PKGLIST=(
 	less
 	wget
 	curl
-	reflector
 	xdg-user-dirs
-	neofetch
+	fastfetch
 	vi
 	arch-install-scripts
 	git
 	mold
+	openssh
+	btop
+	rsync
+	ripgrep
+	bash-completion
+	unrar
+	unzip
+	xz
+	hwinfo
+	inxi
+	sed
 )
 
 FILESYSTEM_PKGLIST=(
@@ -132,10 +169,18 @@ FILESYSTEM_PKGLIST=(
 	fuse3
 	fuseiso
 	xfsprogs
+	haveged
+	nfs-utils
+	nilfs-utils
+	ntp
+	smartmontools
 )
 
-GENERIC_DRIVERS_PKGLIST=(
-	xf86-input-libinput
+BLUETOOTH_PKGLIST=(
+	bluez
+	bluez-hid2hci
+	bluez-libs
+	bluez-utils
 )
 
 MULTIMEDIA_PKGLIST=(
@@ -148,6 +193,28 @@ MULTIMEDIA_PKGLIST=(
 	gst-plugins-base
 	gst-plugins-good
 	gst-plugin-pipewire
+	gst-libav
+	gst-plugin-gtk
+	gst-plugin-libcamera
+	gst-plugin-msdk
+	gst-plugin-opencv
+	gst-plugin-qml6
+	gst-plugin-qmlgl
+	gst-plugin-qsv
+	gst-plugin-va
+	gst-plugin-wpe
+	gst-plugins-bad
+	gst-plugins-ugly
+	pipewire-docs
+	pipewire-ffado
+	pipewire-jack
+	pipewire-roc
+	pipewire-v4l2
+	pipewire-x11-bell
+	pipewire-zeroconf
+	realtime-privileges
+	rtkit
+	libdvdcss
 )
 
 FONTS_PKGLIST=(
@@ -174,7 +241,13 @@ XORG_MINIMAL_PKGLIST=(
 	xorg-server
 	xorg-xinit
 	xorg-xclock
-	htop
+	libwnck3
+	mesa-utils
+	xf86-input-libinput
+	xorg-xdpyinfo
+	xorg-xinput
+	xorg-xkill
+	xorg-xrandr
 	"${TERMINAL:-xterm}"
 )
 
@@ -216,7 +289,6 @@ GNOME_PKGLIST=(
 	gnome-tweaks
 	fwupd
 	networkmanager
-	openssh
 	power-profiles-daemon
 	system-config-printer
 	baobab
@@ -280,30 +352,6 @@ PLASMA_PKGLIST=(
 [ -d /sys/firmware/efi/efivars ] || BOOT_LOADER="grub"
 
 [[ "$KERNEL" =~ cachyos || "$GPU" = "auto" ]] && ENABLE_CACHYOS_REPO=true
-
-[ "$INSTALL_MULTIMEDIA_EXTRA_PKGS" = true ] && MULTIMEDIA_PKGLIST+=(
-	gst-plugin-gtk
-	gst-plugin-libcamera
-	gst-plugin-msdk
-	gst-plugin-opencv
-	gst-plugin-pipewire
-	gst-plugin-qml6
-	gst-plugin-qmlgl
-	gst-plugin-qsv
-	gst-plugin-va
-	gst-plugin-wpe
-	gst-plugins-bad
-	gst-plugins-ugly
-	pipewire-docs
-	pipewire-ffado
-	pipewire-jack
-	pipewire-roc
-	pipewire-v4l2
-	pipewire-x11-bell
-	pipewire-zeroconf
-	realtime-privileges
-	rtkit
-)
 
 if [ -n "$BROWSER" ]; then
 	if pacman -Ss "$BROWSER"; then
@@ -917,16 +965,26 @@ install() {
 	echo "Installing the kernel and microcode..."
 	arch_chroot pacman --noconfirm -S "${KERNEL_PKGLIST[@]}"
 
+	# install hardware packages
+	echo "Installing hardware packages..."
+	arch_chroot pacman --noconfirm -S "${HARDWARE_PKGLIST[@]}"
+
 	# install network packages
 	if [ "$INSTALL_NETWORK_PKGS" = true ]; then
 		echo "Installing network packages..."
 		arch_chroot pacman --needed --noconfirm -S "${NETWORK_PKGLIST[@]}"
 	fi
 
+	# install package manager papckages
+	if [ "$INSTALL_PACKAGE_MANAGER_PKGLIST" = true ]; then
+		echo "Installing package manager packages..."
+		arch_chroot pacman --needed --noconfirm -S "${PACKAGE_MANAGER_PKGLIST[@]}"
+	fi
+
 	# install terminal tools
 	if [ "$INSTALL_TERMINAL_TOOLS_PKGS" = true ]; then
 		echo "Installing terminal tools..."
-		arch_chroot pacman --needed --noconfirm -S "${TERMINAL_TOOLS_PKGLIST[@]}"
+		arch_chroot pacman --needed --noconfirm -S "${TERMINAL_PKGLIST[@]}"
 		cp -f "$reflector_conf" "${root_mountpoint}/${reflector_conf}"
 	fi
 
@@ -936,10 +994,10 @@ install() {
 		arch_chroot pacman --needed --noconfirm -S "${FILESYSTEM_PKGLIST[@]}"
 	fi
 
-	# install generic drivers
-	if [ "$INSTALL_GENERIC_DRIVERS_PKGS" = true ]; then
-		echo "Installing generic drivers..."
-		arch_chroot pacman --needed --noconfirm -S "${GENERIC_DRIVERS_PKGLIST[@]}"
+	# install bluetooth packages
+	if [ "$INSTALL_BLUETOOTH_PKGLIST" = true ]; then
+		echo "Installing filesystem packages"
+		arch_chroot pacman --needed --noconfirm -S "${BLUETOOTH_PKGLIST[@]}"
 	fi
 
 	# install multimedia packages
@@ -1185,12 +1243,13 @@ install() {
 	# install desktop environment
 	echo "Installing ${DESKTOP_ENVIRONMENT} desktop environment"
 	local desktop_environment_installed=true
+	arch_chroot pacman --noconfirm -S "${XORG_MINIMAL_PKGLIST[@]}"
 	case $DESKTOP_ENVIRONMENT in
 	xorg)
 		arch_chroot pacman --noconfirm -S "${XORG_PKGLIST[@]}"
 		;;
 	xorg-minimal)
-		arch_chroot pacman --noconfirm -S "${XORG_MINIMAL_PKGLIST[@]}"
+		true
 		;;
 	gnome)
 		arch_chroot pacman --noconfirm -S "${GNOME_PKGLIST[@]}"
