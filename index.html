@@ -62,7 +62,7 @@ FORCE_WAYLAND_SESSION=false # true | false; # works only for plasma and gnome, o
 TERMINAL="alacritty"      # if none is defined, the default terminal of the desktop environment chosen above will be installed
 EDITOR="vim"              # any terminal editor available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
 BROWSER="zen-browser-bin" # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
-AUR_HELPER="paru-bin"     # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
+AUR_HELPER="paru"         # any available at https://archlinux.org/packages/ or AUR, or leave it blank to not install
 
 INSTALL_NETWORK_PKGS=true            # true | false
 INSTALL_PACKAGE_MANAGER_PKGLIST=true # true | false
@@ -94,7 +94,17 @@ KERNEL_PARAMETERS=( # Do not change this unless you know what you are doing
 BASE_SYSTEM_PKGLIST=(
 	base
 	base-devel
+	linux-firmware
 	sudo
+)
+
+CACHYOS_PKGLIST=(
+	cachyos-ananicy-rules
+	cachyos-hooks
+	cachyos-kernel-manager
+	cachyos-settings
+	cachyos-rate-mirrors
+	chwd
 )
 
 KERNEL_PKGLIST=(
@@ -105,7 +115,6 @@ KERNEL_PKGLIST=(
 )
 
 HARDWARE_PKGLIST=(
-	linux-firmware
 	sof-firmware
 	hwdetect
 	mtools
@@ -227,6 +236,20 @@ FONTS_PKGLIST=(
 	ttf-firacode-nerd
 	ttf-jetbrains-mono
 	ttf-jetbrains-mono-nerd
+	adobe-source-han-sans-cn-fonts
+	adobe-source-han-sans-jp-fonts
+	adobe-source-han-sans-kr-fonts
+	awesome-terminal-fonts
+	noto-fonts-emoji
+	noto-color-emoji-fontconfig
+	cantarell-fonts
+	freetype2
+	opendesktop-fonts
+	ttf-bitstream-vera
+	ttf-dejavu
+	ttf-liberation
+	ttf-opensans
+	ttf-meslo-nerd
 )
 
 EXTRA_PKGLIST=()
@@ -348,6 +371,8 @@ PLASMA_PKGLIST=(
 	sddm
 	"${TERMINAL:-konsole}"
 )
+
+[ "$BOOT_LOADER" = "systemd-boot" ] && CACHYOS_PKGLIST+=(systemd-boot-manager)
 
 [ -d /sys/firmware/efi/efivars ] || BOOT_LOADER="grub"
 
@@ -659,15 +684,7 @@ install_cachyos_repo() {
 			"${mirror_cachyos}/cachyos-v3-mirrorlist-18-1-any.pkg.tar.zst"
 			"${mirror_cachyos}/cachyos-v4-mirrorlist-6-1-any.pkg.tar.zst"
 			"${mirror_cachyos}/pacman-7.0.0.r6.gc685ae6-2-x86_64.pkg.tar.zst"
-			"${mirror_cachyos}/cachyos-ananicy-rules-1:1.0.5-1-any.pkg.tar.zst"
-			"${mirror_cachyos}/cachyos-hooks-2025.01-1-any.pkg.tar.zst"
-			"${mirror_cachyos}/cachyos-kernel-manager-1.13.9-1-x86_64.pkg.tar.zst"
-			"${mirror_cachyos}/cachyos-settings-1:1.1.8-1-any.pkg.tar.zst"
-			"${mirror_cachyos}/cachyos-rate-mirrors-8-1-any.pkg.tar.zst"
-			"${mirror_cachyos}/chwd-1.11.5-2-x86_64.pkg.tar.zst"
 		)
-
-		[ "$BOOT_LOADER" = "systemd-boot" ] && cachyos_packages+=("${mirror_cachyos}/systemd-boot-manager-15-1-any.pkg.tar.zst")
 
 		arch_chroot pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
 		arch_chroot pacman-key --lsign-key F3B607488DB35A47
@@ -706,7 +723,6 @@ install_cachyos_repo() {
 	run_first_setup || return 1
 	add_cachyos_repo || return 1
 	arch_chroot pacman -Syyu --noconfirm
-	arch_chroot cachyos-rate-mirrors
 }
 
 enable_zram() {
@@ -948,10 +964,13 @@ install() {
 	echo "Installing the base system..."
 	pacstrap -K -P "$root_mountpoint" "${BASE_SYSTEM_PKGLIST[@]}"
 
-	# install cachyos repo if true or cachyos kernel selected
+	# install cachyos repo if true
 	if [ "$ENABLE_CACHYOS_REPO" = true ]; then
 		echo "Installing the CachyOS repository..."
 		install_cachyos_repo
+		echo "Installing CachyOS utilities packages..."
+		arch_chroot pacman --needed --noconfirm -S "${CACHYOS_PKGLIST[@]}"
+		arch_chroot cachyos-rate-mirrors
 	fi
 
 	# setup pacman on installed system
