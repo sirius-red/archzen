@@ -36,14 +36,14 @@ LANGUAGES=(
 	pt_BR.UTF-8
 )
 
-DISK_MANAGER="cfdisk"      # cfdisk | cgdisk
-DISK_DEVICE="/dev/sda"     # use `lsblk` to list disks
-KERNEL="linux-cachyos"     # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
-FILESYSTEM="xfs"           # xfs | ext4
-CPU="intel"                # intel | amd
-BOOT_LOADER="systemd-boot" # systemd-boot (Only for UEFI) | grub
-ENABLE_DUAL_BOOT=false     # true | false
-ENABLE_ZRAM=true           # true | false
+DISK_MANAGER="cfdisk"  # cfdisk | cgdisk
+DISK_DEVICE="/dev/sda" # use `lsblk` to list disks
+KERNEL="linux-cachyos" # linux | linux-lts | linux-zen | linux-hardened | any cachyos kernel
+FILESYSTEM="xfs"       # xfs | ext4
+CPU="intel"            # intel | amd
+BOOT_LOADER="grub"     # grub | systemd-boot (Experimental!)
+ENABLE_DUAL_BOOT=false # true | false
+ENABLE_ZRAM=true       # true | false
 
 HOSTNAME="ArchZen"        # name by which the machine will be recognized on the network
 BOOTLOADER_ID="$HOSTNAME" # UEFI entry name
@@ -95,16 +95,8 @@ BASE_SYSTEM_PKGLIST=(
 	base
 	base-devel
 	linux-firmware
+	sof-firmware
 	sudo
-)
-
-CACHYOS_PKGLIST=(
-	cachyos-ananicy-rules
-	cachyos-hooks
-	cachyos-kernel-manager
-	cachyos-settings
-	cachyos-rate-mirrors
-	chwd
 )
 
 KERNEL_PKGLIST=(
@@ -115,10 +107,8 @@ KERNEL_PKGLIST=(
 )
 
 HARDWARE_PKGLIST=(
-	sof-firmware
 	hwdetect
 	mtools
-
 )
 
 NETWORK_PKGLIST=(
@@ -371,8 +361,6 @@ PLASMA_PKGLIST=(
 	sddm
 	"${TERMINAL:-konsole}"
 )
-
-[ "$BOOT_LOADER" = "systemd-boot" ] && CACHYOS_PKGLIST+=(systemd-boot-manager)
 
 [ -d /sys/firmware/efi/efivars ] || BOOT_LOADER="grub"
 
@@ -684,7 +672,15 @@ install_cachyos_repo() {
 			"${mirror_cachyos}/cachyos-v3-mirrorlist-18-1-any.pkg.tar.zst"
 			"${mirror_cachyos}/cachyos-v4-mirrorlist-6-1-any.pkg.tar.zst"
 			"${mirror_cachyos}/pacman-7.0.0.r6.gc685ae6-2-x86_64.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-ananicy-rules-1:1.0.5-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-hooks-2025.01-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-kernel-manager-1.13.9-1-x86_64.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-settings-1:1.1.8-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/cachyos-rate-mirrors-8-1-any.pkg.tar.zst"
+			"${mirror_cachyos}/chwd-1.11.5-2-x86_64.pkg.tar.zst"
 		)
+
+		[ "$BOOT_LOADER" = "systemd-boot" ] && cachyos_packages+=("${mirror_cachyos}/systemd-boot-manager-15-1-any.pkg.tar.zst")
 
 		arch_chroot pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com
 		arch_chroot pacman-key --lsign-key F3B607488DB35A47
@@ -723,6 +719,7 @@ install_cachyos_repo() {
 	run_first_setup || return 1
 	add_cachyos_repo || return 1
 	arch_chroot pacman -Syyu --noconfirm
+	arch_chroot cachyos-rate-mirrors
 }
 
 enable_zram() {
@@ -738,6 +735,18 @@ enable_zram() {
 
 	arch_chroot pacman -S --noconfirm zram-generator
 	add_lines_to_file "$zram_generator_conf" "w" false "${zram_generator_conf_lines[@]}"
+}
+
+remove_duplicates() {
+	# essa função concatena p
+	local items=("$@")
+	local array=()
+
+	for item in "${items[@]}"; do
+		[[ ! "${array[*]}" =~ $item ]] && array+=("$item")
+	done
+
+	echo "${array[@]}"
 }
 
 convert_keymap() {
@@ -968,9 +977,6 @@ install() {
 	if [ "$ENABLE_CACHYOS_REPO" = true ]; then
 		echo "Installing the CachyOS repository..."
 		install_cachyos_repo
-		echo "Installing CachyOS utilities packages..."
-		arch_chroot pacman --needed --noconfirm -S "${CACHYOS_PKGLIST[@]}"
-		arch_chroot cachyos-rate-mirrors
 	fi
 
 	# setup pacman on installed system
@@ -1134,13 +1140,16 @@ install() {
 		arch_chroot bootctl update
 		;;
 	grub)
+		local grub_file="${root_mountpoint}/etc/default/grub"
+		local current_kernel_params=("$(grep '^GRUB_CMDLINE_LINUX_DEFAULT="' <"$grub_file" | cut -d'"' -f2 | cut -d'"' -f1)")
+		local kernel_params="$(remove_duplicates "${current_kernel_params[@]}" "${KERNEL_PARAMETERS[@]}")"
 		boot_mountpoint="${boot_mountpoint//"$root_mountpoint"/}"
 		arch_chroot pacman --noconfirm -S grub efibootmgr
 		arch_chroot grub-install --target=x86_64-efi --efi-directory="$boot_mountpoint" --bootloader-id="$BOOTLOADER_ID"
-		sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\"$/ ${KERNEL_PARAMETERS[*]}\"/" "${root_mountpoint}/etc/default/grub"
+		sed -i "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s/\".*\"/\"${kernel_params}\"/" "$grub_file"
 		if [[ "$ENABLE_DUAL_BOOT" == true ]]; then
 			arch_chroot pacman --noconfirm -S os-prober
-			echo "GRUB_DISABLE_OS_PROBER=false" >>"${root_mountpoint}/etc/default/grub"
+			echo "GRUB_DISABLE_OS_PROBER=false" >>"$grub_file"
 		fi
 		arch_chroot grub-mkconfig -o /boot/grub/grub.cfg
 		;;
