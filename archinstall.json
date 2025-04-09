@@ -1,0 +1,50 @@
+{
+    "additional-repositories": [
+        "multilib"
+    ],
+    "archinstall-language": null,
+    "audio_config": {
+        "audio": "pipewire"
+    },
+    "bootloader": "Systemd-boot",
+    "config_version": "3.0.2",
+    "disk_config": null,
+    "disk_encryption": null,
+    "hostname": null,
+    "kernels": [
+        "linux"
+    ],
+    "locale_config": null,
+    "mirror_config": null,
+    "network_config": {
+        "type": "nm"
+    },
+    "ntp": true,
+    "packages": [
+        "git",
+        "reflector",
+        "curl",
+        "vim",
+        "tar",
+        "sed",
+        "mold",
+        "xz",
+        "eza",
+        "expac"
+    ],
+    "parallel downloads": 10,
+    "profile_config": {
+        "gfx_driver": null,
+        "greeter": null,
+        "profile": {
+            "custom_settings": {},
+            "details": [],
+            "main": "Minimal"
+        }
+    },
+    "save_config": null,
+    "swap": true,
+    "timezone": null,
+    "uki": false,
+    "version": "3.0.2"
+}
