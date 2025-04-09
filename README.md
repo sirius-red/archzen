@@ -1,6 +1,6 @@
 # ArchZen
 
-My own custom Arch Linux configuration in a script.
+My own custom Arch Linux setup in a script.
 
 ## Disclaimer
 
