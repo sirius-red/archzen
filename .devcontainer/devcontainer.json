@@ -7,7 +7,8 @@
 			"extensions": [
 				"SiriusRed.dev-essentials-pack",
 				"Gerrnperl.outline-map",
-				"streetsidesoftware.code-spell-checker-portuguese-brazilian"
+				"streetsidesoftware.code-spell-checker-portuguese-brazilian",
+				"miguelsolorio.symbols"
 			],
 			"settings": {
 				"chat.commandCenter.enabled": false,
@@ -30,7 +31,7 @@
 				"editor.largeFileOptimizations": false,
 				"editor.lineHeight": 1.7,
 				"editor.linkedEditing": true,
-				"editor.minimap.enabled": false,
+				"editor.minimap.enabled": true,
 				"editor.quickSuggestions": {
 					"comments": "off",
 					"other": "off",
@@ -87,41 +88,6 @@
 				"git.confirmSync": false,
 				"git.enableSmartCommit": true,
 				"git.openRepositoryInParentFolders": "always",
-				"gruvbox-material-icons.files.associations": {
-					"tsconfig.dev.json": "tsconfig"
-				},
-				"gruvbox-material-icons.folders.associations": {
-					"adapters": "contract",
-					"api.server": "api",
-					"domain": "class",
-					"dtos": "typescript",
-					"entities": "class",
-					"eslint-config": "tools",
-					"factories": "class",
-					"fakes": "mock",
-					"gql.server": "graphql",
-					"graphql.server": "graphql",
-					"grpc": "pipe",
-					"http": "container",
-					"implementations": "core",
-					"infra": "app",
-					"kafka": "pipe",
-					"kube": "kubernetes",
-					"mappers": "meta",
-					"migrations": "tools",
-					"presentation": "template",
-					"protocols": "contract",
-					"providers": "include",
-					"renderer": "views",
-					"subscribers": "messages",
-					"typeorm": "database",
-					"use-cases": "functions",
-					"useCases": "functions",
-					"view-models": "views",
-					"websockets": "pipe"
-				},
-				"gruvbox-material-icons.folders.theme": "specific",
-				"gruvbox-material-icons.hidesExplorerArrows": false,
 				"terminal.integrated.enablePersistentSessions": false,
 				"terminal.integrated.fontFamily": "JetBrainsMono Nerd Font",
 				"terminal.integrated.gpuAcceleration": "on",
@@ -143,7 +109,7 @@
 				"workbench.editor.empty.hint": "hidden",
 				"workbench.editor.showTabs": "multiple",
 				"workbench.hover.delay": 700,
-				"workbench.iconTheme": "gruvbox-material-icons",
+				"workbench.iconTheme": "symbols",
 				"workbench.layoutControl.enabled": false,
 				"workbench.layoutControl.type": "menu",
 				"workbench.list.smoothScrolling": true,
@@ -153,6 +119,9 @@
 				"workbench.quickOpen.closeOnFocusLost": false,
 				"workbench.reduceMotion": "off",
 				"workbench.startupEditor": "none",
+				"[dockerfile]": {
+					"editor.defaultFormatter": "ms-azuretools.vscode-docker"
+				},
 				"[fish]": {
 					"editor.defaultFormatter": "ndonfris.fish-lsp"
 				},
@@ -212,10 +181,7 @@
 				},
 				"bashIde.shellcheckArguments": "--exclude='Makefile,makefile'",
 				"cmake.options.statusBarVisibility": "visible",
-				"cmake.pinnedCommands": [
-					"workbench.action.tasks.configureTaskRunner",
-					"workbench.action.tasks.runTask"
-				],
+				"cmake.pinnedCommands": ["workbench.action.tasks.configureTaskRunner", "workbench.action.tasks.runTask"],
 				"commentTranslate.hover.concise": true,
 				"commentTranslate.hover.string": true,
 				"commentTranslate.hover.variable": true,
@@ -381,7 +347,6 @@
 				"prettier.useEditorConfig": true,
 				"prettier.useTabs": true,
 				"redhat.telemetry.enabled": false,
-				"security.restrictUNCAccess": false,
 				"security.workspace.trust.banner": "never",
 				"security.workspace.trust.emptyWindow": false,
 				"security.workspace.trust.enabled": false,
@@ -406,10 +371,7 @@
 					}
 				],
 				"settingsSync.ignoredSettings": [],
-				"debug.disassemblyView.showSourceCode": false,
-				"[dockerfile]": {
-					"editor.defaultFormatter": "ms-azuretools.vscode-containers"
-				}
+				"debug.disassemblyView.showSourceCode": false
 			}
 		}
 	}
