@@ -2898,7 +2898,7 @@ function install_desktop_profile() {
 function setup_hyprland() {
 	local hyde_dir="/tmp/HyDE"
 
-	function __clone_hyde_repo() {
+	function __install_hyde() {
 		local hyde_repo="https://github.com/HyDE-Project/HyDE.git"
 
 		rm -rf "$hyde_dir" &>>"$__LOG_FILE"
@@ -2911,6 +2911,15 @@ function setup_hyprland() {
 			return 0
 
 		return 1
+	}
+
+	function __enable_services() {
+		while read -r service; do
+			service="${service}.service"
+			if ! systemctl is-enabled --quiet "$service"; then
+				systemctl enable --force "$service"
+			fi
+		done <"${hyde_dir}/Scripts/system_ctl.lst"
 	}
 
 	function __apply_hyprland_settings() {
@@ -2934,18 +2943,18 @@ function setup_hyprland() {
 				cp -f --parents "$file" "$target_config_dir" &>>"$__LOG_FILE" &&
 					__apply_template_values __HYPR_TEMPLATE_VALUES "$final_path"
 			fi
-
 		done
-		__takeown "$__USER_HOME"
-
-		cd "$hyde_dir/Scripts" &&
-			sudo -EHu "$__USER_NAME" ./install.sh -snm
 	}
 
 	__install_package hyprland || return 1
 
-	__clone_hyde_repo || {
+	__install_hyde || {
 		__error "Error installing $(__error_params 'HyDE Project')"
+		return 1
+	}
+
+	__enable_services || {
+		__error "Error enabling services on hyperland setup"
 		return 1
 	}
 
@@ -2954,7 +2963,9 @@ function setup_hyprland() {
 		return 1
 	}
 
+	__takeown "$__USER_HOME"
 	export __FORCE_REBOOT_SYSTEM=true
+
 	return 0
 }
 
