@@ -1,1 +1,0 @@
-source "/home/sirius/.deno/env.fish"

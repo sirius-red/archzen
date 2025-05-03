@@ -1,3 +1,4 @@
 {
-	"cSpell.ignorePaths": [".git", ".vscode", "*.sh"]
+	"cSpell.ignorePaths": [".git", ".vscode", "*.sh"],
+	"commentTranslate.targetLanguage": "en"
 }

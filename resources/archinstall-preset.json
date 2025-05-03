@@ -1,0 +1,41 @@
+{
+	"archinstall-language": "English",
+	"audio_config": {
+		"audio": "pipewire"
+	},
+	"bootloader": "Systemd-boot",
+	"custom_commands": [],
+	"hostname": "archlinux",
+	"kernels": ["linux-zen"],
+	"locale_config": {
+		"kb_layout": "us",
+		"sys_enc": "UTF-8",
+		"sys_lang": "en_US"
+	},
+	"mirror_config": {
+		"custom_repositories": [],
+		"custom_servers": [],
+		"mirror_regions": {},
+		"optional_repositories": ["multilib"]
+	},
+	"network_config": {
+		"type": "nm"
+	},
+	"ntp": true,
+	"packages": [
+		"git",
+		"reflector",
+		"curl",
+		"vim",
+		"sed",
+		"mold",
+		"xz",
+		"eza",
+		"expac"
+	],
+	"parallel_downloads": 10,
+	"services": [],
+	"swap": true,
+	"timezone": "UTC",
+	"version": null
+}
