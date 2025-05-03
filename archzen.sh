@@ -609,7 +609,7 @@ function __set_global_variables() {
 	__VSCODE_EXTENSIONS=(
 		'Dev Essentials Pack:SiriusRed.dev-essentials-pack'
 		'Fluent Icons:miguelsolorio.fluent-icons'
-		'streetsidesoftware.code-spell-checker-portuguese-brazilian'
+		'Brazilian Portuguese - Code Spell Checker:streetsidesoftware.code-spell-checker-portuguese-brazilian'
 		'Custom CSS and JS Loader:be5invis.vscode-custom-css'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
