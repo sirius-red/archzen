@@ -2436,13 +2436,13 @@ function setup_pacman() {
 		if grep -qe '^\[[Mm]ultilib\]$' "$pacman_conf" &>>"$__LOG_FILE"; then
 			status="keep"
 		else
-			local line
+			declare -i line
 			line=$(__get_line '\[[Mm]ultilib\]' "$pacman_conf")
 
 			if {
-				[ "$line" -gt 0 ] &&
+				[ $line -gt 0 ] &&
 					sed -i "${line}s/#\s*//" "$pacman_conf" &&
-					((multilib_l++)) &&
+					((line++)) &&
 					sed -i "${line}s/#\s*//" "$pacman_conf"
 			} &>>"$__LOG_FILE"; then
 				status="changed"
@@ -2922,10 +2922,9 @@ function setup_hyprland() {
 
 		rm -rf "$hyde_dir" &>>"$__LOG_FILE"
 		mkdir -p "$(dirname "$hyde_dir")" &>>"$__LOG_FILE"
-		__takeown "$hyde_dir"
-
-		sudo -EHu "$__USER_NAME" git clone --depth 1 "$hyde_repo" "$hyde_dir" &&
-			[ -d "hyde_dir" ] &&
+		git clone --depth 1 "$hyde_repo" "$hyde_dir" &&
+			[ -d "$hyde_dir" ] &&
+			__takeown "$hyde_dir" &&
 			return 0
 
 		return 1
@@ -2953,7 +2952,7 @@ function setup_hyprland() {
 
 	function __apply_hyprland_settings() {
 		local target_config_dir="${__USER_HOME}/.config"
-		local -a config_files
+		local -a config_files=()
 
 		mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/kitty" "${__ARCHZEN_DOTFILES_DIR}/!.config/kitty" &>>"$__LOG_FILE"
 		mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/fish" "${__ARCHZEN_DOTFILES_DIR}/!.config/fish" &>>"$__LOG_FILE"
@@ -2964,6 +2963,8 @@ function setup_hyprland() {
 		for file in "${config_files[@]}"; do
 			local final_path
 			final_path="$(realpath "${target_config_dir}/${file}")"
+
+			[ -f "$file" ] || continue
 
 			if [[ "$file" =~ kitty/.*.conf$ ]]; then
 				[ -f "$final_path" ] && echo '' >>"$final_path"
@@ -3127,7 +3128,9 @@ function setup_vscode() {
 		settings_result_text="$(__info_params "(${applied_files}/${total_files})")"
 
 		for f in "${files[@]}"; do
+			f="${f/\/Code/\/$code_folder}"
 			local final_path="${__USER_HOME}/.config/${f}"
+
 			__reset_line
 			printf "%sApplying settings: %s" "$(__info)" "$settings_result_text"
 
@@ -3141,16 +3144,6 @@ function setup_vscode() {
 
 			not_applied_files+=("$f")
 		done
-
-		if [[ "$code_folder" != 'Code' ]]; then
-			rm -rf "${__USER_HOME}/.config/${code_folder}" &>>"$__LOG_FILE"
-
-			if ! mv -f "${__USER_HOME}/.config/Code" "${__USER_HOME}/.config/${code_folder}" &>>"$__LOG_FILE"; then
-				code_folder='Code'
-				__warn "Error renaming $(__warn_params "${__USER_HOME}/.config/Code") to $(__warn_params "${__USER_HOME}/.config/${code_folder}")"
-				echo "    $(__bold 'Be sure to rename manually after installation!')"
-			fi
-		fi
 
 		settings_result_text="(${applied_files}/${total_files})"
 	}
@@ -3276,31 +3269,31 @@ function run() {
 
 	case $action in
 	install | i)
-		install_archlinux
-		__REBOOT_SYSTEM=true
+		install_archlinux &&
+			__REBOOT_SYSTEM=true
 		;;
 	self-install | si)
 		install_archzen
 		;;
 	arch | a)
-		setup_archlinux
-
-		if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
-			__REBOOT_SYSTEM=false
-		else
+		if setup_archlinux && [[ "$DESKTOP_PROFILE" != hyprland ]]; then
 			__REBOOT_SYSTEM=true
+		else
+			__REBOOT_SYSTEM=false
 		fi
 		;;
 	bootloader | b)
 		local bootloader="${args[0]}"
 		local gen_scripts="${args[1]}"
-		setup_bootloader "$bootloader" "$gen_scripts"
-		__REBOOT_SYSTEM=true
+
+		setup_bootloader "$bootloader" "$gen_scripts" &&
+			__REBOOT_SYSTEM=true
 		;;
 	zram | z)
 		SETUP_ZRAM=true
-		setup_zram
-		__REBOOT_SYSTEM=true
+
+		setup_zram &&
+			__REBOOT_SYSTEM=true
 		;;
 	desktop-profile | dp)
 		local desktop_profile="${args[0]}"
@@ -3313,17 +3306,15 @@ function run() {
 			return 1
 		fi
 
-		install_desktop_profile
-
-		if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
-			__REBOOT_SYSTEM=false
-		else
+		if install_desktop_profile && [[ "$DESKTOP_PROFILE" != hyprland ]]; then
 			__REBOOT_SYSTEM=true
+		else
+			__REBOOT_SYSTEM=false
 		fi
 		;;
 	hyprland | hypr)
-		setup_hyprland
-		__FORCE_REBOOT_SYSTEM=true
+		setup_hyprland &&
+			__FORCE_REBOOT_SYSTEM=true
 		;;
 	dotfiles | d)
 		setup_dotfiles

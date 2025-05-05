@@ -36,5 +36,6 @@
 	"parallel_downloads": 10,
 	"services": [],
 	"swap": true,
+	"timezone": "UTC",
 	"version": null
 }
