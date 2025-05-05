@@ -665,9 +665,9 @@ __is_valid_semver() {
 	local version="$1"
 
 	if [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
-		return 0
+		return 0 # válido
 	else
-		return 1
+		return 1 # inválido
 	fi
 }
 
