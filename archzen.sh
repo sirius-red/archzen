@@ -15,22 +15,32 @@ USER_SHELL="fish"                  # Any available in the official repository or
 CPU="intel"                        # intel | amd;
 GPU="nvidia"                       # nvidia | nvidia-open | nvidia-535xx | nvidia-470xx | nvidia-390xx | nouveau | amd | intel; Comment this line to not install
 DESKTOP_PROFILE="hyprland"         # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
+EDITOR="vim"                       # Any terminal editor available in the official repository or AUR; Comment this line to not install
+BROWSER="firefox"                  # Any available in the official repository or AUR; Comment this line to not install
+ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
 TERMINAL="alacritty"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 #                                  # If "Hyprland" is defined as $DESKTOP_PROFILE, the $TERMINAL will be automatically replaced by "kitty"
-EDITOR="vim"             # Any terminal editor available in the official repository or AUR; Comment this line to not install
-BROWSER="firefox"        # Any available in the official repository or AUR; Comment this line to not install
-ENABLE_CACHYOS_KIT=false # true | false; Installs the CachyOS repository and some CachyOS tools
 
 export \
+	__VERSION="0.0.1" \
+	__EXIT_CODE=0 \
 	__WARN_MESSAGES=() \
+	__REBOOT_SYSTEM=false \
+	__FORCE_REBOOT_SYSTEM=false \
+	__LOG_FILE
+
+__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
+
+# Delay to reboot system automatically in seconds
+declare -i __FORCE_REBOOT_SYSTEM_TIME=5
+
+export \
 	__COMMAND_ARG \
 	__ARCHZEN_IS_RUNNING_FROM_BINARY \
 	__ROOT \
-	__VERSION \
 	__PWD \
 	__THIS_SCRIPT \
 	__QUIET \
-	__LOG_FILE \
 	__ARCHINSTALL_PRESET \
 	__USER_NAME \
 	__USER_HOME \
@@ -56,10 +66,6 @@ export \
 	__VAR_DOTFILES_INSTALLED \
 	__VAR_INITIAL_OS_SETUP_INSTALLED \
 	__BIN_DIR \
-	__REBOOT_SYSTEM \
-	__FORCE_REBOOT_SYSTEM \
-	__FORCE_REBOOT_SYSTEM_TIME \
-	__EXIT_CODE \
 	__FORCE \
 	__SYSTEM_ALREADY_UPDATED \
 	__VAR_FIRST_LOGIN_RUN \
@@ -92,6 +98,7 @@ export \
 	__XORG_MINIMAL_PKGLIST \
 	__GNOME_PKGLIST \
 	__PLASMA_PKGLIST \
+	__HYPRLAND_PKGLIST \
 	__OTHERS_PKGLIST \
 	__GNOME_EXTENSIONS \
 	__VALID_CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML_INDEXES \
@@ -129,14 +136,13 @@ function __set_global_variables() {
 		TERMINAL="${__DEFAULT_TERMINALS[${DESKTOP_PROFILE//-/_}]}"
 	fi
 
-	__ARCHZEN_IS_RUNNING_FROM_BINARY="${archzen_is_running_from_binary}"
 	__ROOT="$root"
-	__VERSION="0.0.1"
+	__FORCE="$force"
+	__ARCHZEN_IS_RUNNING_FROM_BINARY="${archzen_is_running_from_binary}"
 	__PWD="$(pwd)"
-	__PWD_RESOURCES_DIR="${__PWD}/resources"
 	__THIS_SCRIPT="$0"
+	__PWD_RESOURCES_DIR="${__PWD}/resources"
 	__QUIET=false
-	__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
 	__ARCHINSTALL_PRESET="./resources/archinstall-preset.json"
 	__USER_NAME="${SUDO_USER:-$(whoami)}"
 	__USER_HOME="$(eval echo "~${__USER_NAME}")"
@@ -161,17 +167,13 @@ function __set_global_variables() {
 	__VAR_DOTFILES_INSTALLED="${__ROOT}/var/lib/archzen-dotfiles-installed"
 	__VAR_INITIAL_OS_SETUP_INSTALLED="${__ROOT}/var/lib/archzen-initial-os-setup-installed"
 	__BIN_DIR="${__ROOT}/usr/bin"
-	__REBOOT_SYSTEM=false
-	__FORCE_REBOOT_SYSTEM=false
-	__FORCE_REBOOT_SYSTEM_TIME=5
-	__EXIT_CODE=0
-	__FORCE="$force"
 	__SYSTEM_ALREADY_UPDATED=false
 	__VAR_FIRST_LOGIN_RUN="${__ROOT}/var/lib/archzen-first-login-run-executed"
 	__FIRST_LOGIN_SCRIPT="${__ROOT}/etc/profile.d/${__THIS_SCRIPT}"
 	__FIRST_LOGIN_SCRIPT_LINES=(
 		'#!/usr/bin/env bash'
 		''
+		"trap 'rm -rf $(realpath "$__FIRST_LOGIN_SCRIPT")' EXIT"
 		'archzen arch'
 		'wait'
 		"touch '${__VAR_FIRST_LOGIN_RUN}' &>/dev/null"
@@ -319,6 +321,8 @@ function __set_global_variables() {
 		sed
 		eza
 		expac
+		man-db
+		bat
 	)
 
 	__MULTIMEDIA_PKGLIST=(
@@ -559,6 +563,11 @@ function __set_global_variables() {
 		"$TERMINAL"
 	)
 
+	__HYPRLAND_PKGLIST=(
+		hyprland
+		sddm
+	)
+
 	__OTHERS_PKGLIST=(
 		kvantum
 		vesktop
@@ -656,9 +665,9 @@ __is_valid_semver() {
 	local version="$1"
 
 	if [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
-		return 0 # válido
+		return 0
 	else
-		return 1 # inválido
+		return 1
 	fi
 }
 
@@ -1222,8 +1231,8 @@ function __check_type_alias() {
 			continue
 		fi
 
-		case "${arg#--}" in
-		s | silent) flags[silent]=true ;;
+		case "${arg##-}" in
+		s) flags[silent]=true ;;
 		*) ;;
 		esac
 
@@ -2159,6 +2168,7 @@ EOL
 	__confirm "Proceed?" || exit 0
 	__log "" ""
 
+	setup_pacman || return 1
 	archinstall --advanced --config "${__ARCHINSTALL_PRESET}"
 
 	local current_root="$__ROOT"
@@ -2204,6 +2214,13 @@ function setup_sudoers() {
 		if [ ! -f "$sudoers_user" ]; then
 			__add_lines_to_file "${sudoers_user}" "w" false "${sudoers_user_options[@]}"
 		else
+			declare -i line_n
+			line_n=$(__get_line "^${__USER_NAME} ALL=(ALL) ALL")
+
+			if [ $line_n -gt 0 ]; then
+				sed -i "${line_n}d" &>>"$__LOG_FILE"
+			fi
+
 			for option in "${sudoers_user_options[@]}"; do
 				if grep -qe "$option" "$sudoers_user" &>>"$__LOG_FILE"; then
 					__info "Config already defined for user ${__USER_NAME}: $(__info_params "$option")"
@@ -2843,7 +2860,9 @@ function install_desktop_profile() {
 		}
 		;;
 	hyprland)
-		__WARN_MESSAGES+=("$(__warn "Hyperland automatic setup has not yet been implemented. Run $(__warn_params '`archzen hypr`') after system reboot")")
+		displaymgr="sddm"
+		pkglist+=("${__HYPRLAND_PKGLIST[@]}" "$displaymgr")
+		__WARN_MESSAGES+=("$(__warn "Hyperland automatic setup has not yet been implemented. Run $(__warn_params '`archzen hypr`') $(__error_params '>>>BEFORE<<<') the system reboot")")
 		;;
 	*)
 		proceed=false
@@ -2896,30 +2915,40 @@ function install_desktop_profile() {
 }
 
 function setup_hyprland() {
-	local hyde_dir="/tmp/HyDE"
+	local hyde_dir="${__ROOT}/tmp/archzen/hyde"
 
-	function __install_hyde() {
+	function __clone_hyde_repo() {
 		local hyde_repo="https://github.com/HyDE-Project/HyDE.git"
 
 		rm -rf "$hyde_dir" &>>"$__LOG_FILE"
-		mkdir -p "$hyde_dir" &>>"$__LOG_FILE"
+		mkdir -p "$(dirname "$hyde_dir")" &>>"$__LOG_FILE"
 		__takeown "$hyde_dir"
 
 		sudo -EHu "$__USER_NAME" git clone --depth 1 "$hyde_repo" "$hyde_dir" &&
-			cd "$hyde_dir/Scripts" &&
-			sudo -EHu "$__USER_NAME" ./install.sh -drn &&
+			[ -d "hyde_dir" ] &&
 			return 0
 
 		return 1
 	}
 
+	function __hyde_installer() {
+		local hyde_args="-${1}"
+
+		cd "$hyde_dir/Scripts" &&
+			sudo -EHu "$__USER_NAME" ./install.sh "$hyde_args" &&
+			return 0
+
+		return 1
+	}
+
+	function __install_hyde() {
+		__hyde_installer drn
+		return $?
+	}
+
 	function __enable_services() {
-		while read -r service; do
-			service="${service}.service"
-			if ! systemctl is-enabled --quiet "$service"; then
-				systemctl enable --force "$service"
-			fi
-		done <"${hyde_dir}/Scripts/system_ctl.lst"
+		__hyde_installer snm
+		return $?
 	}
 
 	function __apply_hyprland_settings() {
@@ -2930,7 +2959,7 @@ function setup_hyprland() {
 		mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/fish" "${__ARCHZEN_DOTFILES_DIR}/!.config/fish" &>>"$__LOG_FILE"
 
 		cd "${__ARCHZEN_DOTFILES_DIR}/!.config" &&
-			mapfile -t config_files < <(find ./hypr ./kitty ./fish -type f 2>>"$__LOG_FILE")
+			mapfile -t config_files < <(find ./hypr ./kitty ./fish -type f -print 2>>"$__LOG_FILE")
 
 		for file in "${config_files[@]}"; do
 			local final_path
@@ -2946,7 +2975,10 @@ function setup_hyprland() {
 		done
 	}
 
-	__install_package hyprland || return 1
+	__clone_hyde_repo || {
+		__error "Error cloning the $(__error_params 'HyDE Project') git repository"
+		return 1
+	}
 
 	__install_hyde || {
 		__error "Error installing $(__error_params 'HyDE Project')"
@@ -2964,7 +2996,6 @@ function setup_hyprland() {
 	}
 
 	__takeown "$__USER_HOME"
-	export __FORCE_REBOOT_SYSTEM=true
 
 	return 0
 }
@@ -3253,7 +3284,12 @@ function run() {
 		;;
 	arch | a)
 		setup_archlinux
-		__REBOOT_SYSTEM=true
+
+		if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
+			__REBOOT_SYSTEM=false
+		else
+			__REBOOT_SYSTEM=true
+		fi
 		;;
 	bootloader | b)
 		local bootloader="${args[0]}"
@@ -3278,10 +3314,16 @@ function run() {
 		fi
 
 		install_desktop_profile
-		__REBOOT_SYSTEM=true
+
+		if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
+			__REBOOT_SYSTEM=false
+		else
+			__REBOOT_SYSTEM=true
+		fi
 		;;
 	hyprland | hypr)
 		setup_hyprland
+		__FORCE_REBOOT_SYSTEM=true
 		;;
 	dotfiles | d)
 		setup_dotfiles
@@ -3338,9 +3380,17 @@ function finish() {
 	fi
 
 	if $__FORCE_REBOOT_SYSTEM; then
-		__warn "The system will reboot automatically in $(__warn_params $__FORCE_REBOOT_SYSTEM_TIME) seconds"
-		sleep $__FORCE_REBOOT_SYSTEM_TIME
-		reboot
+		while [ $__FORCE_REBOOT_SYSTEM_TIME -ge 0 ]; do
+			trap echo EXIT INT
+
+			__reset_line
+			printf '\r%s' "$(__warn "The system will reboot automatically in $(__warn_params $__FORCE_REBOOT_SYSTEM_TIME) seconds. Press $(__warn_params 'CTRL+C') to cancel")"
+
+			[ $__FORCE_REBOOT_SYSTEM_TIME -eq 0 ] && reboot --force
+
+			((__FORCE_REBOOT_SYSTEM_TIME -= 1))
+			sleep 1
+		done
 	fi
 
 	if $__REBOOT_SYSTEM && __confirm "A system restart is required for the changes to take effect, do you want to restart now?"; then

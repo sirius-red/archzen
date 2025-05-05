@@ -5,7 +5,7 @@
 	},
 	"bootloader": "Systemd-boot",
 	"custom_commands": [],
-	"hostname": "archlinux",
+	"hostname": "ArchZen",
 	"kernels": ["linux-zen"],
 	"locale_config": {
 		"kb_layout": "us",
@@ -36,6 +36,5 @@
 	"parallel_downloads": 10,
 	"services": [],
 	"swap": true,
-	"timezone": "UTC",
 	"version": null
 }
