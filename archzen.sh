@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 KB_LAYOUT="us"                     # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
-KB_VARIANT="intl"                  # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
+KB_VARIANT="intl,altgr-intl"       # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
 TIMESTAMP_TIMEOUT=-1               # number of minutes before the sudo password prompt times out, or -1 for no timeout
 REFLECTOR_MIRROR_COUNTRIES="BR,US" # Use `reflector --list-countries` to list available countries
 REFLECTOR_MIRROR_LIMIT=10          # The higher the value, the longer the reflector will take to complete its run
@@ -21,20 +21,15 @@ ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS reposito
 TERMINAL="alacritty"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 #                                  # If "Hyprland" is defined as $DESKTOP_PROFILE, the $TERMINAL will be automatically replaced by "kitty"
 
-export \
+# Delay to reboot system automatically in seconds
+declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
+
+declare -x \
 	__VERSION="0.0.1" \
 	__EXIT_CODE=0 \
-	__WARN_MESSAGES=() \
 	__REBOOT_SYSTEM=false \
 	__FORCE_REBOOT_SYSTEM=false \
-	__LOG_FILE
-
-__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
-
-# Delay to reboot system automatically in seconds
-declare -i __FORCE_REBOOT_SYSTEM_TIME=5
-
-export \
+	__LOG_FILE \
 	__COMMAND_ARG \
 	__ARCHZEN_IS_RUNNING_FROM_BINARY \
 	__ROOT \
@@ -46,9 +41,6 @@ export \
 	__USER_HOME \
 	__AUR_HELPER_BIN \
 	__AUR_HELPER_IS_INSTALLED \
-	__ALREADY_INSTALLED_PKGLIST \
-	__NOT_INSTALLED_PKGLIST \
-	__NOT_EXISTS_PKGLIST \
 	__ESP \
 	__MOUNT_DIR \
 	__ROOT_FSTYPE \
@@ -70,6 +62,13 @@ export \
 	__SYSTEM_ALREADY_UPDATED \
 	__VAR_FIRST_LOGIN_RUN \
 	__FIRST_LOGIN_SCRIPT \
+	__VALID_CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML_INDEXES
+
+declare -xa \
+	__WARN_MESSAGES=() \
+	__ALREADY_INSTALLED_PKGLIST \
+	__NOT_INSTALLED_PKGLIST \
+	__NOT_EXISTS_PKGLIST \
 	__FIRST_LOGIN_SCRIPT_LINES \
 	__KERNEL_PARAMETERS \
 	__KERNEL_FALLBACK_PARAMETERS \
@@ -99,16 +98,19 @@ export \
 	__GNOME_PKGLIST \
 	__PLASMA_PKGLIST \
 	__HYPRLAND_PKGLIST \
+	__HYDE_PACKAGE_BLACKLIST \
+	__HYDE_SERVICE_BLACKLIST \
 	__OTHERS_PKGLIST \
 	__GNOME_EXTENSIONS \
-	__VALID_CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML_INDEXES \
 	__VSCODE_EXTENSIONS
 
-declare -A __TYPE_ALIASES \
+declare -xA __TYPE_ALIASES \
 	__DEFAULT_TERMINALS \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
+
+__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
 
 # [TYPE]="possible values in a space separated format"
 __TYPE_ALIASES=(
@@ -565,8 +567,17 @@ function __set_global_variables() {
 
 	__HYPRLAND_PKGLIST=(
 		hyprland
-		sddm
+		partitionmanager
 	)
+
+	__HYDE_PACKAGE_BLACKLIST=(
+		sddm
+		qt5-quickcontrols
+		qt5-quickcontrols2
+		qt5-graphicaleffects
+	)
+
+	__HYDE_SERVICE_BLACKLIST=(sddm)
 
 	__OTHERS_PKGLIST=(
 		kvantum
@@ -752,6 +763,39 @@ function __reset_line() {
 	cols=$(tput cols)
 
 	printf "\r%${cols}s\r" ""
+}
+
+function __print() {
+	declare \
+		text="" \
+		flg_reset_line=false \
+		flg_new_line=false
+
+	while [ $# -gt 0 ]; do
+		declare flag
+		flag=$(echo "${1#-}" | xargs)
+
+		if __starts_with "$1" '--'; then
+			__error "$(__error_params "\`__print\`"): Invalid flag $(__error_params "\`${flag}\`")"
+			return 1
+		elif __starts_with "$1" '-'; then
+			[[ "$1" == *r* ]] && flg_reset_line=true
+			[[ "$1" == *n* ]] && flg_new_line=true
+		else
+			text="$1"
+		fi
+
+		shift
+	done
+
+	$flg_reset_line && {
+		text="\r${text}"
+		__reset_line
+	}
+
+	$flg_new_line && text+='\n'
+
+	printf '%b' "$text"
 }
 
 function __get_color_code() {
@@ -1487,16 +1531,16 @@ function __install_pkglist() {
 function __get_line() {
 	local pattern="$1"
 	local file_path="$2"
-	local line
+	local result
+	declare -i line=0
 
-	line=$(grep -n "$pattern" "$file_path" || printf 'none')
+	result=$(grep -n "$pattern" "$file_path" || printf 'none')
 
-	if [[ "$line" == 'none' ]]; then
-		printf '%d' 0
-	else
-		printf '%d' "$(printf "%s" "$line" | cut -d ':' -f 1 | xargs)" 2>>"$__LOG_FILE" ||
-			printf '%d' 0
+	if [[ "$result" != 'none' ]]; then
+		line=$(echo "$result" | cut -d ':' -f 1 | xargs)
 	fi
+
+	printf '%d' $line
 }
 
 function __add_lines_to_file() {
@@ -2860,8 +2904,7 @@ function install_desktop_profile() {
 		}
 		;;
 	hyprland)
-		displaymgr="sddm"
-		pkglist+=("${__HYPRLAND_PKGLIST[@]}" "$displaymgr")
+		pkglist+=("${__HYPRLAND_PKGLIST[@]}")
 		__WARN_MESSAGES+=("$(__warn "Hyperland automatic setup has not yet been implemented. Run $(__warn_params '`archzen hypr`') $(__error_params '>>>BEFORE<<<') the system reboot")")
 		;;
 	*)
