@@ -66,6 +66,7 @@ declare -x \
 	__VALID_CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML_INDEXES
 
 declare -xa \
+	__INFO_MESSAGES=() \
 	__WARN_MESSAGES=() \
 	__ALREADY_INSTALLED_PKGLIST \
 	__NOT_INSTALLED_PKGLIST \
@@ -114,6 +115,8 @@ declare -xA \
 	__VSCODE_TEMPLATE_VALUES
 
 __LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
+__USER_NAME="${SUDO_USER:-$(whoami)}"
+__USER_HOME="$(eval echo "~${__USER_NAME}")"
 
 __SHELL_PROFILES=(
 	[default]="${__USER_HOME}/.profile"
@@ -167,8 +170,6 @@ function __set_global_variables() {
 	__PWD_RESOURCES_DIR="${__PWD}/resources"
 	__QUIET=false
 	__ARCHINSTALL_PRESET="./resources/archinstall-preset.json"
-	__USER_NAME="${SUDO_USER:-$(whoami)}"
-	__USER_HOME="$(eval echo "~${__USER_NAME}")"
 	__AUR_HELPER_BIN="${AUR_HELPER/-bin/}"
 	__AUR_HELPER_IS_INSTALLED=false
 	__ALREADY_INSTALLED_PKGLIST=()
@@ -197,11 +198,14 @@ function __set_global_variables() {
 	__FIRST_LOGIN_SCRIPT_LINES=(
 		'#!/usr/bin/env bash'
 		''
-		"trap 'rm -rf $(realpath "$__FIRST_LOGIN_SCRIPT")' EXIT"
-		'archzen arch'
-		'wait'
-		"touch '${__VAR_FIRST_LOGIN_RUN}' &>/dev/null"
+		'if (( $(id -u) == 0 )); then'
+		"	rm -rf '${__FIRST_LOGIN_SCRIPT#"$__ROOT"*}' &>/dev/null"
+		'	exit'
+		'fi'
+		''
+		"archzen arch && rm -rf '${__FIRST_LOGIN_SCRIPT#"$__ROOT"*}' &>/dev/null"
 	)
+
 	__HYPR_TEMPLATE_VALUES=(
 		[KB_LAYOUT]="$KB_LAYOUT"
 		[KB_VARIANT]="$KB_VARIANT"
@@ -2159,6 +2163,19 @@ function __update_system() {
 	return $?
 }
 
+function __show_log_msglist() {
+	declare log_func="__${1}"
+	shift 1
+	declare msglist=("$@")
+
+	[[ -z "${msglist[*]}" || ${#msglist[@]} -le 0 ]] && return 0
+
+	__log ""
+	for msg in "${msglist[@]}"; do
+		$log_func "$msg"
+	done
+}
+
 function install_archzen() {
 	declare success=false
 	declare script_name
@@ -2638,7 +2655,7 @@ function install_base_packages() {
 				declare entry_path
 				declare -i line_n
 
-				entry_path="$(realpath "$entry")"
+				entry_path="$(realpath "$entry" 2>>"${__LOG_FILE}")"
 				line_n=$(__get_line '^# Created by: ArchZen' "$entry_path")
 
 				if [ "$line_n" -ne 1 ]; then
@@ -2938,7 +2955,7 @@ function install_desktop_profile() {
 		;;
 	hyprland)
 		pkglist+=("${__HYPRLAND_PKGLIST[@]}")
-		__WARN_MESSAGES+=("$(__warn "Hyperland automatic setup has not yet been implemented. Run $(__warn_params '`archzen hypr`') $(__error_params '>>>BEFORE<<<') the system reboot")")
+		__WARN_MESSAGES+=("Hyperland automatic setup has not yet been implemented. Run $(__warn_params '`archzen hypr`') $(__error_params '>>>BEFORE<<<') the system reboot")
 		;;
 	*)
 		proceed=false
@@ -2991,7 +3008,9 @@ function install_desktop_profile() {
 }
 
 function setup_hyprland() {
+	declare action="$1"
 	declare hyde_dir="${__ROOT}/tmp/archzen/hyde"
+	declare -i return_code=1
 
 	function __clone_hyde_repo() {
 		declare hyde_repo="https://github.com/HyDE-Project/HyDE.git"
@@ -3015,10 +3034,10 @@ function setup_hyprland() {
 
 		case "$type" in
 		package)
-			file="$(realpath "${hyde_dir}/Scripts/pkg_core.lst")"
+			file="$(realpath "${hyde_dir}/Scripts/pkg_core.lst" 2>>"${__LOG_FILE}")"
 			;;
 		service)
-			file="$(realpath "${hyde_dir}/Scripts/system_ctl.lst")"
+			file="$(realpath "${hyde_dir}/Scripts/system_ctl.lst" 2>>"${__LOG_FILE}")"
 			;;
 		*)
 			__error "Invalid blacklist item type: $(__error_params "$type")"
@@ -3080,7 +3099,7 @@ function setup_hyprland() {
 
 		for file in "${config_files[@]}"; do
 			declare final_path
-			final_path="$(realpath "${target_config_dir}/${file}")"
+			final_path="$(realpath "${target_config_dir}/${file}" 2>>"${__LOG_FILE}")"
 
 			[ -f "$file" ] || continue
 
@@ -3105,8 +3124,7 @@ function setup_hyprland() {
 			'#!/usr/bin/env bash'
 			''
 			'if [[ -z "$DISPLAY" && "$(tty)" =~ /dev/tty[0-9] ]]; then'
-			'	# exec Hyprland'
-			'	echo "Staring Hyprland..."'
+			'	exec Hyprland'
 			'fi'
 		)
 
@@ -3116,7 +3134,7 @@ function setup_hyprland() {
 			__print -rn "$(__success "Creating $(__success_params hyprinit) helper... $(__success_params 'Success!')")"
 			return 0
 		else
-			__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Starting them manually after tty login!")
+			__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Runs $(__warn_params '`Hyprland`') command manually after login from TTY!")
 			__print -rn "$(__error "Creating $(__error_params hyprinit) helper... $(__error_params 'Error!')")"
 			return 1
 		fi
@@ -3133,9 +3151,11 @@ function setup_hyprland() {
 
 		__print "$(__title "Adding $(__title_params hyprinit) to $(__title_params "$USER_SHELL") profile...")"
 
-		if ! command -v hyprinit &>>"$__LOG_FILE"; then
+		if grep -qe 'hyprinit' "$shell_profile" &>>"$__LOG_FILE"; then
+			__print -rn "$(__info "Adding $(__info_params hyprinit) to $(__info_params "$USER_SHELL") profile... $(__info_params 'Skipped!')")"
+		elif ! command -v hyprinit &>>"$__LOG_FILE"; then
 			__print -rn "$(__error "$(__error_params hyprinit) helper not found in $(__error_params "$__BIN_DIR")!")"
-		elif __add_lines_to_file "$shell_profile" a true "${script_lines[@]}" && __takeown "$shell_profile"; then
+		elif __add_lines_to_file "$shell_profile" a true "${script_lines[@]}" &>>"$__LOG_FILE" && __takeown "$shell_profile"; then
 			success=true
 			__print -rn "$(__success "Adding $(__success_params hyprinit) to $(__success_params "$USER_SHELL") profile... $(__success_params 'Success!')")"
 		else
@@ -3144,23 +3164,36 @@ function setup_hyprland() {
 
 		$success && return 0
 
-		__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Starting them manually after tty login!")
+		__WARN_MESSAGES+=("Error adding $(__warn_params hyprinit) helper to yout shell profile. Runs $(__warn_params '`hyprinit`') command manually after login from TTY!")
 		return 1
 	}
 
-	__clone_hyde_repo || return 1
+	case "$action" in
+	setup)
+		if __clone_hyde_repo; then
+			__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
+			__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
 
-	__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
-	__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
+			if __install_hyde; then
+				__apply_hyprland_settings
+				__create_hyprinit && __add_hyprinit_to_shell_profile
+				return_code=0
+				__INFO_MESSAGES+=("After starting Hyprland, run $(__info_params '`SUPER`') $(__bold +) $(__info_params '`/`') to see all the $(__info_params keybindings).")
+			fi
+		fi
+		;;
+	init)
+		if __create_hyprinit; then
+			__add_hyprinit_to_shell_profile
+			return_code=0
+		fi
+		;;
+	*)
+		__error "$(__error_params 'setup_hyprland()'): Invalid action: $(__error_params "$action")"
+		;;
+	esac
 
-	__install_hyde || return 1
-
-	__apply_hyprland_settings
-
-	__create_hyprinit &&
-		__add_hyprinit_to_shell_profile
-
-	return 0
+	return $return_code
 }
 
 function setup_dotfiles() {
@@ -3475,7 +3508,10 @@ function run() {
 		fi
 		;;
 	hyprland | hypr)
-		setup_hyprland &&
+		declare action="${args[0]:-setup}"
+
+		setup_hyprland "$action" &&
+			[[ "$action" == setup ]] &&
 			__FORCE_REBOOT_SYSTEM=true
 		;;
 	dotfiles | d)
@@ -3522,14 +3558,12 @@ function finish() {
 	done
 	__QUIET=$quiet
 
-	__log "" ""
-	[ "${#__WARN_MESSAGES}" -gt 0 ] && printf '%s\n' "${__WARN_MESSAGES[@]}"
-	__log "" ""
-	__info "Verbose log at: $(__info_params "$__LOG_FILE")"
+	__show_log_msglist info "${__INFO_MESSAGES[@]}"
+	__show_log_msglist warn "${__WARN_MESSAGES[@]}"
 	__log "" ""
 
 	if __variable_file_exists __VAR_FIRST_LOGIN_RUN; then
-		rm -rf "$(realpath "$__FIRST_LOGIN_SCRIPT")" &>>"${__LOG_FILE}"
+		rm -rf "$(realpath "$__FIRST_LOGIN_SCRIPT" 2>>"${__LOG_FILE}")" &>>"${__LOG_FILE}"
 	fi
 
 	if $__FORCE_REBOOT_SYSTEM; then
