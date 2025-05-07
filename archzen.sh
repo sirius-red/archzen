@@ -1580,8 +1580,11 @@ function __add_lines_to_file() {
 			declare file_dir
 			file_dir=$(dirname "$file_path")
 
-			[ -f "$file_path" ] && rm -f "$file_path" &>>"$__LOG_FILE"
-			[ -d "$file_dir" ] || mkdir -p "$file_dir"
+			if [ -f "$file_path" ]; then
+				rm -f "$file_path" &>>"$__LOG_FILE"
+			elif [ ! -d "$file_dir" ]; then
+				mkdir -p "$file_dir" &>>"$__LOG_FILE"
+			fi
 
 			{
 				for line in "${lines[@]}"; do
@@ -1719,24 +1722,19 @@ function __format_script() {
 }
 
 function __save_script() {
-	declare script_path="$1"
+	declare script_name="$1"
 	declare create_symlink="$2"
 	shift 1
 	declare -a script_lines=("$@")
-	declare script_dir
-	script_dir="$(dirname "$script_path")"
-
-	[ -d "$script_dir" ] || mkdir -p "$script_dir"
-	[ -f "$script_path" ] && rm -f "$script_path"
+	declare script_path=
+	script_path="${__ARCHZEN_SCRIPTS_DIR}/${script_name}.sh"
 
 	__add_lines_to_file "$script_path" w false "${script_lines[@]}" &>>"$__LOG_FILE" &&
 		__format_script "$script_path" --quiet &&
 		chmod +x "$script_path" &>>"$__LOG_FILE" &&
 		{
 			if [[ "$create_symlink" == true ]]; then
-				declare target_path
-				target_path="$(realpath "${__BIN_DIR}/${script_name/.sh/}")"
-				ln -sf "$script_path" "$target_path" &>>"$__LOG_FILE"
+				ln -sf "$script_path" "${__BIN_DIR}/${script_name}" &>>"$__LOG_FILE"
 			else
 				true
 			fi
@@ -1750,9 +1748,7 @@ function __gen_bootloader_update_script() {
 	declare bootloader="$1"
 	[[ "$bootloader" == "auto" ]] && bootloader="$(__detect_bootloader)"
 
-	declare script_name="${bootloader}-update.sh"
-	declare script_dir="${__ARCHZEN_SCRIPTS_DIR}"
-	declare script_path="${script_dir}/${script_name}"
+	declare script_name="${bootloader}-update"
 	declare -a script_lines=(
 		'#!/usr/bin/env bash'
 		''
@@ -1762,12 +1758,12 @@ function __gen_bootloader_update_script() {
 		"setup_bootloader ${bootloader} false"
 	)
 
-	__title "Generating update script for $(__title_params "$bootloader"): $(__title_params "$script_path")"
+	__title "Generating update script for $(__title_params "$bootloader"): $(__title_params "$script_name")"
 
-	if __save_script "$script_path" true "${script_lines[@]}"; then
-		__success "Success generated update script for $(__success_params "$bootloader"): $(__success_params "$script_path")"
+	if __save_script "$script_name" true "${script_lines[@]}"; then
+		__success "Success generated update script for $(__success_params "$bootloader"): $(__success_params "$script_name")"
 	else
-		__error "Error when generating update script for $(__error_params "$bootloader"): $(__error_params "$script_path")"
+		__error "Error when generating update script for $(__error_params "$bootloader"): $(__error_params "$script_name")"
 	fi
 
 	return $?
@@ -2168,7 +2164,6 @@ function install_archzen() {
 	declare script_name
 	script_name="$(basename "$__MAIN_SCRIPT_PATH")"
 	script_name="${script_name/.sh/}"
-	declare bin_file_path="${__BIN_DIR}/${script_name}"
 	declare -a bin_file_lines=(
 		'#!/usr/bin/env bash'
 		''
@@ -2185,15 +2180,26 @@ function install_archzen() {
 		"	sudo -E $__MAIN_SCRIPT_BASE_PATH \"\$@\""
 		'fi'
 	)
+	declare tmp_script_dir="${__ROOT}/tmp/archzen/scripts-$$"
 
 	__title "Installing Archzen"
 
-	[ -d "$__ARCHZEN_DIR" ] && rm -rf "$__ARCHZEN_DIR"
+	[ -d "$__ARCHZEN_SCRIPTS_DIR" ] && cp -rf "$__ARCHZEN_SCRIPTS_DIR" "$tmp_script_dir" &>>"$__LOG_FILE"
+	[ -d "$__ARCHZEN_DIR" ] && rm -rf "$__ARCHZEN_DIR" &>>"$__LOG_FILE"
+	mkdir -p "$__ARCHZEN_DIR" &>>"$__LOG_FILE"
+
 	{
-		mkdir -p "$__ARCHZEN_DIR" &&
+		[ -d "$__ARCHZEN_DIR" ] &&
+			{
+				if [ -d "$tmp_script_dir" ]; then
+					cp -rf "$tmp_script_dir" "$__ARCHZEN_SCRIPTS_DIR" &>>"$__LOG_FILE"
+				else
+					true
+				fi
+			} &&
 			cp -f "$__THIS_SCRIPT" "$__MAIN_SCRIPT_PATH" &&
 			chmod +x "$__MAIN_SCRIPT_PATH" &&
-			__save_script "$bin_file_path" false "${bin_file_lines[@]}" &&
+			__save_script "$script_name" true "${bin_file_lines[@]}" &&
 			cp -rf "$__PWD_RESOURCES_DIR" "$__ARCHZEN_RESOURCES_DIR" &&
 			cp -f "${__PWD}/LICENSE" "$__ARCHZEN_DIR" &&
 			touch "$__VAR_ARCHZEN_INSTALLED" &&
@@ -2246,7 +2252,7 @@ EOL
 	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
 
 	install_archzen &&
-		__save_script "$__FIRST_LOGIN_SCRIPT" false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
+		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
 		setup_sudoers
 
 	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
@@ -3094,8 +3100,8 @@ function setup_hyprland() {
 	}
 
 	function __create_hyprinit {
-		declare path="${__ARCHZEN_SCRIPTS_DIR}/hyprinit.sh"
-		declare -a lines=(
+		declare script_name="hyprinit"
+		declare -a script_lines=(
 			'#!/usr/bin/env bash'
 			''
 			'if [[ -z "$DISPLAY" && "$(tty)" =~ /dev/tty[0-9] ]]; then'
@@ -3106,7 +3112,7 @@ function setup_hyprland() {
 
 		__print "$(__title "Creating $(__title_params hyprinit) helper...")"
 
-		if __save_script "$path" "${lines[@]}" &>>"$__LOG_FILE"; then
+		if __save_script "$script_name" true "${script_lines[@]}" &>>"$__LOG_FILE"; then
 			__print -rn "$(__success "Creating $(__success_params hyprinit) helper... $(__success_params 'Success!')")"
 			return 0
 		else
@@ -3117,19 +3123,19 @@ function setup_hyprland() {
 	}
 
 	function __add_hyprinit_to_shell_profile() {
-		declare path="${__SHELL_PROFILES[default]}"
-		declare -a lines=(hyprinit)
+		declare shell_profile="${__SHELL_PROFILES[default]}"
+		declare -a script_lines=(hyprinit)
 		declare success=false
 
 		if __check_type_alias -s SHELL_PROFILES "$USER_SHELL"; then
-			path="${__SHELL_PROFILES[$USER_SHELL]}"
+			shell_profile="${__SHELL_PROFILES[$USER_SHELL]}"
 		fi
 
 		__print "$(__title "Adding $(__title_params hyprinit) to $(__title_params "$USER_SHELL") profile...")"
 
 		if ! command -v hyprinit &>>"$__LOG_FILE"; then
 			__print -rn "$(__error "$(__error_params hyprinit) helper not found in $(__error_params "$__BIN_DIR")!")"
-		elif __add_lines_to_file "$path" a true "${lines[@]}" && __takeown "$path"; then
+		elif __add_lines_to_file "$shell_profile" a true "${script_lines[@]}" && __takeown "$shell_profile"; then
 			success=true
 			__print -rn "$(__success "Adding $(__success_params hyprinit) to $(__success_params "$USER_SHELL") profile... $(__success_params 'Success!')")"
 		else
