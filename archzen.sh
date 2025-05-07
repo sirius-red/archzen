@@ -28,6 +28,7 @@ declare -x \
 	__VERSION="0.0.1" \
 	__EXIT_CODE=0 \
 	__REBOOT_SYSTEM=false \
+	__MOUNT_DIR="/mnt" \
 	__FORCE_REBOOT_SYSTEM=false \
 	__LOG_FILE \
 	__COMMAND_ARG \
@@ -42,7 +43,6 @@ declare -x \
 	__AUR_HELPER_BIN \
 	__AUR_HELPER_IS_INSTALLED \
 	__ESP \
-	__MOUNT_DIR \
 	__ROOT_FSTYPE \
 	__ROOT_BTRFS_SUBVOL \
 	__ROOT_PARTUUID \
@@ -176,7 +176,6 @@ function __set_global_variables() {
 	__NOT_INSTALLED_PKGLIST=()
 	__NOT_EXISTS_PKGLIST=()
 	__ESP=$(bootctl -p 2>>"$__LOG_FILE")
-	__MOUNT_DIR="/mnt"
 	__ROOT_FSTYPE=$(findmnt -no FSTYPE "$__ROOT" 2>>"$__LOG_FILE")
 	__ROOT_PARTUUID=$(findmnt -no PARTUUID "$__ROOT" 2>>"$__LOG_FILE")
 	__ARCHZEN_BASE_DIR="opt/sirius-red/archzen"
@@ -1728,9 +1727,9 @@ function __format_script() {
 function __save_script() {
 	declare script_name="$1"
 	declare create_symlink="$2"
-	shift 1
+	shift 2
 	declare -a script_lines=("$@")
-	declare script_path=
+	declare script_path
 	script_path="${__ARCHZEN_SCRIPTS_DIR}/${script_name}.sh"
 
 	__add_lines_to_file "$script_path" w false "${script_lines[@]}" &>>"$__LOG_FILE" &&
@@ -1756,8 +1755,8 @@ function __gen_bootloader_update_script() {
 	declare -a script_lines=(
 		'#!/usr/bin/env bash'
 		''
-		"# shellcheck source=${__MAIN_SCRIPT_PATH}"
-		"source \"${__MAIN_SCRIPT_PATH}\""
+		"# shellcheck source=${__MAIN_SCRIPT_BASE_PATH}"
+		"source \"${__MAIN_SCRIPT_BASE_PATH}\""
 		''
 		"setup_bootloader ${bootloader} false"
 	)
@@ -2263,7 +2262,7 @@ EOL
 	__log "" ""
 
 	setup_pacman || return 1
-	archinstall --advanced --config "${__ARCHINSTALL_PRESET}"
+	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
 
 	declare current_root="$__ROOT"
 	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
