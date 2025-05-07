@@ -48,6 +48,7 @@ declare -x \
 	__ROOT_PARTUUID \
 	__ARCHZEN_BASE_DIR \
 	__ARCHZEN_DIR \
+	__ARCHZEN_SCRIPTS_DIR \
 	__ARCHZEN_RESOURCES_DIR \
 	__ARCHZEN_DOTFILES_DIR \
 	__ARCHZEN_GNOME_MIMEAPPS_LIST_FILE \
@@ -104,7 +105,9 @@ declare -xa \
 	__GNOME_EXTENSIONS \
 	__VSCODE_EXTENSIONS
 
-declare -xA __TYPE_ALIASES \
+declare -xA \
+	__TYPE_ALIASES \
+	__SHELL_PROFILES \
 	__DEFAULT_TERMINALS \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
@@ -112,11 +115,29 @@ declare -xA __TYPE_ALIASES \
 
 __LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
 
+__SHELL_PROFILES=(
+	[default]="${__USER_HOME}/.profile"
+	[bash]="${__USER_HOME}/.bash_profile"
+	[zsh]="${__USER_HOME}/.zprofile"
+	[fish]="${__USER_HOME}/.config/fish/config.fish"
+	[csh]="${__USER_HOME}/.login"
+	[tcsh]="${__USER_HOME}/.login"
+	[ksh]="${__USER_HOME}/.profile"
+	[mksh]="${__USER_HOME}/.profile"
+	[dash]="${__USER_HOME}/.profile"
+	[ash]="${__USER_HOME}/.profile"
+	[xonsh]="${__USER_HOME}/.xonshrc"
+	[elvish]="${__USER_HOME}/.config/elvish/rc.elv"
+	[nushell]="${__USER_HOME}/.config/nushell/config.nu"
+	[yash]="${__USER_HOME}/.profile"
+)
+
 # [TYPE]="possible values in a space separated format"
 __TYPE_ALIASES=(
 	[DESKTOP_PROFILE]="xorg xorg-minimal gnome plasma hyprland"
 	[BOOTLOADER]="auto sdboot refind grub lilo"
 	[BOOLEAN]="true false"
+	[SHELL_PROFILES]="${!__SHELL_PROFILES[*]}"
 )
 
 __DEFAULT_TERMINALS=(
@@ -128,9 +149,9 @@ __DEFAULT_TERMINALS=(
 )
 
 function __set_global_variables() {
-	local root="$1"
-	local force="$2"
-	local archzen_is_running_from_binary="$3"
+	declare root="$1"
+	declare force="$2"
+	declare archzen_is_running_from_binary="$3"
 
 	__check_type_alias DESKTOP_PROFILE "$DESKTOP_PROFILE"
 
@@ -159,6 +180,7 @@ function __set_global_variables() {
 	__ROOT_PARTUUID=$(findmnt -no PARTUUID "$__ROOT" 2>>"$__LOG_FILE")
 	__ARCHZEN_BASE_DIR="opt/sirius-red/archzen"
 	__ARCHZEN_DIR="${__ROOT}/${__ARCHZEN_BASE_DIR}"
+	__ARCHZEN_SCRIPTS_DIR="${__ARCHZEN_DIR}/scripts"
 	__ARCHZEN_RESOURCES_DIR="${__ARCHZEN_DIR}/resources"
 	__ARCHZEN_DOTFILES_DIR="${__ARCHZEN_RESOURCES_DIR}/dotfiles"
 	__ARCHZEN_GNOME_MIMEAPPS_LIST_FILE="${__ARCHZEN_DOTFILES_DIR}/!.config/mimeapps.list"
@@ -610,7 +632,7 @@ function __set_global_variables() {
 		[logomenu]="org.gnome.shell.extensions.logo-menu.gschema.xml"
 	)
 
-	local __vsc_color_theme_ext __vsc_icon_theme_ext __vsc_dark_color_theme __vsc_light_color_theme __vsc_icon_theme
+	declare __vsc_color_theme_ext __vsc_icon_theme_ext __vsc_dark_color_theme __vsc_light_color_theme __vsc_icon_theme
 	if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
 		__vsc_color_theme_ext='Wallbash:TheHyDEProject.wallbash'
 		__vsc_icon_theme_ext='Symbols:miguelsolorio.symbols'
@@ -673,7 +695,7 @@ function __set_global_variables() {
 }
 
 __is_valid_semver() {
-	local version="$1"
+	declare version="$1"
 
 	if [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
 		return 0 # válido
@@ -687,46 +709,46 @@ function __is_main_module() {
 }
 
 function __is_integer() {
-	local value="$1"
+	declare value="$1"
 
 	[[ "$value" =~ ^[0-9]+$ ]]
 }
 
 function __func_exists() {
-	local function_name=$1
+	declare function_name=$1
 
 	declare -F "$function_name" &>>"$__LOG_FILE"
 }
 
 function __starts_with() {
-	local string="$1"
-	local prefix="$2"
+	declare string="$1"
+	declare prefix="$2"
 
 	[[ "$string" == "$prefix"* ]]
 }
 
 function __ends_with() {
-	local string="$1"
-	local suffix="$2"
+	declare string="$1"
+	declare suffix="$2"
 
 	[[ "$string" == *"$suffix" ]]
 }
 
 function __to_upper() {
-	local string="$1"
+	declare string="$1"
 
 	printf "%s\n" "${string^^}"
 }
 
 function __to_lower() {
-	local string="$1"
+	declare string="$1"
 
 	printf "%s\n" "${string,,}"
 }
 
 function __capitalize() {
-	local string="$1"
-	local first_char rest
+	declare string="$1"
+	declare first_char rest
 
 	first_char="${string:0:1}"
 	rest="${string:1}"
@@ -735,11 +757,11 @@ function __capitalize() {
 }
 
 function __join() {
-	local separator="$1"
-	local first_element="$2"
+	declare separator="$1"
+	declare first_element="$2"
 	shift 2
-	local rest_elements=("$@")
-	local joined="$first_element"
+	declare -a rest_elements=("$@")
+	declare joined="$first_element"
 
 	if [[ "${#rest_elements[@]}" -gt 0 ]]; then
 		for element in "${rest_elements[@]}"; do
@@ -751,7 +773,7 @@ function __join() {
 }
 
 function __tab() {
-	local count="$1"
+	declare -i count="$1"
 
 	for ((i = 0; i < count; i++)); do
 		printf '\t'
@@ -799,7 +821,7 @@ function __print() {
 }
 
 function __get_color_code() {
-	local color="$1"
+	declare color="$1"
 
 	case $color in
 	black)
@@ -857,11 +879,11 @@ function __get_color_code() {
 }
 
 function __colorize() {
-	local color="$1"
+	declare -i color="$1"
 	shift
-	local text="$*"
-	local is_normal_color=false
-	local is_bright_color=false
+	declare text="$*"
+	declare is_normal_color=false
+	declare is_bright_color=false
 
 	__is_integer "$color" && {
 		[[ "$color" -ge 30 && "$color" -le 37 ]] && is_normal_color=true
@@ -869,7 +891,7 @@ function __colorize() {
 	}
 
 	if ! $is_normal_color && ! $is_bright_color; then
-		local valid_normal_color_codes=(
+		declare -a valid_normal_color_codes=(
 			"\033[1;30m30\033[0m"
 			"\033[1;31m31\033[0m"
 			"\033[1;32m32\033[0m"
@@ -879,7 +901,7 @@ function __colorize() {
 			"\033[1;36m36\033[0m"
 			"\033[1;37m37\033[0m"
 		)
-		local valid_bright_color_codes=(
+		declare -a valid_bright_color_codes=(
 			"\033[1;90m90\033[0m"
 			"\033[1;91m91\033[0m"
 			"\033[1;92m92\033[0m"
@@ -903,154 +925,152 @@ function __colorize() {
 }
 
 function __bold() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[1m%s\033[0m" "$text"
 }
 
 function __underline() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[4m%s\033[0m" "$text"
 }
 
 function __italic() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[3m%s\033[0m" "$text"
 }
 
 function __bold_underline() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[1;4m%s\033[0m" "$text"
 }
 
 function __bold_italic() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[1;3m%s\033[0m" "$text"
 }
 
 function __bold_underline_italic() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[1;3;4m%s\033[0m" "$text"
 }
 
 function __underline_italic() {
-	local text="$*"
+	declare text="$*"
 
 	printf "\033[3;4m%s\033[0m" "$text"
 }
 
 function __black() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 30 "$text"
 }
 
 function __bright_black() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 90 "$text"
 }
 
 function __red() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 31 "$text"
 }
 
 function __bright_red() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 91 "$text"
 }
 
 function __green() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 32 "$text"
 }
 
 function __bright_green() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 92 "$text"
 }
 
 function __yellow() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 33 "$text"
 }
 
 function __bright_yellow() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 93 "$text"
 }
 
 function __blue() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 34 "$text"
 }
 
 function __bright_blue() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 94 "$text"
 }
 
 function __purple() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 35 "$text"
 }
 
 function __bright_purple() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 95 "$text"
 }
 
 function __cyan() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 36 "$text"
 }
 
 function __bright_cyan() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 96 "$text"
 }
 
 function __white() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 37 "$text"
 }
 
 function __bright_white() {
-	local text="$*"
+	declare text="$*"
 
 	__colorize 97 "$text"
 }
 
 function __banner() {
-	local primary_color=$1
-	local secondary_color=$2
-	local pad=$3
-	local title=$4
+	declare primary_color=$1
+	declare secondary_color=$2
+	declare pad=$3
+	declare title=$4
 	shift 4
-	local optional_params=("$@")
-	local author
-	local project_url
-	local license
-	local reference_urls=()
+	declare -a optional_params=("$@")
+	declare author project_url license
+	declare -a reference_urls=()
 
 	# set correct color codes
 	primary_color=$(__get_color_code "$primary_color")
@@ -1066,8 +1086,8 @@ function __banner() {
 	done
 
 	# calculating banner width
-	local width=0
-	local info_lines=()
+	declare -i width=0
+	declare -a info_lines=()
 	[ -n "$author" ] && info_lines+=("Author    : $author")
 	[ -n "$project_url" ] && info_lines+=("Project   : $project_url")
 	[ -n "$license" ] && info_lines+=("License   : $license")
@@ -1086,15 +1106,15 @@ function __banner() {
 	width=$((width + 8))
 
 	# calculating padding to center the title
-	local title_padding=$(((width - ${#title} - 4) / 2))
+	declare -i title_padding=$(((width - ${#title} - 4) / 2))
 
 	# formatting function
-	local edge
+	declare edge
 	edge=$(printf "%${width}s" | tr ' ' "$pad")
 	pad="${pad}${pad}"
 
 	# coloring
-	local separator
+	declare separator
 	edge="$(__colorize "$secondary_color" "$edge")"
 	pad="$(__colorize "$secondary_color" "$pad")"
 	title="$(__colorize "$primary_color" "$title")"
@@ -1122,15 +1142,17 @@ function __banner() {
 }
 
 function __log() {
-	local plain="$1"
-	local formatted="$2"
+	declare plain="$1"
+	declare formatted="$2"
+
+	[ -z "$formatted" ] && formatted="$plain"
 
 	$__QUIET || printf "%s\n" "$formatted"
 	[ -f "$__LOG_FILE" ] && printf "%s\n" "$plain" >>"$__LOG_FILE"
 }
 
 function __title() {
-	local message formatted
+	declare message formatted
 	message="$*"
 	formatted="$(__purple "[#]") ${message}"
 
@@ -1139,15 +1161,15 @@ function __title() {
 }
 
 function __title_params() {
-	local params="$*"
+	declare params="$*"
 
 	__bright_purple "$params"
 }
 
 function __question() {
-	local message="$1"
-	local formatted="$2"
-	local quiet=$__QUIET
+	declare message="$1"
+	declare formatted="$2"
+	declare quiet=$__QUIET
 	message="[?] ${message}"
 	formatted="$(__cyan "[?]") ${message}"
 
@@ -1158,13 +1180,13 @@ function __question() {
 }
 
 function __question_params() {
-	local params="$*"
+	declare params="$*"
 
 	__bright_cyan "$params"
 }
 
 function __info() {
-	local message formatted
+	declare message formatted
 	message="$*"
 	formatted="$(__blue "[i]") ${message}"
 
@@ -1173,13 +1195,13 @@ function __info() {
 }
 
 function __info_params() {
-	local params="$*"
+	declare params="$*"
 
 	__bright_blue "$params"
 }
 
 function __success() {
-	local message formatted
+	declare message formatted
 	message="$*"
 	formatted="$(__green "[+]") ${message}"
 
@@ -1188,13 +1210,13 @@ function __success() {
 }
 
 function __success_params() {
-	local params="$*"
+	declare params="$*"
 
 	__bright_green "$params"
 }
 
 function __warn() {
-	local message formatted
+	declare message formatted
 	message="$*"
 	formatted="$(__yellow "[!]") ${message}"
 
@@ -1203,13 +1225,13 @@ function __warn() {
 }
 
 function __warn_params() {
-	local params="$*"
+	declare params="$*"
 
 	__bright_yellow "$params"
 }
 
 function __error() {
-	local message formatted
+	declare message formatted
 	message="$*"
 	formatted="$(__red "[x]") ${message}"
 
@@ -1218,16 +1240,16 @@ function __error() {
 }
 
 function __error_params() {
-	local params="$*"
+	declare params="$*"
 
 	__bright_red "$params"
 }
 
 function __confirm() {
-	local question="$*"
-	local plain_question="$* [Y/n]"
-	local return_code=2
-	local quiet=$__QUIET
+	declare question="$*"
+	declare plain_question="$* [Y/n]"
+	declare -i return_code=2
+	declare quiet=$__QUIET
 	question="${question} [$(__bright_green Y)/$(__bright_red n)]"
 
 	while [ $return_code -eq 2 ]; do
@@ -1255,14 +1277,14 @@ function __confirm() {
 }
 
 function __check_type_alias() {
-	local type value
-	local quiet="$__QUIET"
+	declare type value
+	declare quiet="$__QUIET"
 	declare -A flags=(
 		[silent]=false
 	)
 
 	while [ $# -gt 0 ]; do
-		local arg="$1"
+		declare arg="$1"
 
 		if ! __starts_with "$arg" '-'; then
 			if [ -z "$type" ]; then
@@ -1311,7 +1333,7 @@ function __detect_bootloader() {
 }
 
 function __is_installed() {
-	local package="$1"
+	declare package="$1"
 
 	if pacman -Q "$package" &>>"$__LOG_FILE"; then
 		return 0
@@ -1321,7 +1343,7 @@ function __is_installed() {
 }
 
 function __detect_pkg_type() {
-	local package="$1"
+	declare package="$1"
 
 	if pacman -Si "$package" &>>"$__LOG_FILE"; then
 		echo "arch"
@@ -1333,7 +1355,7 @@ function __detect_pkg_type() {
 }
 
 function __arch_install() {
-	local packages=("$@")
+	declare -a packages=("$@")
 
 	[ ${#packages[@]} -eq 0 ] && return 0
 
@@ -1342,7 +1364,7 @@ function __arch_install() {
 }
 
 function __aur_install() {
-	local packages=("$@")
+	declare -a packages=("$@")
 	declare -i exit_code=0
 
 	[ ${#packages[@]} -eq 0 ] && return 0
@@ -1360,10 +1382,10 @@ function __aur_install() {
 }
 
 function __install_package() {
-	local package="$1"
-	local installed=false
-	local proceed=true
-	local pkg_type
+	declare package="$1"
+	declare installed=false
+	declare proceed=true
+	declare pkg_type
 
 	if __is_installed "$package"; then
 		__ALREADY_INSTALLED_PKGLIST+=("$package")
@@ -1407,11 +1429,11 @@ function __install_package() {
 }
 
 function __install_pkglist() {
-	local pkglist=("$@")
-	local installed_packages=()
-	local result_text=""
-	local arch_pkglist=()
-	local aur_pkglist=()
+	declare -a pkglist=("$@")
+	declare -a installed_packages=()
+	declare result_text=""
+	declare -a arch_pkglist=()
+	declare -a aur_pkglist=()
 	declare -i total_packages_count=${#pkglist[@]}
 	declare -i installed_packages_count=0
 	declare -i exit_code=0
@@ -1424,7 +1446,7 @@ function __install_pkglist() {
 
 	function __update_result_text() {
 		declare -i increment=$1
-		local log_type="$2"
+		declare log_type="$2"
 
 		((installed_packages_count += increment))
 
@@ -1448,8 +1470,8 @@ function __install_pkglist() {
 		__update_installed_packages
 
 		for pkg in "${pkglist[@]}"; do
-			local pkg_type
-			local success=false
+			declare pkg_type
+			declare success=false
 
 			if [[ "${installed_packages[*]}" =~ $pkg ]]; then
 				__ALREADY_INSTALLED_PKGLIST+=("$pkg")
@@ -1529,9 +1551,9 @@ function __install_pkglist() {
 }
 
 function __get_line() {
-	local pattern="$1"
-	local file_path="$2"
-	local result
+	declare pattern="$1"
+	declare file_path="$2"
+	declare result
 	declare -i line=0
 
 	result=$(grep -n "$pattern" "$file_path" || printf 'none')
@@ -1544,18 +1566,18 @@ function __get_line() {
 }
 
 function __add_lines_to_file() {
-	local file_path="$1"
-	local mode="$2"
-	local add_blank_line=false
+	declare file_path="$1"
+	declare mode="$2"
+	declare add_blank_line=false
 	[[ "$3" == "true" ]] && add_blank_line=true
 	shift 3
-	local lines=("$@")
-	local success=false
-	local action_word
+	declare -a lines=("$@")
+	declare success=false
+	declare action_word
 
 	function __exec() {
 		if [[ "$mode" == "w" ]]; then
-			local file_dir
+			declare file_dir
 			file_dir=$(dirname "$file_path")
 
 			[ -f "$file_path" ] && rm -f "$file_path" &>>"$__LOG_FILE"
@@ -1621,13 +1643,13 @@ function __add_lines_to_file() {
 }
 
 function __apply_template_values() {
-	local template_var="$1"
-	local file_path="$2"
-	local -a not_replaced=()
+	declare template_var="$1"
+	declare file_path="$2"
+	declare -a not_replaced=()
 
 	function __replace_variables() {
 		for key in $(eval 'echo ${!'"$template_var"'[@]}' 2>>"$__LOG_FILE"); do
-			local template_key template_value
+			declare template_key template_value
 			template_key="{{ARCHZEN_${key}}}"
 			template_value="$(eval 'echo ${'"$template_var""[$key]}" 2>>"$__LOG_FILE")"
 
@@ -1657,7 +1679,7 @@ function __apply_template_values() {
 	if [ "${#not_replaced[@]}" -eq 0 ]; then
 		__success "All template values in $(__success_params "\$$template_var") were successfully replaced to the $(__success_params "$file_path") file"
 	else
-		local not_replaced_str
+		declare not_replaced_str
 		not_replaced_str="$(__join ', ' "${not_replaced[@]}")"
 
 		__warn "Some template values in $(__warn_params "\$$template_var") have not been replaced in the $(__warn_params "\$$template_var") file: ${not_replaced_str}"
@@ -1667,16 +1689,19 @@ function __apply_template_values() {
 }
 
 function __takeown() {
-	local target="$1"
+	declare target="$1"
+	declare -a args=("${__USER_NAME}:${__USER_NAME}" "$target")
 
-	chown -R "$__USER_NAME":"$__USER_NAME" "$target" &>>"$__LOG_FILE"
+	[ -d "$target" ] && args=(-R "${args[@]}")
+
+	chown "${args[@]}" &>>"$__LOG_FILE"
 }
 
 function __format_script() {
-	local script_path="$1"
+	declare script_path="$1"
 	shift
-	local options=("$@")
-	local quiet=$__QUIET
+	declare -a options=("$@")
+	declare quiet=$__QUIET
 
 	[[ "${options[*]}" =~ --quiet|-q ]] && __QUIET=true
 
@@ -1694,11 +1719,11 @@ function __format_script() {
 }
 
 function __save_script() {
-	local script_path="$1"
-	local create_symlink="$2"
+	declare script_path="$1"
+	declare create_symlink="$2"
 	shift 1
-	local script_lines=("$@")
-	local script_dir
+	declare -a script_lines=("$@")
+	declare script_dir
 	script_dir="$(dirname "$script_path")"
 
 	[ -d "$script_dir" ] || mkdir -p "$script_dir"
@@ -1709,7 +1734,9 @@ function __save_script() {
 		chmod +x "$script_path" &>>"$__LOG_FILE" &&
 		{
 			if [[ "$create_symlink" == true ]]; then
-				ln -sf "$script_path" "${__ROOT}/usr/bin/${script_name/.sh/}" &>>"$__LOG_FILE"
+				declare target_path
+				target_path="$(realpath "${__BIN_DIR}/${script_name/.sh/}")"
+				ln -sf "$script_path" "$target_path" &>>"$__LOG_FILE"
 			else
 				true
 			fi
@@ -1720,13 +1747,13 @@ function __save_script() {
 }
 
 function __gen_bootloader_update_script() {
-	local bootloader="$1"
+	declare bootloader="$1"
 	[[ "$bootloader" == "auto" ]] && bootloader="$(__detect_bootloader)"
 
-	local script_name="${bootloader}-update.sh"
-	local script_dir="${__ARCHZEN_DIR}"
-	local script_path="${script_dir}/${script_name}"
-	local script_lines=(
+	declare script_name="${bootloader}-update.sh"
+	declare script_dir="${__ARCHZEN_SCRIPTS_DIR}"
+	declare script_path="${script_dir}/${script_name}"
+	declare -a script_lines=(
 		'#!/usr/bin/env bash'
 		''
 		"# shellcheck source=${__MAIN_SCRIPT_PATH}"
@@ -1748,9 +1775,9 @@ function __gen_bootloader_update_script() {
 
 function __setup_sdboot() {
 	function __gen_entry() {
-		local entry_dir="${__ESP}/loader/entries"
-		local entry_file="${entry_dir}/${KERNEL}.conf"
-		local entry_file_lines=(
+		declare entry_dir="${__ESP}/loader/entries"
+		declare entry_file="${entry_dir}/${KERNEL}.conf"
+		declare -a entry_file_lines=(
 			'# Created by: ArchZen'
 			"title		Arch Linux (${KERNEL})"
 			"linux		/vmlinuz-${KERNEL}"
@@ -1758,8 +1785,8 @@ function __setup_sdboot() {
 			"initrd		/initramfs-${KERNEL}.img"
 			"options	root=PARTUUID=${__ROOT_PARTUUID} ${__KERNEL_PARAMETERS[*]}"
 		)
-		local entry_file_fallback="${entry_dir}/${KERNEL}-fallback.conf"
-		local entry_file_fallback_lines=(
+		declare entry_file_fallback="${entry_dir}/${KERNEL}-fallback.conf"
+		declare -a entry_file_fallback_lines=(
 			'# Created by: ArchZen'
 			"title		Arch Linux (${KERNEL}-fallback)"
 			"linux		/vmlinuz-${KERNEL}"
@@ -1776,12 +1803,12 @@ function __setup_sdboot() {
 	}
 
 	function __edit_loader() {
-		local esp_loader_conf="${__ESP}/loader/loader.conf"
-		local sd_default="$KERNEL"
-		local sd_timeout=0
-		local sd_console_mode="max" # auto | max | keep
-		local sd_editor="no"        # yes | no
-		local esp_loader_conf_lines=(
+		declare esp_loader_conf="${__ESP}/loader/loader.conf"
+		declare sd_default="$KERNEL"
+		declare -i sd_timeout=0
+		declare sd_console_mode="max" # auto | max | keep
+		declare sd_editor="no"        # yes | no
+		declare -a esp_loader_conf_lines=(
 			"default       ${sd_default}"
 			"timeout       ${sd_timeout}"
 			"console-mode  ${sd_console_mode}"
@@ -1801,7 +1828,7 @@ function __setup_sdboot() {
 function __variable_file_exists() {
 	$__FORCE && return 1
 
-	local file="$1"
+	declare file="$1"
 
 	[ -f "$file" ]
 }
@@ -1835,19 +1862,19 @@ function __install_gnome_extensions() {
 	declare -i installed_count=0
 	declare -i total_installed_count=0
 	declare -i total_count=${#__GNOME_EXTENSIONS[@]}
-	local result_text=""
-	local gnome_ext_dirs=(
+	declare result_text=""
+	declare -a gnome_ext_dirs=(
 		"${__ROOT}/usr/share/gnome-shell/extensions"
 		"${__USER_HOME}/.local/share/gnome-shell/extensions"
 	)
-	local force_restart_requirement=false
-	local version_fixed_extensions=()
-	local gnome_shell_version
+	declare force_restart_requirement=false
+	declare -a version_fixed_extensions=()
+	declare gnome_shell_version
 	gnome_shell_version="$(gnome-shell --version | awk -F ' ' '{print $3}' | awk -F '.' '{print $1}')"
 
 	function __update_result_text() {
 		declare -i increment=$1
-		local log_type="$2"
+		declare log_type="$2"
 
 		((installed_count += increment))
 		((total_installed_count = installed_count + already_installed_count))
@@ -1867,9 +1894,9 @@ function __install_gnome_extensions() {
 	__update_result_text 0 info
 
 	for ext in "${__GNOME_EXTENSIONS[@]}"; do
-		local name="${ext%:*}"
-		local uuid="${ext#*:}"
-		local id="${uuid%@*}"
+		declare name="${ext%:*}"
+		declare uuid="${ext#*:}"
+		declare id="${uuid%@*}"
 
 		__reset_line
 		printf '%s\t%s' "$(__info "Installing ${name}...")" "$result_text"
@@ -1885,12 +1912,12 @@ function __install_gnome_extensions() {
 		fi
 
 		for gnome_ext_dir in "${gnome_ext_dirs[@]}"; do
-			local ext_dir="${gnome_ext_dir}/${uuid}"
-			local ext_schemas_dir="$ext_dir/schemas"
-			local ext_schema_xml="$ext_schemas_dir/org.gnome.shell.extensions.${id}.gschema.xml"
-			local ext_schema_compiled="$ext_schemas_dir/gschemas.compiled"
-			local metadata="${ext_dir}/metadata.json"
-			local metadata_tmp="${__ROOT}/tmp/${uuid}.metadata.$$.json"
+			declare ext_dir="${gnome_ext_dir}/${uuid}"
+			declare ext_schemas_dir="$ext_dir/schemas"
+			declare ext_schema_xml="$ext_schemas_dir/org.gnome.shell.extensions.${id}.gschema.xml"
+			declare ext_schema_compiled="$ext_schemas_dir/gschemas.compiled"
+			declare metadata="${ext_dir}/metadata.json"
+			declare metadata_tmp="${__ROOT}/tmp/${uuid}.metadata.$$.json"
 
 			if [[ "$__VALID_CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML_INDEXES" =~ $id ]]; then
 				ext_schema_xml="$ext_schemas_dir/${__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML[$id]}"
@@ -1901,7 +1928,7 @@ function __install_gnome_extensions() {
 					force_restart_requirement=true
 			fi
 
-			local jq_result
+			declare jq_result
 			jq_result="$(jq ".[\"shell-version\"] | index(\"${gnome_shell_version}\")" "$metadata" 2>>"$__LOG_FILE")"
 
 			if [[ "$jq_result" == null ]]; then
@@ -2026,11 +2053,11 @@ function __set_sddm_settings() {
 function __enable_kernel_modules() {
 	[ "${#__KERNEL_MODULES[@]}" -gt 0 ] || return
 
-	local mkinitcpio_conf="${__ROOT}/etc/mkinitcpio.conf"
-	local success=false
+	declare mkinitcpio_conf="${__ROOT}/etc/mkinitcpio.conf"
+	declare success=false
 
 	function __exec() {
-		local current_modules updated_modules
+		declare current_modules updated_modules
 		current_modules="$(grep "^MODULES=" "$mkinitcpio_conf" | sed 's/MODULES=(\(.*\))/\1/')"
 
 		for mod in "${__KERNEL_MODULES[@]}"; do
@@ -2047,7 +2074,7 @@ function __enable_kernel_modules() {
 			mkinitcpio -P
 	}
 
-	local ifs="$IFS"
+	declare ifs="$IFS"
 	export IFS=","
 	__title "Enabling kernel modules in $(__bold "$mkinitcpio_conf"): $(__title_params "${__KERNEL_MODULES[*]}")"
 	export IFS="$ifs"
@@ -2063,9 +2090,9 @@ function __enable_kernel_modules() {
 }
 
 function __install_cachyos_repo() {
-	local workdir="${__ROOT}/tmp/cachyos-repo"
-	local proceed=true
-	local success=false
+	declare workdir="${__ROOT}/tmp/cachyos-repo"
+	declare proceed=true
+	declare success=false
 
 	__title "Installing CachyOS repositories"
 
@@ -2121,7 +2148,7 @@ function __install_cachyos_packages() {
 }
 
 function __update_system() {
-	local pkgmgr="pacman"
+	declare pkgmgr="pacman"
 	$__AUR_HELPER_IS_INSTALLED && pkgmgr=$__AUR_HELPER_BIN
 
 	__title "Updating system"
@@ -2137,12 +2164,12 @@ function __update_system() {
 }
 
 function install_archzen() {
-	local success=false
-	local script_name
+	declare success=false
+	declare script_name
 	script_name="$(basename "$__MAIN_SCRIPT_PATH")"
 	script_name="${script_name/.sh/}"
-	local bin_file_path="${__BIN_DIR}/${script_name}"
-	local bin_file_lines=(
+	declare bin_file_path="${__BIN_DIR}/${script_name}"
+	declare -a bin_file_lines=(
 		'#!/usr/bin/env bash'
 		''
 		'if [[ $EUID -eq 0 ]]; then'
@@ -2188,8 +2215,8 @@ function install_archlinux() {
 		return $?
 	fi
 
-	local first_line_warn rest_lines_warn
-	local quiet="$__QUIET"
+	declare first_line_warn rest_lines_warn
+	declare quiet="$__QUIET"
 	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try load a config"
 	rest_lines_warn="$(
 		cat <<EOL
@@ -2215,7 +2242,7 @@ EOL
 	setup_pacman || return 1
 	archinstall --advanced --config "${__ARCHINSTALL_PRESET}"
 
-	local current_root="$__ROOT"
+	declare current_root="$__ROOT"
 	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
 
 	install_archzen &&
@@ -2227,8 +2254,8 @@ EOL
 
 function setup_sudoers() {
 	function __apply_options() {
-		local sudoers="${__ROOT}/etc/sudoers"
-		local sudoers_options=(
+		declare sudoers="${__ROOT}/etc/sudoers"
+		declare -a sudoers_options=(
 			"Defaults	insults"
 			"Defaults	pwfeedback"
 			"Defaults	timestamp_timeout=${TIMESTAMP_TIMEOUT}"
@@ -2249,8 +2276,8 @@ function setup_sudoers() {
 	}
 
 	function __apply_user_options() {
-		local sudoers_user="${__ROOT}/etc/sudoers.d/00_${__USER_NAME}"
-		local sudoers_user_options=(
+		declare sudoers_user="${__ROOT}/etc/sudoers.d/00_${__USER_NAME}"
+		declare -a sudoers_user_options=(
 			"${__USER_NAME}	ALL=(ALL:ALL)	ALL"
 			"%${__USER_NAME}	ALL=(ALL:ALL)	ALL"
 		)
@@ -2298,9 +2325,9 @@ function setup_zram() {
 	zramctl &>>"$__LOG_FILE" || return 0
 
 	function __setup_zram() {
-		local zram_generator_conf="${__ROOT}/etc/systemd/zram-generator.conf"
-		local zram_parameters_conf="${__ROOT}/etc/sysctl.d/99-vm-zram-parameters.conf"
-		local zram_generator_lines=(
+		declare zram_generator_conf="${__ROOT}/etc/systemd/zram-generator.conf"
+		declare zram_parameters_conf="${__ROOT}/etc/sysctl.d/99-vm-zram-parameters.conf"
+		declare -a zram_generator_lines=(
 			'# Defines the first zram unit'
 			'[zram0]'
 			''
@@ -2316,7 +2343,7 @@ function setup_zram() {
 			'# ZRAM Partition File System Type'
 			'fs-type = swap'
 		)
-		local zram_parameters_lines=(
+		declare -a zram_parameters_lines=(
 			'# Avoid use of swap until really necessary'
 			'vm.swappiness = 20'
 			''
@@ -2348,12 +2375,12 @@ function setup_zram() {
 	}
 
 	function __setup_swapfile() {
-		local swapfile="${__ROOT}/swapfile"
-		local fstab="${__ROOT}/etc/fstab"
-		local fstab_lines=(
+		declare swapfile="${__ROOT}/swapfile"
+		declare fstab="${__ROOT}/etc/fstab"
+		declare -a fstab_lines=(
 			"${swapfile} none swap pri=10 0 0"
 		)
-		local proceed=false
+		declare proceed=false
 
 		__title "Configuring swapfile fallback"
 
@@ -2388,18 +2415,18 @@ function setup_zram() {
 }
 
 function setup_pacman() {
-	local pacman_conf="${__ROOT}/etc/pacman.conf"
-	local return_code=0
+	declare pacman_conf="${__ROOT}/etc/pacman.conf"
+	declare -i return_code=0
 
 	function __show_title() {
-		local step="$1"
+		declare step="$1"
 
 		__title "Configuring pacman: $(__title_params "$step")"
 	}
 
 	function __show_result() {
-		local status="$1"
-		local step="$2"
+		declare status="$1"
+		declare step="$2"
 
 		case $status in
 		keep)
@@ -2420,7 +2447,7 @@ function setup_pacman() {
 	}
 
 	function __enable_colors() {
-		local status
+		declare status
 
 		__show_title "Enable colors"
 
@@ -2437,7 +2464,7 @@ function setup_pacman() {
 	}
 
 	function __enable_i_love_candy() {
-		local status
+		declare status
 
 		__show_title "Enable pacman's most important option"
 
@@ -2455,8 +2482,8 @@ function setup_pacman() {
 	}
 
 	function __set_parallel_downloads() {
-		local value="$1"
-		local status
+		declare value="$1"
+		declare status
 
 		__show_title "Set value of parallel downloads"
 
@@ -2473,7 +2500,7 @@ function setup_pacman() {
 	}
 
 	function __enable_multilib_repo() {
-		local status
+		declare status
 
 		__show_title "Enable multilib repository"
 
@@ -2500,7 +2527,7 @@ function setup_pacman() {
 	}
 
 	function __fix_file_permissions() {
-		local status
+		declare status
 
 		__title "Fix permissions: $(__title_params "$pacman_conf")"
 
@@ -2536,8 +2563,8 @@ function setup_pacman() {
 }
 
 function rate_mirrors() {
-	local reflector_conf="${__ROOT}/etc/xdg/reflector/reflector.conf"
-	local lines=(
+	declare reflector_conf="${__ROOT}/etc/xdg/reflector/reflector.conf"
+	declare -a lines=(
 		"--save /etc/pacman.d/mirrorlist"
 		"--ipv4"
 		"--ipv6"
@@ -2546,7 +2573,7 @@ function rate_mirrors() {
 		"--latest ${REFLECTOR_MIRROR_LIMIT}"
 		"--sort rate"
 	)
-	local log_data="${REFLECTOR_MIRROR_LIMIT} mirros from ${REFLECTOR_MIRROR_COUNTRIES}"
+	declare log_data="${REFLECTOR_MIRROR_LIMIT} mirros from ${REFLECTOR_MIRROR_COUNTRIES}"
 
 	__title "Rating mirros: $(__title_params "$log_data")"
 
@@ -2593,8 +2620,8 @@ function install_aur_helper() {
 }
 
 function install_base_packages() {
-	local proceed=true
-	local base_pkglist=(
+	declare proceed=true
+	declare -a base_pkglist=(
 		"${__KERNEL_PKGLIST[@]}"
 		"${__BASE_SYSTEM_PKGLIST[@]}"
 	)
@@ -2602,7 +2629,7 @@ function install_base_packages() {
 	function __remove_default_kernels() {
 		if [[ "$__ROOT_FSTYPE" != btrfs || -n "$__ROOT_BTRFS_SUBVOL" ]]; then
 			for entry in "$__ESP"/loader/entries/*.conf; do
-				local entry_path
+				declare entry_path
 				declare -i line_n
 
 				entry_path="$(realpath "$entry")"
@@ -2641,7 +2668,7 @@ function install_base_packages() {
 function enable_cachyos_kit() {
 	[[ "$ENABLE_CACHYOS_KIT" == true ]] || return 0
 
-	local success=false
+	declare success=false
 
 	__title "Enabling CachyOS Kit"
 
@@ -2668,8 +2695,8 @@ function update_system() {
 }
 
 function setup_bootloader() {
-	local bootloader="$1"
-	local gen_scripts="${2}"
+	declare bootloader="$1"
+	declare gen_scripts="${2}"
 
 	__check_type_alias BOOTLOADER "$bootloader"
 	__check_type_alias BOOLEAN "$gen_scripts"
@@ -2677,7 +2704,7 @@ function setup_bootloader() {
 	[[ "$bootloader" == "auto" ]] && bootloader=$(__detect_bootloader)
 
 	function __setup_bootloader() {
-		local sb_success=false
+		declare sb_success=false
 
 		__title "Configuring bootloader: $(__title_params "$bootloader")"
 
@@ -2705,7 +2732,7 @@ function setup_bootloader() {
 	function __gen_scripts() {
 		[[ $gen_scripts == true ]] || return
 
-		local gs_success=false
+		declare gs_success=false
 
 		__title "Generating bootloader script for: $(__title_params "$bootloader")"
 		__gen_bootloader_update_script "$bootloader" &>>"$__LOG_FILE" && gs_success=true
@@ -2725,11 +2752,11 @@ function setup_bootloader() {
 }
 
 function setup_os() {
-	local return_code=0
+	declare -i return_code=0
 
 	function __set_os_specifications() {
-		local os_release="${__ROOT}/etc/os-release"
-		local lines=(
+		declare os_release="${__ROOT}/etc/os-release"
+		declare -a lines=(
 			'NAME="Arch Linux"'
 			'PRETTY_NAME="Arch Linux"'
 			'ID=arch'
@@ -2755,7 +2782,7 @@ function setup_os() {
 	}
 
 	__set_default_shell() {
-		local proceed=true
+		declare proceed=true
 
 		__title "Changing the shell to: $(__title_params "$USER_SHELL")"
 
@@ -2775,7 +2802,7 @@ function setup_os() {
 
 		$proceed || return 1
 
-		local shell_path
+		declare shell_path
 		shell_path=$(which "$USER_SHELL")
 
 		if ! grep -qe "^${shell_path}$" "${__ROOT}/etc/shells" &>>"$__LOG_FILE"; then
@@ -2809,7 +2836,7 @@ function setup_os() {
 }
 
 function install_other_packages() {
-	local pkglist=(
+	declare -a pkglist=(
 		"${__FILESYSTEM_PKGLIST[@]}"
 		"${__NETWORK_PKGLIST[@]}"
 		"${__BLUETOOTH_PKGLIST[@]}"
@@ -2830,7 +2857,7 @@ function install_other_packages() {
 function install_gpu_drivers() {
 	[ -n "$GPU" ] || return
 
-	local success=false
+	declare success=false
 
 	function __chwd() {
 		__is_installed chwd || return 1
@@ -2870,11 +2897,11 @@ function install_gpu_drivers() {
 }
 
 function install_desktop_profile() {
-	local displaymgr
-	local pkglist=()
-	local success=false
-	local is_displaymgr_service_enabled=false
-	local proceed=true
+	declare displaymgr
+	declare -a pkglist=()
+	declare success=false
+	declare is_displaymgr_service_enabled=false
+	declare proceed=true
 	declare -i exit_code=0
 
 	case $DESKTOP_PROFILE in
@@ -2958,10 +2985,10 @@ function install_desktop_profile() {
 }
 
 function setup_hyprland() {
-	local hyde_dir="${__ROOT}/tmp/archzen/hyde"
+	declare hyde_dir="${__ROOT}/tmp/archzen/hyde"
 
 	function __clone_hyde_repo() {
-		local hyde_repo="https://github.com/HyDE-Project/HyDE.git"
+		declare hyde_repo="https://github.com/HyDE-Project/HyDE.git"
 
 		rm -rf "$hyde_dir" &>>"$__LOG_FILE"
 		mkdir -p "$(dirname "$hyde_dir")" &>>"$__LOG_FILE"
@@ -2970,6 +2997,7 @@ function setup_hyprland() {
 			__takeown "$hyde_dir" &&
 			return 0
 
+		__error "Error cloning the $(__error_params 'HyDE Project') git repository"
 		return 1
 	}
 
@@ -3017,7 +3045,7 @@ function setup_hyprland() {
 	}
 
 	function __hyde_installer() {
-		local hyde_args="-${1}"
+		declare hyde_args="-${1}"
 
 		cd "$hyde_dir/Scripts" &&
 			sudo -EHu "$__USER_NAME" ./install.sh "$hyde_args" &&
@@ -3027,13 +3055,16 @@ function setup_hyprland() {
 	}
 
 	function __install_hyde() {
-		__hyde_installer drsn
-		return $?
+		__hyde_installer drsn && return 0
+
+		__error "Error installing $(__error_params 'HyDE Project')"
+		return 1
 	}
 
 	function __apply_hyprland_settings() {
-		local target_config_dir="${__USER_HOME}/.config"
-		local -a config_files=()
+		declare target_config_dir="${__USER_HOME}/.config"
+		declare -a config_files=()
+		declare success=false
 
 		mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/kitty" "${__ARCHZEN_DOTFILES_DIR}/!.config/kitty" &>>"$__LOG_FILE"
 		mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/fish" "${__ARCHZEN_DOTFILES_DIR}/!.config/fish" &>>"$__LOG_FILE"
@@ -3042,7 +3073,7 @@ function setup_hyprland() {
 			mapfile -t config_files < <(find ./hypr ./kitty ./fish -type f -print 2>>"$__LOG_FILE")
 
 		for file in "${config_files[@]}"; do
-			local final_path
+			declare final_path
 			final_path="$(realpath "${target_config_dir}/${file}")"
 
 			[ -f "$file" ] || continue
@@ -3054,28 +3085,74 @@ function setup_hyprland() {
 				cp -f --parents "$file" "$target_config_dir" &>>"$__LOG_FILE" &&
 					__apply_template_values __HYPR_TEMPLATE_VALUES "$final_path"
 			fi
-		done
-	}
+		done && success=true
 
-	__clone_hyde_repo || {
-		__error "Error cloning the $(__error_params 'HyDE Project') git repository"
-		return 1
-	}
+		$success && __takeown "$__USER_HOME" && return 0
 
-	__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
-	__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
-
-	__install_hyde || {
-		__error "Error installing $(__error_params 'HyDE Project')"
-		return 1
-	}
-
-	__apply_hyprland_settings || {
 		__error "Error applying $(__error_params 'Hyprland Settings')"
 		return 1
 	}
 
-	__takeown "$__USER_HOME"
+	function __create_hyprinit {
+		declare path="${__ARCHZEN_SCRIPTS_DIR}/hyprinit.sh"
+		declare -a lines=(
+			'#!/usr/bin/env bash'
+			''
+			'if [[ -z "$DISPLAY" && "$(tty)" =~ /dev/tty[0-9] ]]; then'
+			'	# exec Hyprland'
+			'	echo "Staring Hyprland..."'
+			'fi'
+		)
+
+		__print "$(__title "Creating $(__title_params hyprinit) helper...")"
+
+		if __save_script "$path" "${lines[@]}" &>>"$__LOG_FILE"; then
+			__print -rn "$(__success "Creating $(__success_params hyprinit) helper... $(__success_params 'Success!')")"
+			return 0
+		else
+			__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Starting them manually after tty login!")
+			__print -rn "$(__error "Creating $(__error_params hyprinit) helper... $(__error_params 'Error!')")"
+			return 1
+		fi
+	}
+
+	function __add_hyprinit_to_shell_profile() {
+		declare path="${__SHELL_PROFILES[default]}"
+		declare -a lines=(hyprinit)
+		declare success=false
+
+		if __check_type_alias -s SHELL_PROFILES "$USER_SHELL"; then
+			path="${__SHELL_PROFILES[$USER_SHELL]}"
+		fi
+
+		__print "$(__title "Adding $(__title_params hyprinit) to $(__title_params "$USER_SHELL") profile...")"
+
+		if ! command -v hyprinit &>>"$__LOG_FILE"; then
+			__print -rn "$(__error "$(__error_params hyprinit) helper not found in $(__error_params "$__BIN_DIR")!")"
+		elif __add_lines_to_file "$path" a true "${lines[@]}" && __takeown "$path"; then
+			success=true
+			__print -rn "$(__success "Adding $(__success_params hyprinit) to $(__success_params "$USER_SHELL") profile... $(__success_params 'Success!')")"
+		else
+			__print -rn "$(__error "Adding $(__error_params hyprinit) to $(__error_params "$USER_SHELL") profile... $(__error_params 'Error!')")"
+		fi
+
+		$success && return 0
+
+		__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Starting them manually after tty login!")
+		return 1
+	}
+
+	__clone_hyde_repo || return 1
+
+	__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
+	__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
+
+	__install_hyde || return 1
+
+	__apply_hyprland_settings
+
+	__create_hyprinit &&
+		__add_hyprinit_to_shell_profile
 
 	return 0
 }
@@ -3083,10 +3160,10 @@ function setup_hyprland() {
 function setup_dotfiles() {
 	__is_installed_archzen || install_archzen || return 1
 
-	declare -i installed_count total_count
-	installed_count=0
-	local items=()
-	local not_installed_items=()
+	declare -i installed_count=0
+	declare -i total_count=0
+	declare -a items=()
+	declare -a not_installed_items=()
 
 	{
 		if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
@@ -3105,7 +3182,7 @@ function setup_dotfiles() {
 	total_count+=${#items[@]}
 
 	for i in "${items[@]}"; do
-		local final_path="${__USER_HOME}/${i}"
+		declare final_path="${__USER_HOME}/${i}"
 
 		cp -f --parents "$i" "$__USER_HOME" &>>"$__LOG_FILE" &&
 			__takeown "$final_path" &&
@@ -3119,7 +3196,7 @@ function setup_dotfiles() {
 		not_installed_items+=("$i")
 	done
 
-	local result_txt="(${installed_count}/${total_count}) files"
+	declare result_txt="(${installed_count}/${total_count}) files"
 
 	if [ $installed_count -eq $total_count ]; then
 		__success "Dotfiles items successfully installed: $(__success_params "$result_txt")"
@@ -3129,7 +3206,7 @@ function setup_dotfiles() {
 		__error "Error installing dotfiles: $(__error_params "$result_txt")"
 	fi
 
-	local exit_code=$?
+	declare -i exit_code=$?
 
 	if [ $installed_count -ne $total_count ]; then
 		printf 'Dotfiles items not installed:\n%s%s' '  - ' "${not_installed_items[@]}"
@@ -3143,7 +3220,7 @@ function setup_dotfiles() {
 function setup_vscode() {
 	__is_installed_archzen || install_archzen || return 1
 
-	local code_folder
+	declare code_folder
 	if __is_installed visual-studio-code-bin; then
 		code_folder='Code'
 	elif __is_installed code; then
@@ -3155,7 +3232,7 @@ function setup_vscode() {
 	fi
 
 	declare -i installed_extensions total_extensions applied_files total_files exit_code
-	local extensions_result_text settings_result_text
+	declare extensions_result_text settings_result_text
 
 	__title "Setting up VS Code"
 
@@ -3165,7 +3242,7 @@ function setup_vscode() {
 		extensions_result_text="$(__info_params "(${installed_extensions}/${total_extensions})")"
 
 		for ext in "${__VSCODE_EXTENSIONS[@]}"; do
-			local name id
+			declare name id
 			name="$(echo "$ext" | cut -d':' -f1)"
 			id="$(echo "$ext" | cut -d':' -f2)"
 
@@ -3185,11 +3262,11 @@ function setup_vscode() {
 
 	function __apply_settings() {
 		applied_files=0
-		local nsmvsc_dir="$__ARCHZEN_DOTFILES_DIR/!.config/not-so-minimal-vscode"
-		local nsmvsc_tmp_dir="${__ROOT}/tmp/not-so-minimal-vscode"
-		local files=()
-		local not_applied_files=()
-		local result_message=""
+		declare nsmvsc_dir="$__ARCHZEN_DOTFILES_DIR/!.config/not-so-minimal-vscode"
+		declare nsmvsc_tmp_dir="${__ROOT}/tmp/not-so-minimal-vscode"
+		declare -a files=()
+		declare -a not_applied_files=()
+		declare result_message=""
 
 		{
 			if [[ "$DESKTOP_PROFILE" != hyprland ]]; then
@@ -3208,7 +3285,7 @@ function setup_vscode() {
 
 		for f in "${files[@]}"; do
 			f="${f/\/Code/\/$code_folder}"
-			local final_path="${__USER_HOME}/.config/${f}"
+			declare final_path="${__USER_HOME}/.config/${f}"
 
 			__reset_line
 			printf "%sApplying settings: %s" "$(__info)" "$settings_result_text"
@@ -3323,7 +3400,7 @@ function show_version() {
 }
 
 function init() {
-	local banner_args=(
+	declare -a banner_args=(
 		"bright-cyan"
 		"purple"
 		"#"
@@ -3340,13 +3417,13 @@ function init() {
 }
 
 function run() {
-	local action="$1"
+	declare command="$1"
 	shift 1
-	local args=("$@")
+	declare -a args=("$@")
 
-	__COMMAND_ARG="$action"
+	__COMMAND_ARG="$command"
 
-	case $action in
+	case $command in
 	install | i)
 		install_archlinux &&
 			__REBOOT_SYSTEM=true
@@ -3362,8 +3439,8 @@ function run() {
 		fi
 		;;
 	bootloader | b)
-		local bootloader="${args[0]}"
-		local gen_scripts="${args[1]}"
+		declare bootloader="${args[0]}"
+		declare gen_scripts="${args[1]}"
 
 		setup_bootloader "$bootloader" "$gen_scripts" &&
 			__REBOOT_SYSTEM=true
@@ -3375,13 +3452,13 @@ function run() {
 			__REBOOT_SYSTEM=true
 		;;
 	desktop-profile | dp)
-		local desktop_profile="${args[0]}"
+		declare desktop_profile="${args[0]}"
 
 		if [ -n "$desktop_profile" ] && __check_type_alias -s DESKTOP_PROFILE "$desktop_profile"; then
 			export DESKTOP_PROFILE
 			DESKTOP_PROFILE="$desktop_profile"
 		elif [ -n "$desktop_profile" ]; then
-			__error "Invalid argument for $(__error_params "\`${action}\`"): $(__error_params "$desktop_profile")"
+			__error "Invalid argument for $(__error_params "\`${command}\`"): $(__error_params "$desktop_profile")"
 			return 1
 		fi
 
@@ -3416,7 +3493,7 @@ function run() {
 		show_help
 		;;
 	*)
-		__error "Unknown action: $(__error_params "$action")"
+		__error "Unknown command: $(__error_params "$command")"
 		show_help
 		exit 1
 		;;
@@ -3424,7 +3501,7 @@ function run() {
 }
 
 function finish() {
-	local quiet=$__QUIET
+	declare quiet=$__QUIET
 
 	__QUIET=true
 	__log "" ""
