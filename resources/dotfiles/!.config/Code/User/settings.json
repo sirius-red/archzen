@@ -227,8 +227,6 @@
 	"commentTranslate.hover.string": true,
 	"commentTranslate.hover.variable": true,
 	"commentTranslate.multiLineMerge": true,
-	"commentTranslate.targetLanguage": "pt",
-	"continue.telemetryEnabled": false,
 	"cSpell.language": "en-US,pt-BR",
 	"cSpell.userWords": [
 		"Argb",
