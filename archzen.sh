@@ -16,6 +16,7 @@ CPU="intel"                        # intel | amd;
 GPU="nvidia"                       # nvidia | nvidia-open | nvidia-535xx | nvidia-470xx | nvidia-390xx | nouveau | amd | intel; Comment this line to not install
 DESKTOP_PROFILE="hyprland"         # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
 EDITOR="vim"                       # Any terminal editor available in the official repository or AUR; Comment this line to not install
+EXPLORER="dolphin"                 # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 BROWSER="firefox"                  # Any available in the official repository or AUR; Comment this line to not install
 ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
 TERMINAL="alacritty"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
@@ -100,6 +101,7 @@ declare -xa \
 	__GNOME_PKGLIST \
 	__PLASMA_PKGLIST \
 	__HYPRLAND_PKGLIST \
+	__DE_COMMON_PKGLIST \
 	__HYDE_PACKAGE_BLACKLIST \
 	__HYDE_SERVICE_BLACKLIST \
 	__OTHERS_PKGLIST \
@@ -110,6 +112,9 @@ declare -xA \
 	__TYPE_ALIASES \
 	__SHELL_PROFILES \
 	__DEFAULT_TERMINALS \
+	__DEFAULT_EXPLORERS \
+	__DEFAULT_EDITORS \
+	__DEFAULT_BROWSERS \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
@@ -151,6 +156,30 @@ __DEFAULT_TERMINALS=(
 	[hyprland]='kitty'
 )
 
+__DEFAULT_EXPLORERS=(
+	[xorg]='dolphin'
+	[xorg_minimal]='dolphin'
+	[gnome]='nautilus'
+	[plasma]='dolphin'
+	[hyprland]='dolphin'
+)
+
+__DEFAULT_EDITORS=(
+	[xorg]='vim'
+	[xorg_minimal]='vim'
+	[gnome]='vim'
+	[plasma]='vim'
+	[hyprland]='vim'
+)
+
+__DEFAULT_BROWSERS=(
+	[xorg]='firefox'
+	[xorg_minimal]='firefox'
+	[gnome]='firefox'
+	[plasma]='firefox'
+	[hyprland]='firefox'
+)
+
 function __set_global_variables() {
 	declare root="$1"
 	declare force="$2"
@@ -160,6 +189,18 @@ function __set_global_variables() {
 
 	if [[ -z "$TERMINAL" || "$DESKTOP_PROFILE" == hyprland ]]; then
 		TERMINAL="${__DEFAULT_TERMINALS[${DESKTOP_PROFILE//-/_}]}"
+	fi
+
+	if [ -z "$EXPLORER" ]; then
+		EXPLORER="${__DEFAULT_EXPLORERS[${DESKTOP_PROFILE//-/_}]}"
+	fi
+
+	if [ -z "$EDITOR" ]; then
+		EDITOR="${__DEFAULT_EDITORS[${DESKTOP_PROFILE//-/_}]}"
+	fi
+
+	if [ -z "$BROWSER" ]; then
+		BROWSER="${__DEFAULT_BROWSERS[${DESKTOP_PROFILE//-/_}]}"
 	fi
 
 	__ROOT="$root"
@@ -208,6 +249,10 @@ function __set_global_variables() {
 	__HYPR_TEMPLATE_VALUES=(
 		[KB_LAYOUT]="$KB_LAYOUT"
 		[KB_VARIANT]="$KB_VARIANT"
+		[TERMINAL]="$TERMINAL"
+		[EDITOR]="$EDITOR"
+		[EXPLORER]="$EXPLORER"
+		[BROWSER]="$BROWSER"
 	)
 	__KERNEL_PARAMETERS=(
 		rw
@@ -467,7 +512,6 @@ function __set_global_variables() {
 
 	__XORG_PKGLIST=(
 		xorg
-		"$TERMINAL"
 	)
 
 	__XORG_MINIMAL_PKGLIST=(
@@ -481,7 +525,6 @@ function __set_global_variables() {
 		xorg-xinput
 		xorg-xkill
 		xorg-xrandr
-		"$TERMINAL"
 	)
 
 	__GNOME_PKGLIST=(
@@ -510,7 +553,6 @@ function __set_global_variables() {
 		gvfs-onedrive
 		gvfs-smb
 		gvfs-wsdd
-		nautilus
 		rygel
 		snapshot
 		sushi
@@ -546,14 +588,12 @@ function __set_global_variables() {
 		nautilus-admin-gtk4
 		extension-manager
 		gnome-extensions-cli
-		"$TERMINAL"
 	)
 
 	__PLASMA_PKGLIST=(
 		xorg-server
 		plasma-meta
 		power-profiles-daemon
-		dolphin
 		dolphin-plugins
 		kate
 		ark
@@ -587,12 +627,18 @@ function __set_global_variables() {
 		sddm
 		plasma-applet-window-buttons
 		konsave
-		"$TERMINAL"
 	)
 
 	__HYPRLAND_PKGLIST=(
 		hyprland
 		partitionmanager
+	)
+
+	__DE_COMMON_PKGLIST=(
+		"$TERMINAL"
+		"$EDITOR"
+		"$BROWSER"
+		"$EXPLORER"
 	)
 
 	__HYDE_PACKAGE_BLACKLIST=(
@@ -686,14 +732,6 @@ function __set_global_variables() {
 
 	if [ -n "$CPU" ]; then
 		__KERNEL_PKGLIST+=("${CPU}-ucode")
-	fi
-
-	if [ -n "$EDITOR" ]; then
-		__TERMINAL_PKGLIST+=("$EDITOR")
-	fi
-
-	if [ -n "$BROWSER" ]; then
-		__OTHERS_PKGLIST+=("$BROWSER")
 	fi
 }
 
@@ -2963,6 +3001,7 @@ function install_desktop_profile() {
 	esac
 
 	if $proceed; then
+		pkglist+=("${__DE_COMMON_PKGLIST[@]}")
 		__title "Installing Desktop Profile: $(__title_params "$DESKTOP_PROFILE")"
 
 		{
@@ -3095,6 +3134,13 @@ function setup_hyprland() {
 
 		cd "${__ARCHZEN_DOTFILES_DIR}/!.config" &&
 			mapfile -t config_files < <(find ./hypr ./kitty ./fish -type f -print 2>>"$__LOG_FILE")
+
+		if __is_installed visual-studio-code-bin ||
+			__is_installed code ||
+			__is_installed vscodium ||
+			__is_installed vscodium-bin; then
+			__HYPR_TEMPLATE_VALUES[EDITOR]='code'
+		fi
 
 		for file in "${config_files[@]}"; do
 			declare final_path
