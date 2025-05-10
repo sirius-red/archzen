@@ -3214,7 +3214,7 @@ function setup_hyprland() {
 	}
 
 	case "$action" in
-	setup | update)
+	setup)
 		if __clone_hyde_repo; then
 			__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
 			__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
@@ -3222,6 +3222,18 @@ function setup_hyprland() {
 			if __install_hyde; then
 				__apply_hyprland_settings
 				__create_hyprinit && __add_hyprinit_to_shell_profile
+				return_code=0
+				__INFO_MESSAGES+=("After starting Hyprland, run $(__info_params '`SUPER`') $(__bold +) $(__info_params '`/`') to see all the $(__info_params keybindings).")
+			fi
+		fi
+		;;
+	update)
+		if __clone_hyde_repo; then
+			__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
+			__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
+
+			if __install_hyde; then
+				__apply_hyprland_settings
 				return_code=0
 				__INFO_MESSAGES+=("After starting Hyprland, run $(__info_params '`SUPER`') $(__bold +) $(__info_params '`/`') to see all the $(__info_params keybindings).")
 			fi
