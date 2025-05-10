@@ -15,11 +15,11 @@ USER_SHELL="fish"                  # Any available in the official repository or
 CPU="intel"                        # intel | amd;
 GPU="nvidia"                       # nvidia | nvidia-open | nvidia-535xx | nvidia-470xx | nvidia-390xx | nouveau | amd | intel; Comment this line to not install
 DESKTOP_PROFILE="hyprland"         # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
-EDITOR="vim"                       # Any terminal editor available in the official repository or AUR; Comment this line to not install
-EXPLORER="dolphin"                 # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-BROWSER="firefox"                  # Any available in the official repository or AUR; Comment this line to not install
 ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
-TERMINAL="alacritty"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
+# EDITOR="vim"                     # Any terminal editor available in the official repository or AUR; Comment this line to not install
+# EXPLORER="dolphin"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
+# BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to not install
+# TERMINAL="alacritty"             # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 #                                  # If "Hyprland" is defined as $DESKTOP_PROFILE, the $TERMINAL will be automatically replaced by "kitty"
 
 # Delay to reboot system automatically in seconds
@@ -3214,7 +3214,7 @@ function setup_hyprland() {
 	}
 
 	case "$action" in
-	setup)
+	setup | update)
 		if __clone_hyde_repo; then
 			__apply_hyde_blacklist_filter package "${__HYDE_PACKAGE_BLACKLIST[@]}"
 			__apply_hyde_blacklist_filter service "${__HYDE_SERVICE_BLACKLIST[@]}"
@@ -3232,6 +3232,12 @@ function setup_hyprland() {
 			__add_hyprinit_to_shell_profile
 			return_code=0
 		fi
+		;;
+	settings)
+		__clone_hyde_repo &&
+			__hyde_installer rnm &&
+			__apply_hyprland_settings &&
+			return_code=0
 		;;
 	*)
 		__error "$(__error_params 'setup_hyprland()'): Invalid action: $(__error_params "$action")"
