@@ -66,3 +66,8 @@ alias visudo='sudo visudo'
 alias vienv='sudo vim /etc/environment'
 alias lazyinstall='nvim --headless +"Lazy install" +q'
 alias lazysync='nvim --headless +"Lazy sync" +q'
+
+# Apps and services
+alias pieces='pieces-os && pieces-for-developers'
+alias snap-start='sudo systemctl start snapd.apparmor.service && sudo systemctl start snapd.socket'
+alias snap-stop='sudo systemctl stop snapd.apparmor.service && sudo systemctl stop snapd.socket'
