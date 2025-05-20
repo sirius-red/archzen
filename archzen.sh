@@ -18,9 +18,9 @@ DESKTOP_PROFILE="hyprland"         # xorg | xorg-minimal | gnome | plasma | hypr
 ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
 # EDITOR="vim"                     # Any terminal editor available in the official repository or AUR; Comment this line to not install
 # EXPLORER="dolphin"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-# BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to not install
-# TERMINAL="alacritty"             # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-#                                  # If "Hyprland" is defined as $DESKTOP_PROFILE, the $TERMINAL will be automatically replaced by "kitty"
+# BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
+# NOTE="obsidian"                  # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
+# TERMINAL="kitty"                 # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 
 # Delay to reboot system automatically in seconds
 declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
@@ -115,6 +115,7 @@ declare -xA \
 	__DEFAULT_EXPLORERS \
 	__DEFAULT_EDITORS \
 	__DEFAULT_BROWSERS \
+	__DEFAULT_NOTES \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
@@ -180,6 +181,14 @@ __DEFAULT_BROWSERS=(
 	[hyprland]='firefox'
 )
 
+__DEFAULT_NOTES=(
+	[xorg]='vim'
+	[xorg_minimal]='vim'
+	[gnome]='obsidian'
+	[plasma]='obsidian'
+	[hyprland]='obsidian'
+)
+
 function __set_global_variables() {
 	declare root="$1"
 	declare force="$2"
@@ -187,7 +196,7 @@ function __set_global_variables() {
 
 	__check_type_alias DESKTOP_PROFILE "$DESKTOP_PROFILE"
 
-	if [[ -z "$TERMINAL" || "$DESKTOP_PROFILE" == hyprland ]]; then
+	if [[ -z "$TERMINAL" ]]; then
 		TERMINAL="${__DEFAULT_TERMINALS[${DESKTOP_PROFILE//-/_}]}"
 	fi
 
@@ -201,6 +210,10 @@ function __set_global_variables() {
 
 	if [ -z "$BROWSER" ]; then
 		BROWSER="${__DEFAULT_BROWSERS[${DESKTOP_PROFILE//-/_}]}"
+	fi
+
+	if [ -z "$NOTE" ]; then
+		NOTE="${__DEFAULT_NOTES[${DESKTOP_PROFILE//-/_}]}"
 	fi
 
 	__ROOT="$root"
@@ -253,7 +266,9 @@ function __set_global_variables() {
 		[EDITOR]="$EDITOR"
 		[EXPLORER]="$EXPLORER"
 		[BROWSER]="$BROWSER"
+		[NOTE]="$NOTE"
 	)
+
 	__KERNEL_PARAMETERS=(
 		rw
 		quiet
@@ -639,6 +654,7 @@ function __set_global_variables() {
 		"$EDITOR"
 		"$BROWSER"
 		"$EXPLORER"
+		"$NOTE"
 	)
 
 	__HYDE_PACKAGE_BLACKLIST=(
@@ -689,11 +705,12 @@ function __set_global_variables() {
 		__vsc_light_color_theme='Wallbash'
 		__vsc_icon_theme='symbols'
 	else
-		__vsc_color_theme_ext='Catppuccin for VSCode:Catppuccin.catppuccin-vsc'
-		__vsc_icon_theme_ext='Gruvbox Material Icons:navernoedenis.gruvbox-material-icons'
-		__vsc_dark_color_theme='Catppuccin - Mocha'
-		__vsc_light_color_theme='Catppuccin - Latte'
-		__vsc_icon_theme='gruvbox-material-icons'
+		__vsc_color_theme_ext='The Astral Themes Collection:itssimmons.vscode-astral-gem-theme'
+		__vsc_icon_theme_ext='Symbols:miguelsolorio.symbols'
+		# __vsc_icon_theme_ext='Gruvbox Material Icons:navernoedenis.gruvbox-material-icons'
+		__vsc_dark_color_theme='(Legacy) Astroid Theme'
+		__vsc_light_color_theme='Default Light Modern'
+		__vsc_icon_theme='symbols'
 	fi
 
 	# {name}:{version}:{id}
@@ -702,6 +719,10 @@ function __set_global_variables() {
 		'Fluent Icons:miguelsolorio.fluent-icons'
 		'Brazilian Portuguese - Code Spell Checker:streetsidesoftware.code-spell-checker-portuguese-brazilian'
 		'Custom CSS and JS Loader:be5invis.vscode-custom-css'
+		'Cline:saoudrizwan.claude-dev'
+		'Comment code:starkweb-technologies.comment-code'
+		'GemCommit:bernabe.gemcommit'
+		'Gemini Code Assist:google.geminicodeassist'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
 	)
