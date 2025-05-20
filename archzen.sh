@@ -705,11 +705,12 @@ function __set_global_variables() {
 		__vsc_light_color_theme='Wallbash'
 		__vsc_icon_theme='symbols'
 	else
-		__vsc_color_theme_ext='Catppuccin for VSCode:Catppuccin.catppuccin-vsc'
-		__vsc_icon_theme_ext='Gruvbox Material Icons:navernoedenis.gruvbox-material-icons'
-		__vsc_dark_color_theme='Catppuccin - Mocha'
-		__vsc_light_color_theme='Catppuccin - Latte'
-		__vsc_icon_theme='gruvbox-material-icons'
+		__vsc_color_theme_ext='The Astral Themes Collection:itssimmons.vscode-astral-gem-theme'
+		__vsc_icon_theme_ext='Symbols:miguelsolorio.symbols'
+		# __vsc_icon_theme_ext='Gruvbox Material Icons:navernoedenis.gruvbox-material-icons'
+		__vsc_dark_color_theme='(Legacy) Astroid Theme'
+		__vsc_light_color_theme='Default Light Modern'
+		__vsc_icon_theme='symbols'
 	fi
 
 	# {name}:{version}:{id}
@@ -718,6 +719,10 @@ function __set_global_variables() {
 		'Fluent Icons:miguelsolorio.fluent-icons'
 		'Brazilian Portuguese - Code Spell Checker:streetsidesoftware.code-spell-checker-portuguese-brazilian'
 		'Custom CSS and JS Loader:be5invis.vscode-custom-css'
+		'Cline:saoudrizwan.claude-dev'
+		'Comment code:starkweb-technologies.comment-code'
+		'GemCommit:bernabe.gemcommit'
+		'Gemini Code Assist:google.geminicodeassist'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
 	)
