@@ -88,6 +88,7 @@ declare -xa \
 	__MULTIMEDIA_PKGLIST \
 	__FONTS_PKGLIST \
 	__DEVELOPMENT_PKGLIST \
+	__VIRTUALIZATION_PKGLIST \
 	__NVIDIA_PKGLIST \
 	__NVIDIA_OPEN_PKGLIST \
 	__NVIDIA_535XX_PKGLIST \
@@ -481,6 +482,13 @@ function __set_global_variables() {
 		fish-lsp
 		hadolint-bin
 		visual-studio-code-bin
+	)
+
+	__VIRTUALIZATION_PKGLIST=(
+		qemu-full
+		virt-manager
+		edk2-ovmf
+		virtio-win
 	)
 
 	__NVIDIA_COMMON_PKGLIST=(
@@ -2925,6 +2933,7 @@ function install_other_packages() {
 		"${__PACKAGE_MANAGER_PKGLIST[@]}"
 		"${__TERMINAL_PKGLIST[@]}"
 		"${__DEVELOPMENT_PKGLIST[@]}"
+		"${__VIRTUALIZATION_PKGLIST[@]}"
 		"${__MULTIMEDIA_PKGLIST[@]}"
 		"${__FONTS_PKGLIST[@]}"
 		"${__OTHERS_PKGLIST[@]}"
