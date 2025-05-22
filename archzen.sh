@@ -70,6 +70,7 @@ declare -xa \
 	__INFO_MESSAGES=() \
 	__WARN_MESSAGES=() \
 	__SERVICES_TO_ENABLE=() \
+	__USER_GROUPS=() \
 	__ALREADY_INSTALLED_PKGLIST \
 	__NOT_INSTALLED_PKGLIST \
 	__NOT_EXISTS_PKGLIST \
@@ -2942,7 +2943,10 @@ function install_other_packages() {
 
 	__title "Installing all other packages"
 	__install_pkglist "${pkglist[@]}"
-	__is_installed virt-manager && __SERVICES_TO_ENABLE+=(libvirtd)
+	__is_installed virt-manager && {
+		__SERVICES_TO_ENABLE+=(libvirtd)
+		__USER_GROUPS+=(libvirt kvm)
+	}
 
 	return $?
 }
@@ -3529,6 +3533,67 @@ function enable_services() {
 	return $?
 }
 
+function add_user_groups() {
+	declare -i added_count=0
+	declare -i total_count=${#__USER_GROUPS[@]}
+
+	[ $total_count -eq 0 ] && return
+
+	declare result_text=""
+	declare -a not_added_groups=()
+
+	__title "Adding user to groups"
+
+	function __update_result_text() {
+		declare -i increment=$1
+		declare log_type="$2"
+
+		((added_count += increment))
+		result_text="(${added_count}/${total_count}) groups"
+
+		case "$log_type" in
+		title) result_text="$(__title_params "$result_text")" ;;
+		info) result_text="$(__info_params "$result_text")" ;;
+		success) result_text="$(__success_params "$result_text")" ;;
+		warn) result_text="$(__warn_params "$result_text")" ;;
+		error) result_text="$(__error_params "$result_text")" ;;
+		*) result_text="$(__bold "$result_text")" ;;
+		esac
+	}
+
+	__update_result_text 0 info
+
+	for group in "${__USER_GROUPS[@]}"; do
+		__reset_line
+		printf '%sAdding user to group %s... %s' "$(__info)" "$group" "$result_text"
+
+		if usermod -aG "$group" "$__USER_NAME" &>>"$__LOG_FILE"; then
+			__update_result_text 1 info
+		else
+			not_added_groups+=("$group")
+			__update_result_text 0 warn
+		fi
+	done
+
+	__reset_line
+	if [ $added_count -eq $total_count ]; then
+		__update_result_text 0 success
+		printf '%s\t%s\n' "$(__success 'User added to groups successfully.')" "$result_text"
+	elif [ $added_count -gt 0 ]; then
+		__update_result_text 0 warn
+		printf '%s\t%s\n' "$(__warn 'User added to groups with some errors.')" "$result_text"
+	else
+		__update_result_text 0 error
+		printf '%s\t%s\n' "$(__error 'Error adding user to groups.')" "$result_text"
+	fi
+
+	if [ $added_count -ne $total_count ]; then
+		printf 'Groups not added:\n%s%s' '  - ' "${not_added_groups[@]}"
+	fi
+
+	return $?
+}
+
 function setup_archlinux() {
 	if ! __is_installed_initial_os_setup; then
 		setup_sudoers || return $?
@@ -3551,6 +3616,7 @@ function setup_archlinux() {
 	setup_dotfiles
 	setup_vscode
 	enable_services
+	add_user_groups
 }
 
 function show_help() {
