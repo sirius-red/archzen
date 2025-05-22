@@ -3173,6 +3173,8 @@ function setup_hyprland() {
 				[ -f "$final_path" ] && echo '' >>"$final_path"
 				cat "$file" >>"$final_path"
 			else
+				[[ "$file" =~ fish/ && -f "$final_path" ]] && continue
+
 				cp -f --parents "$file" "$target_config_dir" &>>"$__LOG_FILE" &&
 					__apply_template_values __HYPR_TEMPLATE_VALUES "$final_path"
 			fi
