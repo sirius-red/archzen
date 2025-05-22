@@ -69,6 +69,7 @@ declare -x \
 declare -xa \
 	__INFO_MESSAGES=() \
 	__WARN_MESSAGES=() \
+	__SERVICES_TO_ENABLE=() \
 	__ALREADY_INSTALLED_PKGLIST \
 	__NOT_INSTALLED_PKGLIST \
 	__NOT_EXISTS_PKGLIST \
@@ -2941,6 +2942,8 @@ function install_other_packages() {
 
 	__title "Installing all other packages"
 	__install_pkglist "${pkglist[@]}"
+	__is_installed virt-manager && __SERVICES_TO_ENABLE+=(libvirtd)
+
 	return $?
 }
 
@@ -3465,6 +3468,64 @@ function setup_vscode() {
 	return $exit_code
 }
 
+function enable_services() {
+	declare -i enabled_count=0
+	declare -i total_count=${#__SERVICES_TO_ENABLE[@]}
+	declare result_text=""
+	declare -a not_enabled_services=()
+
+	__title "Enabling services"
+
+	function __update_result_text() {
+		declare -i increment=$1
+		declare log_type="$2"
+
+		((enabled_count += increment))
+		result_text="(${enabled_count}/${total_count}) services"
+
+		case "$log_type" in
+		title) result_text="$(__title_params "$result_text")" ;;
+		info) result_text="$(__info_params "$result_text")" ;;
+		success) result_text="$(__success_params "$result_text")" ;;
+		warn) result_text="$(__warn_params "$result_text")" ;;
+		error) result_text="$(__error_params "$result_text")" ;;
+		*) result_text="$(__bold "$result_text")" ;;
+		esac
+	}
+
+	__update_result_text 0 info
+
+	for service in "${__SERVICES_TO_ENABLE[@]}"; do
+		__reset_line
+		printf '%sEnabling service %s... %s' "$(__info)" "$service" "$result_text"
+
+		if systemctl enable "$service" &>>"$__LOG_FILE"; then
+			__update_result_text 1 info
+		else
+			not_enabled_services+=("$service")
+			__update_result_text 0 warn
+		fi
+	done
+
+	__reset_line
+	if [ $enabled_count -eq $total_count ]; then
+		__update_result_text 0 success
+		printf '%s\t%s\n' "$(__success 'Services enabled successfully.')" "$result_text"
+	elif [ $enabled_count -gt 0 ]; then
+		__update_result_text 0 warn
+		printf '%s\t%s\n' "$(__warn 'Services enabled with some errors.')" "$result_text"
+	else
+		__update_result_text 0 error
+		printf '%s\t%s\n' "$(__error 'Error enabling services.')" "$result_text"
+	fi
+
+	if [ $enabled_count -ne $total_count ]; then
+		printf 'Services not enabled:\n%s%s' '  - ' "${not_enabled_services[@]}"
+	fi
+
+	return $?
+}
+
 function setup_archlinux() {
 	if ! __is_installed_initial_os_setup; then
 		setup_sudoers || return $?
@@ -3486,6 +3547,7 @@ function setup_archlinux() {
 	install_desktop_profile
 	setup_dotfiles
 	setup_vscode
+	enable_services
 }
 
 function show_help() {
