@@ -3471,6 +3471,9 @@ function setup_vscode() {
 function enable_services() {
 	declare -i enabled_count=0
 	declare -i total_count=${#__SERVICES_TO_ENABLE[@]}
+
+	[ $total_count -eq 0 ] && return
+
 	declare result_text=""
 	declare -a not_enabled_services=()
 
