@@ -731,7 +731,6 @@ function __set_global_variables() {
 		'Custom CSS and JS Loader:be5invis.vscode-custom-css'
 		'Cline:saoudrizwan.claude-dev'
 		'Comment code:starkweb-technologies.comment-code'
-		'GemCommit:bernabe.gemcommit'
 		'Gemini Code Assist:google.geminicodeassist'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
@@ -3184,16 +3183,10 @@ function setup_hyprland() {
 			final_path="$(realpath "${target_config_dir}/${file}" 2>>"${__LOG_FILE}")"
 
 			[ -f "$file" ] || continue
+			[[ "$file" =~ fish/ && -f "$final_path" ]] && continue
 
-			if [[ "$file" =~ kitty/.*.conf$ ]]; then
-				[ -f "$final_path" ] && echo '' >>"$final_path"
-				cat "$file" >>"$final_path"
-			else
-				[[ "$file" =~ fish/ && -f "$final_path" ]] && continue
-
-				cp -f --parents "$file" "$target_config_dir" &>>"$__LOG_FILE" &&
-					__apply_template_values __HYPR_TEMPLATE_VALUES "$final_path"
-			fi
+			cp -f --parents "$file" "$target_config_dir" &>>"$__LOG_FILE" &&
+				__apply_template_values __HYPR_TEMPLATE_VALUES "$final_path"
 		done && success=true
 
 		$success && __takeown "$__USER_HOME" && return 0

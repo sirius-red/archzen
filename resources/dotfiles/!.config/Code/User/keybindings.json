@@ -125,25 +125,25 @@
 		"key": "ctrl+/",
 		"command": "editor.action.commentLine",
 		"when": "editorFocus"
-	},
-	{
-		"key": "down",
-		"command": "-selectNextSuggestion",
-		"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
-	},
-	{
-		"key": "pagedown",
-		"command": "-selectNextPageSuggestion",
-		"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
-	},
-	{
-		"key": "up",
-		"command": "-selectPrevSuggestion",
-		"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
-	},
-	{
-		"key": "pageup",
-		"command": "-selectPrevPageSuggestion",
-		"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
 	}
+	//,{
+	// 	"key": "down",
+	// 	"command": "-selectNextSuggestion",
+	// 	"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
+	// },
+	// {
+	// 	"key": "pagedown",
+	// 	"command": "-selectNextPageSuggestion",
+	// 	"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
+	// },
+	// {
+	// 	"key": "up",
+	// 	"command": "-selectPrevSuggestion",
+	// 	"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
+	// },
+	// {
+	// 	"key": "pageup",
+	// 	"command": "-selectPrevPageSuggestion",
+	// 	"when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus || suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
+	// }
 ]
