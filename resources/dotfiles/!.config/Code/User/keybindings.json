@@ -125,6 +125,16 @@
 		"key": "ctrl+/",
 		"command": "editor.action.commentLine",
 		"when": "editorFocus"
+	},
+	{
+		"key": "alt+a",
+		"command": "geminicodeassist.generateCode",
+		"when": "authLoggedIn && config.geminicodeassist.enable && editorTextFocus && !inGeminiDiffView && !isInDiffEditor"
+	},
+	{
+		"key": "ctrl+enter",
+		"command": "-geminicodeassist.generateCode",
+		"when": "authLoggedIn && config.geminicodeassist.enable && editorTextFocus && !inGeminiDiffView && !isInDiffEditor"
 	}
 	//,{
 	// 	"key": "down",

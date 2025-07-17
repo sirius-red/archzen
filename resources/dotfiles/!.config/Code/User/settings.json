@@ -1,7 +1,4 @@
 {
-	"[dockerfile]": {
-		"editor.defaultFormatter": "ms-azuretools.vscode-docker"
-	},
 	"[fish]": {
 		"editor.defaultFormatter": "ndonfris.fish-lsp"
 	},
@@ -152,6 +149,7 @@
 		"ripgrep",
 		"roboto",
 		"rocketseat",
+		"Rockstar",
 		"rotion",
 		"rsbuild",
 		"rsxp",
@@ -159,6 +157,7 @@
 		"Sandpack",
 		"shadcn",
 		"shiki",
+		"sirius",
 		"siriusbeck",
 		"skylab",
 		"Skyrim",
@@ -196,6 +195,7 @@
 		"zustand"
 	],
 	"debug.disassemblyView.showSourceCode": true,
+	"diffEditor.codeLens": true,
 	"dotenv.enableAutocloaking": false,
 	"editor.acceptSuggestionOnCommitCharacter": false,
 	"editor.acceptSuggestionOnEnter": "on",
@@ -261,11 +261,12 @@
 		"Cargo.toml": "Cargo.*, tauri.conf.*",
 		"deno.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, tsconfig*, .eslintrc*, eslint.config.*, .prettierrc*, .babelrc*, pnpm-workspace.*, .yarnrc*, .npmrc*, tailwind.config.*, postcss.config.*, vite.config.*, prettier.config.*, rsbuild.*, .prettierignore, .eslintignore, .pnp.cjs, .pnp.loader.mjs, codegen.ts, .graphqlrc*, next.config.*, apollo.config.*, graphql.config.*, deno.lock",
 		"deno.jsonc": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, tsconfig*, .eslintrc*, eslint.config.*, .prettierrc*, .babelrc*, pnpm-workspace.*, .yarnrc*, .npmrc*, tailwind.config.*, postcss.config.*, vite.config.*, prettier.config.*, rsbuild.*, .prettierignore, .eslintignore, .pnp.cjs, .pnp.loader.mjs, codegen.ts, .graphqlrc*, next.config.*, apollo.config.*, graphql.config.*, deno.lock",
-		"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, tsconfig*, .eslintrc*, eslint.config.*, .prettierrc*, .babelrc*, pnpm-workspace.*, .yarnrc*, .npmrc*, tailwind.config.*, postcss.config.*, vite.config.*, prettier.config.*, rsbuild.*, .prettierignore, .eslintignore, .pnp.cjs, .pnp.loader.mjs, codegen.ts, .graphqlrc*, next.config.*, apollo.config.*, graphql.config.*"
+		"package.json": "package-lock.json, bun.lock, yarn.lock, pnpm-lock.yaml, bun.lockb, tsconfig*, .eslintrc*, eslint.config.*, .prettierrc*, .babelrc*, pnpm-workspace.*, .yarnrc*, .npmrc*, tailwind.config.*, postcss.config.*, vite.config.*, prettier.config.*, rsbuild.*, .prettierignore, .eslintignore, .pnp.cjs, .pnp.loader.mjs, codegen.ts, .graphqlrc*, next.config.*, apollo.config.*, graphql.config.*"
 	},
 	"extensions.ignoreRecommendations": true,
 	"files.associations": {
 		".env*": "dotenv",
+		"*.toml": "toml",
 		"${workspaceFolder}/settings/settings.json": "jsonc"
 	},
 	"files.eol": "\n",
@@ -274,6 +275,7 @@
 		"**/.yarn": true,
 		"**/node_modules": true
 	},
+	"geminicodeassist.inlineSuggestions.enableAuto": false,
 	"git.confirmSync": false,
 	"git.enableSmartCommit": true,
 	"git.openRepositoryInParentFolders": "always",
