@@ -29,6 +29,7 @@ $extensions = @(
 	be5invis.vscode-custom-css
 	saoudrizwan.claude-dev
 	starkweb-technologies.comment-code
+	google.geminicodeassist
 	TheHyDEProject.wallbash
 	miguelsolorio.symbols)
 

@@ -731,6 +731,7 @@ function __set_global_variables() {
 		'Custom CSS and JS Loader:be5invis.vscode-custom-css'
 		'Cline:saoudrizwan.claude-dev'
 		'Comment code:starkweb-technologies.comment-code'
+		'Gemini Code Assist:google.geminicodeassist'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
 	)
