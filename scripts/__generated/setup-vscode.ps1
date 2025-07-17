@@ -29,9 +29,8 @@ $extensions = @(
 	be5invis.vscode-custom-css
 	saoudrizwan.claude-dev
 	starkweb-technologies.comment-code
-	google.geminicodeassist
 	TheHyDEProject.wallbash
-	miguelsolorio.symbolsn)
+	miguelsolorio.symbols)
 
 # Install VS Code extensions
 foreach ($ext in $extensions)
