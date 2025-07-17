@@ -2,13 +2,14 @@
 ## This is a self-generated script, don't edit it! ##
 #####################################################
 
+$cwd = $PWD.Path
 $source = @{
 	settings    = @{
-		path = "${PSScriptRoot}\resources\dotfiles\!.config\Code\User\settings.json"
+		path = "${cwd}\resources\dotfiles\!.config\Code\User\settings.json"
 		data = $null
 	}
 	keybindings = @{
-		path = "${PSScriptRoot}\resources\dotfiles\!.config\Code\User\keybindings.json"
+		path = "${cwd}\resources\dotfiles\!.config\Code\User\keybindings.json"
 		data = $null
 	}
 }
@@ -32,7 +33,8 @@ $extensions = @(
 	'google.geminicodeassist'
 	'Gerrnperl.outline-map'
 	'TheHyDEProject.wallbash'
-	'miguelsolorio.symbols')
+	'miguelsolorio.symbols'
+)
 
 # Install VS Code extensions
 foreach ($ext in $extensions)
