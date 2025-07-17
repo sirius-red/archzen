@@ -36,11 +36,40 @@ foreach ($ext in $extensions)
 # Apply VS Code settings
 $source.settings.data = Get-Content -Path $source.settings.path | ConvertFrom-Json
 $target.settings.data = Get-Content -Path $target.settings.path | ConvertFrom-Json
-$target.settings.data = $source.settings.data + $target.settings.data | Select-Object -Unique
+foreach ($key in $source.settings.data.PSObject.Properties.Name)
+{
+	if (-not $target.settings.data.PSObject.Properties.Name.Contains($key))
+	{
+		$target.settings.data | Add-Member -MemberType NoteProperty -Name $key -Value $source.settings.data.$key
+	}
+}
 $target.settings.data | ConvertTo-Json -Depth 100 | Set-Content -Path $target.settings.path
 
-# Apply VS Code keybindings
-$source.keybindings.data = Get-Content -Path $source.keybindings.path | ConvertFrom-Json
-$target.keybindings.data = Get-Content -Path $target.keybindings.path | ConvertFrom-Json
-$target.keybindings.data = $source.keybindings.data + $target.keybindings.data | Select-Object -Unique
-$target.keybindings.data | ConvertTo-Json -Depth 100 | Set-Content -Path $target.keybindings.path
+# Load and parse keybindings (JSON array)
+$source.keybindings.data = Get-Content -Raw -Path $source.keybindings.path | ConvertFrom-Json
+$target.keybindings.data = Get-Content -Raw -Path $target.keybindings.path | ConvertFrom-Json
+
+# Guarantees that both are arrays
+if ($source.keybindings.data -isnot [System.Array])
+{
+	$source.keybindings.data = @($source.keybindings.data)
+}
+if ($target.keybindings.data -isnot [System.Array])
+{
+	$target.keybindings.data = @($target.keybindings.data)
+}
+
+# Merge without duplicating (based on key 'key' + 'Command')
+$mergedKeybindings = @{}
+
+foreach ($item in $source.keybindings.data + $target.keybindings.data)
+{
+	$id = "$($item.key)|$($item.command)"
+	if (-not $mergedKeybindings.ContainsKey($id))
+	{
+		$mergedKeybindings[$id] = $item
+	}
+}
+
+# Save as an array final
+$mergedKeybindings.Values | ConvertTo-Json -Depth 100 | Set-Content -Path $target.keybindings.path
