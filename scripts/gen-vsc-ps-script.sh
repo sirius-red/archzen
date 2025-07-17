@@ -9,19 +9,21 @@
 
 source archzen.sh
 
-declare -a extensions=()
-declare \
-	srcfile='resources/setup-vscode.ps1.template' \
-	outfile='scripts/__generated/setup-vscode.ps1' \
-	template='{{ARCHZEN_EXTENSION_IDS}}' \
-	value="\n"
+declare srcfile='resources/setup-vscode.ps1.template'
+declare outfile='scripts/__generated/setup-vscode.ps1'
+declare template_key='{{ARCHZEN_EXTENSION_IDS}}'
+declare template_value="\n"
+declare content=''
 
 for ext in "${__VSCODE_EXTENSIONS[@]}"; do
-	extensions+=("${ext#*:}")
+	declare ext_id="${ext#*:}"
+	template_value+="\t${ext_id}\n"
 done
 
-value+="$(printf "	%s\n" "${extensions[@]}")"
+template_value="$(printf "%b" "$template_value")"
+content="$(cat "$srcfile")"
+content="${content/${template_key}/${template_value}}"
 
+[ -f "$outfile" ] && rm -f "$outfile" &>/dev/null
 mkdir -p "$(dirname "$outfile")" &>/dev/null
-cp "$srcfile" "$outfile" &>/dev/null
-sed -i "s/$template/$value/g" "$outfile"
+echo "$content" > "$outfile"
