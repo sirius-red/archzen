@@ -23,15 +23,16 @@ $target = @{
 	}
 }
 $extensions = @(
-	SiriusRed.dev-essentials-pack
-	miguelsolorio.fluent-icons
-	streetsidesoftware.code-spell-checker-portuguese-brazilian
-	be5invis.vscode-custom-css
-	saoudrizwan.claude-dev
-	starkweb-technologies.comment-code
-	google.geminicodeassist
-	TheHyDEProject.wallbash
-	miguelsolorio.symbols)
+	'SiriusRed.dev-essentials-pack'
+	'miguelsolorio.fluent-icons'
+	'streetsidesoftware.code-spell-checker-portuguese-brazilian'
+	'be5invis.vscode-custom-css'
+	'saoudrizwan.claude-dev'
+	'starkweb-technologies.comment-code'
+	'google.geminicodeassist'
+	'Gerrnperl.outline-map'
+	'TheHyDEProject.wallbash'
+	'miguelsolorio.symbols')
 
 # Install VS Code extensions
 foreach ($ext in $extensions)

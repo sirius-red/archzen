@@ -732,6 +732,7 @@ function __set_global_variables() {
 		'Cline:saoudrizwan.claude-dev'
 		'Comment code:starkweb-technologies.comment-code'
 		'Gemini Code Assist:google.geminicodeassist'
+		'Outline Map:Gerrnperl.outline-map'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
 	)

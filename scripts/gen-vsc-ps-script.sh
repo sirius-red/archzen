@@ -17,7 +17,7 @@ declare content=''
 
 for ext in "${__VSCODE_EXTENSIONS[@]}"; do
 	declare ext_id="${ext#*:}"
-	template_value+="\t${ext_id}\n"
+	template_value+="\t'${ext_id}'\n"
 done
 
 template_value="$(printf "%b" "$template_value")"
