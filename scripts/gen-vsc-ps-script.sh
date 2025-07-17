@@ -10,14 +10,13 @@
 source archzen.sh
 
 declare srcfile='resources/setup-vscode.ps1.template'
-declare outfile='scripts/__generated/setup-vscode.ps1'
+declare outfile='windows/setup-vscode.ps1'
 declare template_key='{{ARCHZEN_EXTENSION_IDS}}'
-declare template_value="\n"
+declare template_value=''
 declare content=''
 
 for ext in "${__VSCODE_EXTENSIONS[@]}"; do
-	declare ext_id="${ext#*:}"
-	template_value+="\t'${ext_id}'\n"
+	template_value+="\t'${ext#*:}'\n"
 done
 
 template_value="$(printf "%b" "$template_value")"
