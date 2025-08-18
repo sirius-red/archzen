@@ -2667,6 +2667,11 @@ function setup_pacman() {
 }
 
 function rate_mirrors() {
+	if ! __is_installed reflector; then
+		__error "Executable not found in PATH: $(__error_params "reflector")"
+		return $?
+	fi
+
 	declare reflector_conf="${__ROOT}/etc/xdg/reflector/reflector.conf"
 	declare -a lines=(
 		"--save /etc/pacman.d/mirrorlist"
