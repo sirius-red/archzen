@@ -2606,15 +2606,23 @@ function setup_pacman() {
 			declare -i line
 			line=$(__get_line '\[[Mm]ultilib\]' "$pacman_conf")
 
-			if {
-				[ $line -gt 0 ] &&
-					sed -i "${line}s/#\s*//" "$pacman_conf" &&
-					((line++)) &&
-					sed -i "${line}s/#\s*//" "$pacman_conf"
-			} &>>"$__LOG_FILE"; then
-				status="changed"
+			if [ $line -gt 0 ]; then
+				if sed -i "${line}s/#\s*//" "$pacman_conf" && ((line++)) && sed -i "${line}s/#\s*//" "$pacman_conf" &>>"$__LOG_FILE"; then
+					status="changed"
+				else
+					status="unchanged"
+				fi
 			else
-				status="unchanged"
+				declare -a multilib_lines=(
+					'[multilib]'
+					'Include = /etc/pacman.d/mirrorlist'
+				)
+
+				if __add_lines_to_file "$pacman_conf" "a" true "${multilib_lines[@]}"; then
+					status="changed"
+				else
+					status="unchanged"
+				fi
 			fi
 		fi
 
