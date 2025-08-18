@@ -31,6 +31,7 @@ declare -x \
 	__REBOOT_SYSTEM=false \
 	__MOUNT_DIR="/mnt" \
 	__FORCE_REBOOT_SYSTEM=false \
+	__IS_WSL=false \
 	__LOG_FILE \
 	__COMMAND_ARG \
 	__ARCHZEN_IS_RUNNING_FROM_BINARY \
@@ -122,6 +123,10 @@ declare -xA \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
+
+if grep -qi microsoft /proc/version; then
+	__IS_WSL=true
+fi
 
 __LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
 __USER_NAME="${SUDO_USER:-$(whoami)}"
@@ -745,7 +750,7 @@ function __set_global_variables() {
 		[INTEGRATED_TERMINAL]="$USER_SHELL"
 	)
 
-	if [ -n "$KERNEL" ]; then
+	if [[ -n "$KERNEL" && "$__IS_WSL" == false ]]; then
 		if [[ "$KERNEL" =~ cachyos && "$ENABLE_CACHYOS_KIT" == true ]]; then
 			__CACHYOS_PKGLIST=(
 				"$KERNEL"
@@ -761,7 +766,7 @@ function __set_global_variables() {
 		fi
 	fi
 
-	if [ -n "$CPU" ]; then
+	if [[ -n "$CPU" && "$__IS_WSL" == false ]]; then
 		__KERNEL_PKGLIST+=("${CPU}-ucode")
 	fi
 }
@@ -2786,6 +2791,8 @@ function update_system() {
 }
 
 function setup_bootloader() {
+	$__IS_WSL && return
+
 	declare bootloader="$1"
 	declare gen_scripts="${2}"
 
@@ -2952,6 +2959,7 @@ function install_other_packages() {
 }
 
 function install_gpu_drivers() {
+	$__IS_WSL && return
 	[ -n "$GPU" ] || return
 
 	declare success=false
@@ -3254,7 +3262,7 @@ function setup_hyprland() {
 
 			if __install_hyde; then
 				__apply_hyprland_settings
-				__create_hyprinit && __add_hyprinit_to_shell_profile
+				[[ "$__IS_WSL" == false ]] && __create_hyprinit && __add_hyprinit_to_shell_profile
 				return_code=0
 				__INFO_MESSAGES+=("After starting Hyprland, run $(__info_params '`SUPER`') $(__bold +) $(__info_params '`/`') to see all the $(__info_params keybindings).")
 			fi
