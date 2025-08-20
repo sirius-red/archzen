@@ -2766,8 +2766,11 @@ function install_base_packages() {
 		done < <(jq -r '.kernels[]' "${__ARCHZEN_RESOURCES_DIR}/archinstall-preset.json" | xargs)
 	}
 
-	__title "Removing default kernels"
+	if [[ -z "$KERNEL" || "$__IS_WSL" == true ]]; then
+		__title "Removing default kernels"
 	__remove_default_kernels
+	fi
+
 	__title "Installing base packages"
 	__install_pkglist "${base_pkglist[@]}"
 
