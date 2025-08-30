@@ -16,6 +16,7 @@ CPU="intel"                        # intel | amd;
 GPU="nvidia"                       # nvidia | nvidia-open | nvidia-535xx | nvidia-470xx | nvidia-390xx | nouveau | amd | intel; Comment this line to not install
 DESKTOP_PROFILE="hyprland"         # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
 ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
+ENABLE_XRDP_SERVICE=false          # true | false; Enables the XRDP service
 # EDITOR="vim"                     # Any terminal editor available in the official repository or AUR; Comment this line to not install
 # EXPLORER="dolphin"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 # BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
@@ -367,6 +368,7 @@ function __set_global_variables() {
 		wpa_supplicant
 		modemmanager
 		usb_modeswitch
+		xrdp
 	)
 
 	__BLUETOOTH_PKGLIST=(
@@ -3612,13 +3614,25 @@ function add_user_groups() {
 	return $?
 }
 
-function setup_xrdp() {
-	__title "Setting up xrdp"
+function enable_xrdp() {
+	$ENABLE_XRDP_SERVICE || return 0
 
-	__install_package xrdp &&
-		systemctl enable xrdp &>>"$__LOG_FILE" &&
-		systemctl start xrdp &>>"$__LOG_FILE" &&
+	__title "Enabling xrdp"
+
+	if systemctl enable xrdp &>>"$__LOG_FILE" && systemctl start xrdp &>>"$__LOG_FILE"; then
+		declare -r xrdp_service_status="$(systemctl status xrdp | grep 'Active: active (running)')"
+		declare -r xrdp_port="$(grep -m 1 '^port=' /etc/xrdp/xrdp.ini | cut -d '=' -f 2)"
+
+		if [[ -z "$xrdp_service_status" || -z "$xrdp_port" ]]; then
+			__WARN_MESSAGES+=("The xrdp service is not active.")
+
+			return 1
+		fi
+
+		__INFO_MESSAGES+=("XRDP service enabled and started.\nTo connect, use the address: localhost:$xrdp_port")
+
 		return 0
+	fi
 
 	return 1
 }
@@ -3646,10 +3660,7 @@ function setup_archlinux() {
 	setup_vscode
 	enable_services
 	add_user_groups
-
-	if __IS_WSL; then
-		setup_xrdp || return $?
-	fi
+	enable_xrdp
 }
 
 function show_help() {
