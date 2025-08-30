@@ -3612,6 +3612,17 @@ function add_user_groups() {
 	return $?
 }
 
+function setup_xrdp() {
+	__title "Setting up xrdp"
+
+	__install_package xrdp &&
+		systemctl enable xrdp &>>"$__LOG_FILE" &&
+		systemctl start xrdp &>>"$__LOG_FILE" &&
+		return 0
+
+	return 1
+}
+
 function setup_archlinux() {
 	if ! __is_installed_initial_os_setup; then
 		setup_sudoers || return $?
@@ -3635,6 +3646,10 @@ function setup_archlinux() {
 	setup_vscode
 	enable_services
 	add_user_groups
+
+	if __IS_WSL; then
+		setup_xrdp || return $?
+	fi
 }
 
 function show_help() {
