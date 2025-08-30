@@ -368,7 +368,6 @@ function __set_global_variables() {
 		wpa_supplicant
 		modemmanager
 		usb_modeswitch
-		xrdp
 	)
 
 	__BLUETOOTH_PKGLIST=(
@@ -498,6 +497,9 @@ function __set_global_variables() {
 		virt-manager
 		edk2-ovmf
 		virtio-win
+		xrdp
+		xorgxrdp
+		pipewire-module-xrdp
 	)
 
 	__NVIDIA_COMMON_PKGLIST=(
