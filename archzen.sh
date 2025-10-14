@@ -125,7 +125,7 @@ declare -xA \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
 
-if grep -qi microsoft /proc/version; then
+if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
 	__IS_WSL=true
 fi
 
@@ -721,7 +721,7 @@ function __set_global_variables() {
 		__vsc_color_theme_ext='The Astral Themes Collection:itssimmons.vscode-astral-gem-theme'
 		__vsc_icon_theme_ext='Symbols:miguelsolorio.symbols'
 		# __vsc_icon_theme_ext='Gruvbox Material Icons:navernoedenis.gruvbox-material-icons'
-		__vsc_dark_color_theme='(Legacy) Astroid Theme'
+		__vsc_dark_color_theme='Default Dark Modern'
 		__vsc_light_color_theme='Default Light Modern'
 		__vsc_icon_theme='symbols'
 	else
@@ -737,10 +737,6 @@ function __set_global_variables() {
 		'Dev Essentials Pack:SiriusRed.dev-essentials-pack'
 		'Fluent Icons:miguelsolorio.fluent-icons'
 		'Brazilian Portuguese - Code Spell Checker:streetsidesoftware.code-spell-checker-portuguese-brazilian'
-		'Custom CSS and JS Loader:be5invis.vscode-custom-css'
-		'Cline:saoudrizwan.claude-dev'
-		'Comment code:starkweb-technologies.comment-code'
-		'Gemini Code Assist:google.geminicodeassist'
 		'Outline Map:Gerrnperl.outline-map'
 		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
@@ -2770,9 +2766,9 @@ function install_base_packages() {
 		done < <(jq -r '.kernels[]' "${__ARCHZEN_RESOURCES_DIR}/archinstall-preset.json" | xargs)
 	}
 
-	if [[ -z "$KERNEL" || "$__IS_WSL" == true ]]; then
+	if [[ -n "$KERNEL" && "$__IS_WSL" == false ]]; then
 		__title "Removing default kernels"
-	__remove_default_kernels
+		__remove_default_kernels
 	fi
 
 	__title "Installing base packages"
