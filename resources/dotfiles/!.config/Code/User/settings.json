@@ -1,4 +1,18 @@
 {
+	"[css]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[dockercompose]": {
+		"editor.autoIndent": "advanced",
+		"editor.defaultFormatter": "redhat.vscode-yaml",
+		"editor.insertSpaces": true,
+		"editor.quickSuggestions": {
+			"comments": false,
+			"other": true,
+			"strings": true
+		},
+		"editor.tabSize": 2
+	},
 	"[fish]": {
 		"editor.defaultFormatter": "ndonfris.fish-lsp"
 	},
@@ -7,6 +21,15 @@
 		"editor.wordWrap": "wordWrapColumn",
 		"editor.wordWrapColumn": 72,
 		"workbench.editor.restoreViewState": false
+	},
+	"[github-actions-workflow]": {
+		"editor.defaultFormatter": "redhat.vscode-yaml"
+	},
+	"[html]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[javascript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"[json]": {
 		"editor.codeActionsOnSave": {
@@ -266,7 +289,6 @@
 	"extensions.ignoreRecommendations": true,
 	"files.associations": {
 		".env*": "dotenv",
-		"*.toml": "toml",
 		"${workspaceFolder}/settings/settings.json": "jsonc"
 	},
 	"files.eol": "\n",
@@ -387,7 +409,6 @@
 	"window.newWindowDimensions": "inherit",
 	"window.newWindowProfile": "Default",
 	"window.titleBarStyle": "native",
-	"workbench.activityBar.location": "top",
 	"workbench.commandPalette.experimental.suggestCommands": true,
 	"workbench.editor.customLabels.enabled": true,
 	"workbench.editor.customLabels.patterns": {
