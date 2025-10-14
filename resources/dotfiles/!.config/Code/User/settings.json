@@ -204,7 +204,7 @@
 	"editor.foldingImportsByDefault": false,
 	"editor.fontFamily": "JetBrainsMono Nerd Font, JetBrains Mono, FiraCode Nerd Font, Fira code, monospace",
 	"editor.fontLigatures": true,
-	"editor.fontSize": 16,
+	"editor.fontSize": 14,
 	"editor.formatOnSave": true,
 	"editor.guides.bracketPairs": true,
 	"editor.hover.delay": 700,
@@ -216,7 +216,7 @@
 	"editor.inlineSuggest.suppressSuggestions": true,
 	"editor.inlineSuggest.syntaxHighlightingEnabled": false,
 	"editor.largeFileOptimizations": false,
-	"editor.lineHeight": 1.7,
+	"editor.lineHeight": 1.6,
 	"editor.linkedEditing": true,
 	"editor.minimap.enabled": true,
 	"editor.quickSuggestions": {
@@ -275,7 +275,6 @@
 		"**/.yarn": true,
 		"**/node_modules": true
 	},
-	"geminicodeassist.inlineSuggestions.enableAuto": false,
 	"git.confirmSync": false,
 	"git.enableSmartCommit": true,
 	"git.openRepositoryInParentFolders": "always",
@@ -380,10 +379,6 @@
 	"terminal.integrated.gpuAcceleration": "on",
 	"terminal.integrated.hideOnStartup": "always",
 	"update.mode": "manual",
-	"vscode_custom_css.imports": [
-		"file:///${userHome}/.config/not-so-minimal-vscode/styles.css",
-		"file:///${userHome}/.config/not-so-minimal-vscode/script.js"
-	],
 	"window.autoDetectColorScheme": true,
 	"window.commandCenter": false,
 	"window.customTitleBarVisibility": "auto",
