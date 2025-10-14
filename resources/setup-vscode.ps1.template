@@ -3,6 +3,7 @@
 #####################################################
 
 $cwd = $PWD.Path
+$tmpDir = "${cwd}\.tmp"
 $source = @{
 	settings    = @{
 		path = "${cwd}\resources\dotfiles\!.config\Code\User\settings.json"
@@ -27,49 +28,240 @@ $extensions = @(
 {{ARCHZEN_EXTENSION_IDS}}
 )
 
-# Install VS Code extensions
-foreach ($ext in $extensions)
+function Install-CodeExtensions
 {
-	code --install-extension $ext --force
-}
-
-# Apply VS Code settings
-$source.settings.data = Get-Content -Path $source.settings.path | ConvertFrom-Json
-$target.settings.data = Get-Content -Path $target.settings.path | ConvertFrom-Json
-foreach ($key in $source.settings.data.PSObject.Properties.Name)
-{
-	if (-not $target.settings.data.PSObject.Properties.Name.Contains($key))
+	# Ensure temp dir
+	if ( -not ( Test-Path $tmpDir ) )
 	{
-		$target.settings.data | Add-Member -MemberType NoteProperty -Name $key -Value $source.settings.data.$key
+		if ( -not ( New-Item -ItemType Directory -Path $tmpDir ) )
+		{
+			Write-Host 'Error creating temporary directory. Exiting...'
+			exit 1
+		}
 	}
-}
-$target.settings.data | ConvertTo-Json -Depth 100 | Set-Content -Path $target.settings.path
 
-# Load and parse keybindings (JSON array)
-$source.keybindings.data = Get-Content -Raw -Path $source.keybindings.path | ConvertFrom-Json
-$target.keybindings.data = Get-Content -Raw -Path $target.keybindings.path | ConvertFrom-Json
+	Write-Host 'Installing extensions:' -ForegroundColor Magenta
 
-# Guarantees that both are arrays
-if ($source.keybindings.data -isnot [System.Array])
-{
-	$source.keybindings.data = @($source.keybindings.data)
-}
-if ($target.keybindings.data -isnot [System.Array])
-{
-	$target.keybindings.data = @($target.keybindings.data)
-}
-
-# Merge without duplicating (based on key 'key' + 'Command')
-$mergedKeybindings = @{}
-
-foreach ($item in $source.keybindings.data + $target.keybindings.data)
-{
-	$id = "$($item.key)|$($item.command)"
-	if (-not $mergedKeybindings.ContainsKey($id))
+	[string[]]$alreadyInstalled = code --list-extensions
+	foreach ( $ext in $extensions )
 	{
-		$mergedKeybindings[$id] = $item
+		Write-Host "	- ${ext}..." -NoNewline
+
+		if ( $alreadyInstalled.Contains($ext) )
+		{
+			Write-Host ' Skipped!' -ForegroundColor Cyan
+			continue
+		}
+
+		if ( ( code --install-extension $ext --force ) )
+		{
+			Write-Host ' Done!' -ForegroundColor Green
+		}
+		else
+		{
+			$extPublisher = $ext.Split('.')[0]
+			$extName = $ext.Split('.')[1]
+			$extVersion = 'latest'
+			$url = "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/${extPublisher}/vsextensions/${extName}/${extVersion}/vspackage"
+			$output = "${tmpDir}\${extPublisher}.${extName}-${extVersion}.vsix"
+
+			if ( -not ( Test-Path $output ) )
+			{
+				if ( -not ( Invoke-WebRequest -Uri $url -OutFile $output ) )
+				{
+					Write-Host ' Error downloading vsix!' -ForegroundColor Red
+					continue
+				}
+			}
+
+			if ( ( code --install-extension $output --force ) )
+			{
+				Write-Host ' Done!' -ForegroundColor Green
+			}
+			else
+			{
+				Write-Host ' Error installing from vsix!' -ForegroundColor Red
+			}
+		}
 	}
+
+	Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+	Write-Host
 }
 
-# Save as an array final
-$mergedKeybindings.Values | ConvertTo-Json -Depth 100 | Set-Content -Path $target.keybindings.path
+function Set-CodeSettings
+{
+	$source.settings.data = Get-Content -Path $source.settings.path | ConvertFrom-Json
+	$target.settings.data = Get-Content -Path $target.settings.path | ConvertFrom-Json
+	foreach ( $key in $source.settings.data.PSObject.Properties.Name )
+	{
+		if ( -not ( $target.settings.data.PSObject.Properties.Name.Contains($key) ) )
+		{
+			$target.settings.data | Add-Member -MemberType NoteProperty -Name $key -Value $source.settings.data.$key
+		}
+	}
+
+	Write-Host 'Applying Code settings...' -ForegroundColor Magenta -NoNewline
+	$content = $target.settings.data | ConvertTo-Json -Depth 100
+	( Set-Content -Path $target.settings.path -Value $content -ErrorAction SilentlyContinue -Force )
+	if ( $? )
+	{
+		Write-Host ' Done!' -ForegroundColor Green
+	}
+	else
+	{
+		Write-Host ' Error!' -ForegroundColor Red
+	}
+	Write-Host
+}
+
+function Set-CodeKeybindings
+{
+	$source.keybindings.data = Get-Content -Raw -Path $source.keybindings.path | ConvertFrom-Json
+	if ( Test-Path $target.keybindings.path )
+	{
+		$target.keybindings.data = Get-Content -Raw -Path $target.keybindings.path | ConvertFrom-Json
+	}
+	else
+	{
+		$target.keybindings.data = @()
+	}
+
+	# Guarantees that both are arrays
+	if ( $source.keybindings.data -isnot [System.Array] )
+	{
+		$source.keybindings.data = @($source.keybindings.data)
+	}
+	if ( $target.keybindings.data -isnot [System.Array] )
+	{
+		$target.keybindings.data = @($target.keybindings.data)
+	}
+
+	# Merge without duplicating (based on key 'key' + 'Command')
+	$mergedKeybindings = @{}
+
+	foreach ($item in $source.keybindings.data + $target.keybindings.data)
+	{
+		$id = "$($item.key)|$($item.command)"
+		if ( -not $mergedKeybindings.ContainsKey($id) -and $null -ne $item )
+		{
+			$mergedKeybindings[$id] = $item
+		}
+	}
+
+	# Save as an array final
+	Write-Host 'Applying Code keybindings...' -ForegroundColor Magenta -NoNewline
+	$content = $mergedKeybindings.Values | ConvertTo-Json -Depth 100
+	( Set-Content -Path $target.keybindings.path -Value $content -ErrorAction SilentlyContinue -Force )
+	if ( $? )
+	{
+		Write-Host ' Done!' -ForegroundColor Green
+	}
+	else
+	{
+		Write-Host ' Error!' -ForegroundColor Red
+	}
+	Write-Host
+}
+
+Install-CodeExtensions
+Set-CodeSettings
+Set-CodeKeybindings
+Write-Host ' Error downloading vsix!' -ForegroundColor Red
+continue
+}
+}
+
+if ( ( { { ARCHZEN_CODE_BIN } } --install-extension $output --force ) )
+{
+	Write-Host ' Done!' -ForegroundColor Green
+}
+else
+{
+	Write-Host ' Error installing from vsix!' -ForegroundColor Red
+}
+}
+}
+
+Remove-Item -Path $tmpDir -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+Write-Host
+}
+
+function Set-CodeSettings
+{
+	$source.settings.data = Get-Content -Path $source.settings.path | ConvertFrom-Json
+	$target.settings.data = Get-Content -Path $target.settings.path | ConvertFrom-Json
+	foreach ( $key in $source.settings.data.PSObject.Properties.Name )
+	{
+		if ( -not ( $target.settings.data.PSObject.Properties.Name.Contains($key) ) )
+		{
+			$target.settings.data | Add-Member -MemberType NoteProperty -Name $key -Value $source.settings.data.$key
+		}
+	}
+
+	Write-Host 'Applying {{ARCHZEN_CODE_NAME}} settings...' -ForegroundColor Magenta -NoNewline
+	$content = $target.settings.data | ConvertTo-Json -Depth 100
+	( Set-Content -Path $target.settings.path -Value $content -ErrorAction SilentlyContinue -Force )
+	if ( $? )
+	{
+		Write-Host ' Done!' -ForegroundColor Green
+	}
+	else
+	{
+		Write-Host ' Error!' -ForegroundColor Red
+	}
+	Write-Host
+}
+
+function Set-CodeKeybindings
+{
+	$source.keybindings.data = Get-Content -Raw -Path $source.keybindings.path | ConvertFrom-Json
+	if ( Test-Path $target.keybindings.path )
+	{
+		$target.keybindings.data = Get-Content -Raw -Path $target.keybindings.path | ConvertFrom-Json
+	}
+	else
+	{
+		$target.keybindings.data = @()
+	}
+
+	# Guarantees that both are arrays
+	if ( $source.keybindings.data -isnot [System.Array] )
+	{
+		$source.keybindings.data = @($source.keybindings.data)
+	}
+	if ( $target.keybindings.data -isnot [System.Array] )
+	{
+		$target.keybindings.data = @($target.keybindings.data)
+	}
+
+	# Merge without duplicating (based on key 'key' + 'Command')
+	$mergedKeybindings = @{}
+
+	foreach ($item in $source.keybindings.data + $target.keybindings.data)
+	{
+		$id = "$($item.key)|$($item.command)"
+		if ( -not $mergedKeybindings.ContainsKey($id) -and $null -ne $item )
+		{
+			$mergedKeybindings[$id] = $item
+		}
+	}
+
+	# Save as an array final
+	Write-Host 'Applying {{ARCHZEN_CODE_NAME}} keybindings...' -ForegroundColor Magenta -NoNewline
+	$content = $mergedKeybindings.Values | ConvertTo-Json -Depth 100
+	( Set-Content -Path $target.keybindings.path -Value $content -ErrorAction SilentlyContinue -Force )
+	if ( $? )
+	{
+		Write-Host ' Done!' -ForegroundColor Green
+	}
+	else
+	{
+		Write-Host ' Error!' -ForegroundColor Red
+	}
+	Write-Host
+}
+
+Install-CodeExtensions
+Set-CodeSettings
+Set-CodeKeybindings
