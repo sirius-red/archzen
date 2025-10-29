@@ -30,7 +30,7 @@ declare -x \
 	__VERSION="0.0.1" \
 	__EXIT_CODE=0 \
 	__REBOOT_SYSTEM=false \
-	__MOUNT_DIR="/mnt" \
+	__MOUNT_DIR="/mnt/archinstall" \
 	__FORCE_REBOOT_SYSTEM=false \
 	__IS_WSL=false \
 	__LOG_FILE \
