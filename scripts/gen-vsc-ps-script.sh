@@ -7,6 +7,8 @@
 #!                                                                       ##
 #!#########################################################################
 
+declare -x OS='windows'
+
 source archzen.sh
 
 declare srcfile='resources/setup-vscode.ps1.template'

@@ -718,9 +718,8 @@ function __set_global_variables() {
 
 	declare __vsc_color_theme_ext __vsc_icon_theme_ext __vsc_dark_color_theme __vsc_light_color_theme __vsc_icon_theme
 	if [[ "$DESKTOP_PROFILE" != hyprland || "$OS" == windows ]]; then
-		__vsc_color_theme_ext='The Astral Themes Collection:itssimmons.vscode-astral-gem-theme'
+		__vsc_color_theme_ext='Default Themes:vscode.theme-defaults'
 		__vsc_icon_theme_ext='Symbols:miguelsolorio.symbols'
-		# __vsc_icon_theme_ext='Gruvbox Material Icons:navernoedenis.gruvbox-material-icons'
 		__vsc_dark_color_theme='Default Dark Modern'
 		__vsc_light_color_theme='Default Light Modern'
 		__vsc_icon_theme='symbols'
