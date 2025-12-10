@@ -43,7 +43,7 @@ function M.merge_tables(target, ...)
 			end
 		end
 
-	return tgt
+		return tgt
 	end
 
 	-- iterate all sources
@@ -72,6 +72,17 @@ function M.inject_modules(target, ...)
 	end
 
 	return target
+end
+
+--- @return boolean
+function M.is_windows()
+	return package.config:sub(1, 1) == '\\'
+end
+
+--- @param path string
+--- @return boolean
+function M.file_exists(path)
+	return path ~= nil and io.open(path, 'r') ~= nil
 end
 
 return M
