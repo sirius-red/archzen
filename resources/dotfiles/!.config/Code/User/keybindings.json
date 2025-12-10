@@ -1,7 +1,38 @@
 [
 	{
+		"key": "ctrl+oem_3",
+		"command": "openInIntegratedTerminal"
+	},
+	{
+		"key": "shift+alt+s",
+		"command": "-commentTranslate.select"
+	},
+	{
+		"key": "alt+f11",
+		"command": "workbench.action.toggleZenMode",
+		"when": "!isAuxiliaryWindowFocusedContext"
+	},
+	{
+		"key": "ctrl+b",
+		"command": "-workbench.action.toggleSidebarVisibility"
+	},
+	{
+		"key": "ctrl+shift+k",
+		"command": "-editor.action.deleteLines",
+		"when": "textInputFocus && !editorReadonly"
+	},
+	{
 		"key": "alt+s",
 		"command": "workbench.action.togglePanel"
+	},
+	{
+		"key": "ctrl+e",
+		"command": "-workbench.action.quickOpen"
+	},
+	{
+		"key": "ctrl+oem_2",
+		"command": "-editor.action.commentLine",
+		"when": "editorTextFocus && !editorReadonly"
 	},
 	{
 		"key": "alt+oem_3",
@@ -9,23 +40,18 @@
 		"when": "terminal.active"
 	},
 	{
-		"key": "ctrl+/",
-		"command": "editor.action.commentLine",
-		"when": "editorFocus"
+		"key": "ctrl+shift+e",
+		"command": "-workbench.view.explorer",
+		"when": "viewContainer.workbench.view.explorer.enabled"
 	},
 	{
-		"key": "ctrl+k z",
-		"command": "-workbench.action.toggleZenMode",
-		"when": "!isAuxiliaryWindowFocusedContext"
+		"key": "alt+q",
+		"command": "workbench.action.toggleSidebarVisibility"
 	},
 	{
-		"key": "ctrl+j",
-		"command": "-workbench.action.togglePanel"
-	},
-	{
-		"key": "alt+d",
-		"command": "editor.action.deleteLines",
-		"when": "textInputFocus && !editorReadonly"
+		"key": "ctrl+e",
+		"command": "workbench.view.explorer",
+		"when": "viewContainer.workbench.view.explorer.enabled"
 	},
 	{
 		"key": "shift+alt+a",
@@ -38,51 +64,9 @@
 		"when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/"
 	},
 	{
-		"key": "ctrl+oem_3",
-		"command": "openInIntegratedTerminal"
-	},
-	{
-		"key": "alt+q",
-		"command": "workbench.action.toggleSidebarVisibility"
-	},
-	{
-		"key": "ctrl+e",
-		"command": "workbench.view.explorer",
-		"when": "viewContainer.workbench.view.explorer.enabled"
-	},
-	{
-		"key": "ctrl+shift+k",
-		"command": "-editor.action.deleteLines",
+		"key": "alt+d",
+		"command": "editor.action.deleteLines",
 		"when": "textInputFocus && !editorReadonly"
-	},
-	{
-		"key": "ctrl+shift+e",
-		"command": "-workbench.view.explorer",
-		"when": "viewContainer.workbench.view.explorer.enabled"
-	},
-	{
-		"key": "alt+f11",
-		"command": "workbench.action.toggleZenMode",
-		"when": "!isAuxiliaryWindowFocusedContext"
-	},
-	{
-		"key": "alt+s",
-		"command": "-gitlens.showQuickRepoStatus",
-		"when": "!gitlens:disabled && config.gitlens.keymap == 'alternate'"
-	},
-	{
-		"key": "ctrl+alt+/",
-		"command": "editor.action.blockComment",
-		"when": "editorTextFocus && !editorReadonly"
-	},
-	{
-		"key": "ctrl+b",
-		"command": "-workbench.action.toggleSidebarVisibility"
-	},
-	{
-		"key": "alt+a",
-		"command": "-editor.action.accessibilityHelpConfigureAssignedKeybindings",
-		"when": "accessibilityHelpIsShown && accessibleViewHasAssignedKeybindings"
 	},
 	{
 		"key": "ctrl+oem_3",
@@ -90,17 +74,18 @@
 		"when": "terminal.active"
 	},
 	{
-		"key": "ctrl+e",
-		"command": "-workbench.action.quickOpen"
+		"key": "alt+e",
+		"command": "workbench.action.toggleAuxiliaryBar"
 	},
 	{
-		"key": "ctrl+alt+b",
-		"command": "-workbench.action.toggleAuxiliaryBar"
+		"key": "alt+a",
+		"command": "-editor.action.accessibilityHelpConfigureAssignedKeybindings",
+		"when": "accessibilityHelpIsShown && accessibleViewHasAssignedKeybindings"
 	},
 	{
-		"key": "ctrl+oem_2",
-		"command": "-editor.action.commentLine",
-		"when": "editorTextFocus && !editorReadonly"
+		"key": "ctrl+/",
+		"command": "editor.action.commentLine",
+		"when": "editorFocus"
 	},
 	{
 		"key": "alt+s",
@@ -108,16 +93,49 @@
 		"when": "editorTextFocus && !editorReadonly && editorLangId =~ /^markdown$|^rmd$|^quarto$/"
 	},
 	{
-		"key": "shift+alt+s",
-		"command": "-commentTranslate.select"
-	},
-	{
-		"key": "alt+e",
-		"command": "workbench.action.toggleAuxiliaryBar"
+		"key": "ctrl+alt+b",
+		"command": "-workbench.action.toggleAuxiliaryBar"
 	},
 	{
 		"key": "alt+w",
 		"command": "editor.emmet.action.wrapWithAbbreviation",
 		"when": "editorTextFocus && editorLangId == 'html' && editorLangId == 'javascriptreact' && editorLangId == 'typescriptreact'"
+	},
+	{
+		"key": "alt+s",
+		"command": "-gitlens.showQuickRepoStatus",
+		"when": "!gitlens:disabled && config.gitlens.keymap == 'alternate'"
+	},
+	{
+		"key": "ctrl+j",
+		"command": "-workbench.action.togglePanel"
+	},
+	{
+		"key": "ctrl+alt+/",
+		"command": "editor.action.blockComment",
+		"when": "editorTextFocus && !editorReadonly"
+	},
+	{
+		"key": "ctrl+k z",
+		"command": "-workbench.action.toggleZenMode",
+		"when": "!isAuxiliaryWindowFocusedContext"
+	},
+	{
+		"key": "ctrl+k ctrl+o",
+		"command": "workbench.action.remote.showMenu"
+	},
+	{
+		"key": "ctrl+alt+o",
+		"command": "-workbench.action.remote.showMenu"
+	},
+	{
+		"key": "ctrl+alt+o",
+		"command": "workbench.action.files.openFolder",
+		"when": "openFolderWorkspaceSupport"
+	},
+	{
+		"key": "ctrl+k ctrl+o",
+		"command": "-workbench.action.files.openFolder",
+		"when": "openFolderWorkspaceSupport"
 	}
 ]
