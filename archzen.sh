@@ -73,6 +73,7 @@ declare -xa \
 	__WARN_MESSAGES=() \
 	__SERVICES_TO_ENABLE=() \
 	__USER_GROUPS=() \
+	__DEPENDENCIES \
 	__ALREADY_INSTALLED_PKGLIST \
 	__NOT_INSTALLED_PKGLIST \
 	__NOT_EXISTS_PKGLIST \
@@ -124,6 +125,23 @@ declare -xA \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
+
+__DEPENDENCIES=(
+	base
+	base-devel
+	linux-firmware
+	sof-firmware
+	sudo
+	bash
+	mkinitcpio
+	networkmanager
+	dhcpcd
+	wpa_supplicant
+	reflector
+	pacman-contrib
+	git
+	curl
+)
 
 if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
 	__IS_WSL=true
@@ -1624,6 +1642,11 @@ function __install_pkglist() {
 	__finalize_pkglist_installation
 
 	return $exit_code
+}
+
+function __ensure_deps() {
+	__title "Ensuring dependencies are installed."
+	__install_pkglist "${__DEPENDENCIES[@]}"
 }
 
 function __get_line() {
@@ -3720,6 +3743,7 @@ function init() {
 
 	clear
 	__banner "${banner_args[@]}"
+	__ensure_deps
 }
 
 function run() {
