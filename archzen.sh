@@ -223,24 +223,34 @@ function __set_global_variables() {
 
 	__check_type_alias DESKTOP_PROFILE "$DESKTOP_PROFILE"
 
-	if [[ -z "$TERMINAL" ]]; then
+	if [[ -z "$TERMINAL" && -n "$DESKTOP_PROFILE" ]]; then
 		TERMINAL="${__DEFAULT_TERMINALS[${DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$TERMINAL" ]; then
+		TERMINAL=
 	fi
 
-	if [ -z "$EXPLORER" ]; then
+	if [[ -z "$EXPLORER" && -n "$DESKTOP_PROFILE" ]]; then
 		EXPLORER="${__DEFAULT_EXPLORERS[${DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$EXPLORER" ]; then
+		EXPLORER=
 	fi
 
-	if [ -z "$EDITOR" ]; then
+	if [[ -z "$EDITOR" && -n "$DESKTOP_PROFILE" ]]; then
 		EDITOR="${__DEFAULT_EDITORS[${DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$EDITOR" ]; then
+		EDITOR=
 	fi
 
-	if [ -z "$BROWSER" ]; then
+	if [[ -z "$BROWSER" && -n "$DESKTOP_PROFILE" ]]; then
 		BROWSER="${__DEFAULT_BROWSERS[${DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$BROWSER" ]; then
+		BROWSER=
 	fi
 
-	if [ -z "$NOTE" ]; then
+	if [[ -z "$NOTE" && -n "$DESKTOP_PROFILE" ]]; then
 		NOTE="${__DEFAULT_NOTES[${DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$NOTE" ]; then
+		NOTE=
 	fi
 
 	__ROOT="$root"
@@ -3799,7 +3809,7 @@ function run() {
 		fi
 		;;
 	hyprland | hypr)
-		declare action="${args[0]:-setup}"
+		declare action="${args[0]setup}"
 
 		setup_hyprland "$action" &&
 			[[ "$action" == setup ]] &&
