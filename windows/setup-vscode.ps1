@@ -29,7 +29,6 @@ $extensions = @(
 	'miguelsolorio.fluent-icons'
 	'streetsidesoftware.code-spell-checker-portuguese-brazilian'
 	'Gerrnperl.outline-map'
-	'vscode.theme-defaults'
 	'miguelsolorio.symbols'
 )
 

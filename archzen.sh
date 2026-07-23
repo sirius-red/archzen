@@ -765,9 +765,14 @@ function __set_global_variables() {
 		'Fluent Icons:miguelsolorio.fluent-icons'
 		'Brazilian Portuguese - Code Spell Checker:streetsidesoftware.code-spell-checker-portuguese-brazilian'
 		'Outline Map:Gerrnperl.outline-map'
-		"$__vsc_color_theme_ext"
 		"$__vsc_icon_theme_ext"
 	)
+
+	if [[ "$__vsc_color_theme_ext" != *'vscode.theme-defaults'* ]]; then
+		__VSCODE_EXTENSIONS+=(
+			"$__vsc_color_theme_ext"
+		)
+	fi
 
 	__VSCODE_TEMPLATE_VALUES=(
 		[DARK_COLOR_THEME]="$__vsc_dark_color_theme"
@@ -3809,7 +3814,7 @@ function run() {
 		fi
 		;;
 	hyprland | hypr)
-		declare action="${args[0]setup}"
+		declare action="${args[0]:-setup}"
 
 		setup_hyprland "$action" &&
 			[[ "$action" == setup ]] &&
