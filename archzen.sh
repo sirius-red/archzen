@@ -7,21 +7,21 @@ REFLECTOR_MIRROR_COUNTRIES="BR,US" # Use `reflector --list-countries` to list av
 REFLECTOR_MIRROR_LIMIT=10          # The higher the value, the longer the reflector will take to complete its run
 PACMAN_PARALLEL_DOWNLOADS=10       # Value for Pacman's "ParallelDownloads" config option
 PACMAN_ENABLE_MULTILIB=true        # Enable (or not) the multilib repository
-AUR_HELPER="paru-bin"              # paru[-bin] | yay[-bin]; "aurbuilder" will use this behind the scenes for some tasks. Comment this line to use "makepkg"
+AUR_HELPER="yay-bin"               # paru[-[bin|git]] | yay[-bin]; "aurbuilder" will use this behind the scenes for some tasks. Comment this line to use "makepkg"
 SETUP_ZRAM=true                    # true | false; Improve zram settings if you enabled it in Arch installation
 USE_SWAPFILE=true                  # true | false; Enables a swapfile fallback, used only if zram is unavailable or insufficient and filesystem is not btrfs
 KERNEL="linux-zen"                 # Any available in the official repository or AUR; Comment this line to not install
 USER_SHELL="fish"                  # Any available in the official repository or AUR; Comment this line to not change the shell; Only “fish” has customizations
 CPU="intel"                        # intel | amd;
 GPU="nvidia"                       # nvidia | nvidia-open | nvidia-535xx | nvidia-470xx | nvidia-390xx | nouveau | amd | intel; Comment this line to not install
-DESKTOP_PROFILE="hyprland"         # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
 ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
 ENABLE_XRDP_SERVICE=false          # true | false; Enables the XRDP service
+# DESKTOP_PROFILE="hyprland"       # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
+# TERMINAL="kitty"                 # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 # EDITOR="vim"                     # Any terminal editor available in the official repository or AUR; Comment this line to not install
 # EXPLORER="dolphin"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 # BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 # NOTE="obsidian"                  # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-# TERMINAL="kitty"                 # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 
 # Delay to reboot system automatically in seconds
 declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
@@ -58,6 +58,7 @@ declare -x \
 	__ARCHZEN_GNOME_SETTINGS_FILE \
 	__MAIN_SCRIPT_BASE_PATH \
 	__MAIN_SCRIPT_PATH \
+	__VAR_DEPENDENCIES_INSTALED \
 	__VAR_ARCHZEN_INSTALLED \
 	__VAR_DOTFILES_INSTALLED \
 	__VAR_INITIAL_OS_SETUP_INSTALLED \
@@ -141,6 +142,10 @@ __DEPENDENCIES=(
 	pacman-contrib
 	git
 	curl
+	vim
+	sed
+	xz
+	expac
 )
 
 if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
@@ -261,8 +266,11 @@ function __set_global_variables() {
 	__PWD_RESOURCES_DIR="${__PWD}/resources"
 	__QUIET=false
 	__ARCHINSTALL_PRESET="./resources/archinstall-preset.json"
-	__AUR_HELPER_BIN="${AUR_HELPER/-bin/}"
 	__AUR_HELPER_IS_INSTALLED=false
+	__AUR_HELPER_BIN="$AUR_HELPER"
+	while [[ $__AUR_HELPER_BIN =~ (-bin|-git)$ ]]; do
+		__AUR_HELPER_BIN="${__AUR_HELPER_BIN/${BASH_REMATCH[0]}/}"
+	done
 	__ALREADY_INSTALLED_PKGLIST=()
 	__NOT_INSTALLED_PKGLIST=()
 	__NOT_EXISTS_PKGLIST=()
@@ -278,6 +286,7 @@ function __set_global_variables() {
 	__ARCHZEN_GNOME_SETTINGS_FILE="${__ARCHZEN_RESOURCES_DIR}/gnome-settings.conf"
 	__MAIN_SCRIPT_BASE_PATH="/${__ARCHZEN_BASE_DIR}/archzen.sh"
 	__MAIN_SCRIPT_PATH="${__ARCHZEN_DIR}/archzen.sh"
+	__VAR_DEPENDENCIES_INSTALED="${__ROOT}/var/lib/archzen-dependencies-installed"
 	__VAR_ARCHZEN_INSTALLED="${__ROOT}/var/lib/archzen-installed"
 	__VAR_DOTFILES_INSTALLED="${__ROOT}/var/lib/archzen-dotfiles-installed"
 	__VAR_INITIAL_OS_SETUP_INSTALLED="${__ROOT}/var/lib/archzen-initial-os-setup-installed"
@@ -425,10 +434,8 @@ function __set_global_variables() {
 	__TERMINAL_PKGLIST=(
 		less
 		wget
-		curl
 		xdg-user-dirs
 		fastfetch
-		vim
 		neovim
 		arch-install-scripts
 		git
@@ -439,12 +446,10 @@ function __set_global_variables() {
 		bash-completion
 		unrar
 		unzip
-		xz
 		hwinfo
 		inxi
 		sed
 		eza
-		expac
 		man-db
 		bat
 	)
@@ -514,10 +519,8 @@ function __set_global_variables() {
 		shellcheck
 		shfmt
 		direnv
-		github-cli
 		fish-lsp
 		hadolint-bin
-		visual-studio-code-bin
 	)
 
 	__VIRTUALIZATION_PKGLIST=(
@@ -1660,8 +1663,11 @@ function __install_pkglist() {
 }
 
 function __ensure_deps() {
+	__is_installed_dependencies && return
+
 	__title "Ensuring dependencies are installed."
-	__install_pkglist "${__DEPENDENCIES[@]}"
+	__install_pkglist "${__DEPENDENCIES[@]}" &&
+		touch "$__VAR_DEPENDENCIES_INSTALED"
 }
 
 function __get_line() {
@@ -1785,7 +1791,7 @@ function __apply_template_values() {
 
 	if $proceed && ! [ -f "$file_path" ]; then
 		__error "File $(__error_params "$file_path") not found"
-		return 1
+		return 0
 	fi
 
 	if ! __replace_variables; then
@@ -1945,6 +1951,12 @@ function __variable_file_exists() {
 
 function __is_installed_initial_os_setup() {
 	__variable_file_exists "$__VAR_INITIAL_OS_SETUP_INSTALLED"
+
+	return $?
+}
+
+function __is_installed_dependencies() {
+	__variable_file_exists "$__VAR_DEPENDENCIES_INSTALED"
 
 	return $?
 }
