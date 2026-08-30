@@ -7,7 +7,7 @@ REFLECTOR_MIRROR_COUNTRIES="BR,US" # Use `reflector --list-countries` to list av
 REFLECTOR_MIRROR_LIMIT=10          # The higher the value, the longer the reflector will take to complete its run
 PACMAN_PARALLEL_DOWNLOADS=10       # Value for Pacman's "ParallelDownloads" config option
 PACMAN_ENABLE_MULTILIB=true        # Enable (or not) the multilib repository
-AUR_HELPER="yay-bin"               # paru[-[bin|git]] | yay[-bin]; "aurbuilder" will use this behind the scenes for some tasks. Comment this line to use "makepkg"
+AUR_HELPER="yay-bin"               # paru[-[bin|git]] | yay[-[bin|git]]; "aurbuilder" will use this behind the scenes for some tasks. Comment this line to use "makepkg"
 SETUP_ZRAM=true                    # true | false; Improve zram settings if you enabled it in Arch installation
 USE_SWAPFILE=true                  # true | false; Enables a swapfile fallback, used only if zram is unavailable or insufficient and filesystem is not btrfs
 KERNEL="linux-zen"                 # Any available in the official repository or AUR; Comment this line to not install
@@ -804,6 +804,630 @@ function __set_global_variables() {
 	if [[ -n "$CPU" && "$__IS_WSL" == false ]]; then
 		__KERNEL_PKGLIST+=("${CPU}-ucode")
 	fi
+}
+
+# ==============================================================================
+# confset — Self-contained configuration file editor
+# ==============================================================================
+# A high-performance, safe, and extensible configuration file editor.
+# Supports .ini and .conf formats out of the box.
+#
+# DEPENDENCIES: bash (4.0+), sed, grep, mktemp, mv, chmod, stat, cat — all
+#               standard on any Linux system.
+#
+# ADDING NEW FORMATS:
+#   1. Create __confset_parse_<format>()  — sets __cs_sep and __cs_comment_char
+#   2. Create __confset_rebuild_<format>() — (optional) post-process the output
+#   3. Add the extension(s) to __confset_detect_format()
+#
+# USAGE:
+#   confset <operation> <file> [options...]
+#
+# OPERATIONS:
+#   set     <file> <key> <value> [section]  — Set a key=value (creates if missing)
+#   get     <file> <key> [section]          — Print the value of a key
+#   delete  <file> <key> [section]          — Remove a key entirely
+#   comment <file> <key> [section]          — Comment out a key
+#   uncomment <file> <key> [section]        — Uncomment a key
+#   exists  <file> <key> [section]          — Return 0 if key exists, 1 otherwise
+#   section-add    <file> <section>         — Add a new section header
+#   section-delete <file> <section>         — Remove an entire section and its keys
+#
+# OPTIONS:
+#   --format <ini|conf>   — Force a format instead of auto-detecting from extension
+#   --separator <char>    — Override the key-value separator (default: '=' for ini/conf)
+#   --backup              — Create a .bak backup before modifying
+#   --create              — Create the file if it doesn't exist
+#
+# EXAMPLES:
+#   confset set /etc/pacman.conf Color true misc
+#   confset get /etc/pacman.conf ParallelDownloads options
+#   confset delete ~/.config/app.ini theme ui
+#   confset set myfile.conf key value --format conf --backup
+# ==============================================================================
+# shellcheck disable=SC2329
+function confset() {
+	# -- Internal format handlers ----------------------------------------------
+
+	# Sets format-specific variables: __cs_sep, __cs_comment_char, __cs_space_around_sep
+	function __confset_parse_ini() {
+		__cs_sep='='
+		__cs_comment_char=';'
+		__cs_space_around_sep=true
+	}
+
+	function __confset_parse_conf() {
+		__cs_sep='='
+		__cs_comment_char='#'
+		__cs_space_around_sep=true
+	}
+
+	# Detect format from file extension, returns format name string
+	function __confset_detect_format() {
+		declare file_path="$1"
+		declare ext="${file_path##*.}"
+
+		case "$ext" in
+			ini)  printf 'ini'  ;;
+			conf) printf 'conf' ;;
+			*)    printf ''     ;;
+		esac
+	}
+
+	# -- Internal helpers ------------------------------------------------------
+
+	function __confset_err() {
+		printf 'confset: %s\n' "$1" >&2
+		return 1
+	}
+
+	# Build the regex to match a key line (optionally commented)
+	# Output: ERE pattern string
+	function __confset_key_pattern() {
+		declare key="$1"
+		declare comment_char="$2"
+		declare escaped_key escaped_sep
+
+		# Escape regex special chars in key and separator
+		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+
+		# Match: optional comment + optional whitespace + key + optional whitespace + separator
+		printf '^[%s]*[[:space:]]*%s[[:space:]]*%s' "$comment_char" "$escaped_key" "$escaped_sep"
+	}
+
+	# Build the regex to match a section header
+	function __confset_section_pattern() {
+		declare section="$1"
+		declare escaped_section
+
+		escaped_section=$(printf '%s' "$section" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		printf '^\[%s\]' "$escaped_section"
+	}
+
+	# Find the line range of a section: returns "start_line end_line" (1-indexed)
+	# end_line is the last line of the section (before next section or EOF)
+	function __confset_section_range() {
+		declare file_path="$1"
+		declare section="$2"
+		declare section_pat
+		declare -i start_line=0 end_line=0 total_lines
+
+		section_pat=$(__confset_section_pattern "$section")
+		total_lines=$(wc -l < "$file_path")
+
+		# Find the section header line
+		start_line=$(grep -n -m1 -E "$section_pat" "$file_path" 2>/dev/null | cut -d: -f1)
+
+		if [[ -z "$start_line" || "$start_line" -eq 0 ]]; then
+			printf '0 0'
+			return 1
+		fi
+
+		# Find the next section header after this one
+		if [[ $start_line -lt $total_lines ]]; then
+			end_line=$(tail -n +"$((start_line + 1))" "$file_path" | grep -n -m1 -E '^\[' 2>/dev/null | cut -d: -f1)
+			if [[ -n "$end_line" && "$end_line" -gt 0 ]]; then
+				end_line=$((start_line + end_line - 1))
+			else
+				end_line=$total_lines
+			fi
+		else
+			end_line=$total_lines
+		fi
+
+		printf '%d %d' "$start_line" "$end_line"
+	}
+
+	# Perform an atomic write: edits are applied to a temp file, then mv'd over
+	# $1 = original file, stdin = new content
+	function __confset_atomic_write() {
+		declare target="$1"
+		declare tmp_file dir_path
+		declare -i original_mode=0
+
+		dir_path=$(dirname "$target")
+		tmp_file=$(mktemp "${dir_path}/.confset.XXXXXX") || return 1
+
+		# Preserve original permissions
+		if [[ -f "$target" ]]; then
+			original_mode=$(stat -c '%a' "$target" 2>/dev/null) || original_mode=644
+		else
+			original_mode=644
+		fi
+
+		# Write stdin to temp file
+		cat > "$tmp_file" || { rm -f "$tmp_file"; return 1; }
+
+		# Set permissions before moving
+		chmod "$original_mode" "$tmp_file" 2>/dev/null
+
+		# Atomic replace
+		mv -f "$tmp_file" "$target" || { rm -f "$tmp_file"; return 1; }
+	}
+
+	# Format a key=value line according to current format settings
+	function __confset_format_kv() {
+		declare key="$1"
+		declare value="$2"
+
+		if $__cs_space_around_sep; then
+			printf '%s %s %s' "$key" "$__cs_sep" "$value"
+		else
+			printf '%s%s%s' "$key" "$__cs_sep" "$value"
+		fi
+	}
+
+	# -- Core operations -------------------------------------------------------
+
+	function __confset_op_set() {
+		declare file_path="$1"
+		declare key="$2"
+		declare value="$3"
+		declare section="$4"
+		declare key_pat new_line
+		declare -i found=0
+
+		key_pat=$(__confset_key_pattern "$key" "$__cs_comment_char")
+		new_line=$(__confset_format_kv "$key" "$value")
+
+		if [[ -n "$section" ]]; then
+			declare range start_line end_line
+			range=$(__confset_section_range "$file_path" "$section") || {
+				__confset_err "section '[$section]' not found in '$file_path'"
+				return 1
+			}
+			read -r start_line end_line <<< "$range"
+
+			# Check if key exists within section range
+			if sed -n "${start_line},${end_line}p" "$file_path" | grep -qE "$key_pat"; then
+				found=1
+			fi
+
+			if [[ $found -eq 1 ]]; then
+				# Replace the first matching key in the section
+				sed "${start_line},${end_line}s|${key_pat}.*|${new_line}|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			else
+				# Insert new key after section header
+				sed "${start_line}a\\${new_line}" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			fi
+		else
+			if grep -qE "$key_pat" "$file_path" 2>/dev/null; then
+				found=1
+			fi
+
+			if [[ $found -eq 1 ]]; then
+				sed "s|${key_pat}.*|${new_line}|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			else
+				# Append to end of file
+				{ cat "$file_path"; printf '%s\n' "$new_line"; } \
+					| __confset_atomic_write "$file_path"
+			fi
+		fi
+	}
+
+	function __confset_op_get() {
+		declare file_path="$1"
+		declare key="$2"
+		declare section="$3"
+		declare key_pat result
+
+		key_pat=$(__confset_key_pattern "$key" "$__cs_comment_char")
+
+		if [[ -n "$section" ]]; then
+			declare range start_line end_line
+			range=$(__confset_section_range "$file_path" "$section") || {
+				__confset_err "section '[$section]' not found in '$file_path'"
+				return 1
+			}
+			read -r start_line end_line <<< "$range"
+
+			result=$(sed -n "${start_line},${end_line}p" "$file_path" \
+				| grep -E "^[[:space:]]*${key//[.[\*^$()+?{|\\]/\\&}[[:space:]]*$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')" \
+				| head -1 \
+				| sed "s/^[[:space:]]*[^${__cs_sep}]*${__cs_sep}[[:space:]]*//" \
+				| sed 's/[[:space:]]*$//')
+		else
+			result=$(grep -E "^[[:space:]]*${key//[.[\*^$()+?{|\\]/\\&}[[:space:]]*$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')" "$file_path" \
+				| head -1 \
+				| sed "s/^[[:space:]]*[^${__cs_sep}]*${__cs_sep}[[:space:]]*//" \
+				| sed 's/[[:space:]]*$//')
+		fi
+
+		if [[ -z "$result" ]]; then
+			return 1
+		fi
+
+		printf '%s\n' "$result"
+	}
+
+	function __confset_op_delete() {
+		declare file_path="$1"
+		declare key="$2"
+		declare section="$3"
+		declare key_pat
+
+		key_pat=$(__confset_key_pattern "$key" "$__cs_comment_char")
+
+		if [[ -n "$section" ]]; then
+			declare range start_line end_line
+			range=$(__confset_section_range "$file_path" "$section") || {
+				__confset_err "section '[$section]' not found in '$file_path'"
+				return 1
+			}
+			read -r start_line end_line <<< "$range"
+
+			sed -n "${start_line},${end_line}p" "$file_path" | grep -qE "$key_pat" || {
+				__confset_err "key '$key' not found in section '[$section]'"
+				return 1
+			}
+
+			sed "${start_line},${end_line}{/${key_pat}/d}" "$file_path" \
+				| __confset_atomic_write "$file_path"
+		else
+			grep -qE "$key_pat" "$file_path" 2>/dev/null || {
+				__confset_err "key '$key' not found in '$file_path'"
+				return 1
+			}
+
+			sed "/${key_pat}/d" "$file_path" \
+				| __confset_atomic_write "$file_path"
+		fi
+	}
+
+	function __confset_op_comment() {
+		declare file_path="$1"
+		declare key="$2"
+		declare section="$3"
+		declare escaped_key escaped_sep active_pat
+
+		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		# Match only active (non-commented) lines
+		active_pat="^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+
+		if [[ -n "$section" ]]; then
+			declare range start_line end_line
+			range=$(__confset_section_range "$file_path" "$section") || {
+				__confset_err "section '[$section]' not found in '$file_path'"
+				return 1
+			}
+			read -r start_line end_line <<< "$range"
+
+			sed -n "${start_line},${end_line}p" "$file_path" | grep -qE "$active_pat" || {
+				__confset_err "active key '$key' not found in section '[$section]'"
+				return 1
+			}
+
+			sed "${start_line},${end_line}s|^\\([[:space:]]*\\)\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
+				| __confset_atomic_write "$file_path"
+		else
+			grep -qE "$active_pat" "$file_path" 2>/dev/null || {
+				__confset_err "active key '$key' not found in '$file_path'"
+				return 1
+			}
+
+			sed "s|^\\([[:space:]]*\\)\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
+				| __confset_atomic_write "$file_path"
+		fi
+	}
+
+	function __confset_op_uncomment() {
+		declare file_path="$1"
+		declare key="$2"
+		declare section="$3"
+		declare escaped_key escaped_sep commented_pat
+
+		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		# Match commented lines: comment_char + optional space + key
+		commented_pat="^[[:space:]]*[${__cs_comment_char}]+[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+
+		if [[ -n "$section" ]]; then
+			declare range start_line end_line
+			range=$(__confset_section_range "$file_path" "$section") || {
+				__confset_err "section '[$section]' not found in '$file_path'"
+				return 1
+			}
+			read -r start_line end_line <<< "$range"
+
+			sed -n "${start_line},${end_line}p" "$file_path" | grep -qE "$commented_pat" || {
+				__confset_err "commented key '$key' not found in section '[$section]'"
+				return 1
+			}
+
+			sed "${start_line},${end_line}s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1\\2|" "$file_path" \
+				| __confset_atomic_write "$file_path"
+		else
+			grep -qE "$commented_pat" "$file_path" 2>/dev/null || {
+				__confset_err "commented key '$key' not found in '$file_path'"
+				return 1
+			}
+
+			sed "s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1\\2|" "$file_path" \
+				| __confset_atomic_write "$file_path"
+		fi
+	}
+
+	function __confset_op_exists() {
+		declare file_path="$1"
+		declare key="$2"
+		declare section="$3"
+		declare escaped_key escaped_sep active_pat
+
+		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		active_pat="^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+
+		if [[ -n "$section" ]]; then
+			declare range start_line end_line
+			range=$(__confset_section_range "$file_path" "$section") || return 1
+			read -r start_line end_line <<< "$range"
+
+			sed -n "${start_line},${end_line}p" "$file_path" | grep -qE "$active_pat"
+		else
+			grep -qE "$active_pat" "$file_path" 2>/dev/null
+		fi
+	}
+
+	function __confset_op_section_add() {
+		declare file_path="$1"
+		declare section="$2"
+		declare section_pat
+
+		section_pat=$(__confset_section_pattern "$section")
+
+		if grep -qE "$section_pat" "$file_path" 2>/dev/null; then
+			__confset_err "section '[$section]' already exists in '$file_path'"
+			return 1
+		fi
+
+		{ cat "$file_path"; printf '\n[%s]\n' "$section"; } \
+			| __confset_atomic_write "$file_path"
+	}
+
+	function __confset_op_section_delete() {
+		declare file_path="$1"
+		declare section="$2"
+		declare range start_line end_line
+
+		range=$(__confset_section_range "$file_path" "$section") || {
+			__confset_err "section '[$section]' not found in '$file_path'"
+			return 1
+		}
+		read -r start_line end_line <<< "$range"
+
+		sed "${start_line},${end_line}d" "$file_path" \
+			| __confset_atomic_write "$file_path"
+	}
+
+	# -- Argument parsing & dispatch -------------------------------------------
+
+	declare operation="$1"
+	declare file_path="$2"
+
+	if [[ -z "$operation" ]]; then
+		__confset_err "missing operation. Usage: confset <operation> <file> [options...]"
+		return 1
+	fi
+
+	if [[ -z "$file_path" ]]; then
+		__confset_err "missing file path. Usage: confset <operation> <file> [options...]"
+		return 1
+	fi
+
+	shift 2
+
+	# Collect positional args and flags
+	declare -a positional_args=()
+	declare opt_format="" opt_separator="" opt_backup=false opt_create=false
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			--format)
+				opt_format="$2"
+				shift 2
+				;;
+			--separator)
+				opt_separator="$2"
+				shift 2
+				;;
+			--backup)
+				opt_backup=true
+				shift
+				;;
+			--create)
+				opt_create=true
+				shift
+				;;
+			--)
+				shift
+				positional_args+=("$@")
+				break
+				;;
+			--*)
+				__confset_err "unknown option: $1"
+				return 1
+				;;
+			*)
+				positional_args+=("$1")
+				shift
+				;;
+		esac
+	done
+
+	# Handle file existence
+	if [[ ! -f "$file_path" ]]; then
+		if $opt_create; then
+			declare parent_dir
+			parent_dir=$(dirname "$file_path")
+			[[ -d "$parent_dir" ]] || mkdir -p "$parent_dir" || {
+				__confset_err "failed to create directory '$parent_dir'"
+				return 1
+			}
+			touch "$file_path" || {
+				__confset_err "failed to create file '$file_path'"
+				return 1
+			}
+		elif [[ "$operation" == "get" || "$operation" == "exists" ]]; then
+			# For read-only operations, just return failure
+			return 1
+		else
+			__confset_err "file '$file_path' does not exist (use --create to create it)"
+			return 1
+		fi
+	fi
+
+	# Detect or apply format
+	declare format="$opt_format"
+	if [[ -z "$format" ]]; then
+		format=$(__confset_detect_format "$file_path")
+		if [[ -z "$format" ]]; then
+			__confset_err "cannot detect format for '$file_path'. Use --format <ini|conf>"
+			return 1
+		fi
+	fi
+
+	# Initialize format-specific variables
+	declare __cs_sep __cs_comment_char __cs_space_around_sep=false
+
+	if declare -F "__confset_parse_${format}" &>/dev/null; then
+		"__confset_parse_${format}"
+	else
+		__confset_err "unsupported format: '$format'"
+		return 1
+	fi
+
+	# Override separator if specified
+	if [[ -n "$opt_separator" ]]; then
+		__cs_sep="$opt_separator"
+	fi
+
+	# Create backup if requested
+	if $opt_backup && [[ -f "$file_path" ]]; then
+		cp -p "$file_path" "${file_path}.bak" || {
+			__confset_err "failed to create backup of '$file_path'"
+			return 1
+		}
+	fi
+
+	# Dispatch operation
+	case "$operation" in
+		set)
+			declare cs_key="${positional_args[0]}"
+			declare cs_value="${positional_args[1]}"
+			declare cs_section="${positional_args[2]}"
+
+			if [[ -z "$cs_key" ]]; then
+				__confset_err "'set' requires: confset set <file> <key> <value> [section]"
+				return 1
+			fi
+
+			__confset_op_set "$file_path" "$cs_key" "$cs_value" "$cs_section"
+			;;
+		get)
+			declare cs_key="${positional_args[0]}"
+			declare cs_section="${positional_args[1]}"
+
+			if [[ -z "$cs_key" ]]; then
+				__confset_err "'get' requires: confset get <file> <key> [section]"
+				return 1
+			fi
+
+			__confset_op_get "$file_path" "$cs_key" "$cs_section"
+			;;
+		delete)
+			declare cs_key="${positional_args[0]}"
+			declare cs_section="${positional_args[1]}"
+
+			if [[ -z "$cs_key" ]]; then
+				__confset_err "'delete' requires: confset delete <file> <key> [section]"
+				return 1
+			fi
+
+			__confset_op_delete "$file_path" "$cs_key" "$cs_section"
+			;;
+		comment)
+			declare cs_key="${positional_args[0]}"
+			declare cs_section="${positional_args[1]}"
+
+			if [[ -z "$cs_key" ]]; then
+				__confset_err "'comment' requires: confset comment <file> <key> [section]"
+				return 1
+			fi
+
+			__confset_op_comment "$file_path" "$cs_key" "$cs_section"
+			;;
+		uncomment)
+			declare cs_key="${positional_args[0]}"
+			declare cs_section="${positional_args[1]}"
+
+			if [[ -z "$cs_key" ]]; then
+				__confset_err "'uncomment' requires: confset uncomment <file> <key> [section]"
+				return 1
+			fi
+
+			__confset_op_uncomment "$file_path" "$cs_key" "$cs_section"
+			;;
+		exists)
+			declare cs_key="${positional_args[0]}"
+			declare cs_section="${positional_args[1]}"
+
+			if [[ -z "$cs_key" ]]; then
+				__confset_err "'exists' requires: confset exists <file> <key> [section]"
+				return 1
+			fi
+
+			__confset_op_exists "$file_path" "$cs_key" "$cs_section"
+			;;
+		section-add)
+			declare cs_section="${positional_args[0]}"
+
+			if [[ -z "$cs_section" ]]; then
+				__confset_err "'section-add' requires: confset section-add <file> <section>"
+				return 1
+			fi
+
+			__confset_op_section_add "$file_path" "$cs_section"
+			;;
+		section-delete)
+			declare cs_section="${positional_args[0]}"
+
+			if [[ -z "$cs_section" ]]; then
+				__confset_err "'section-delete' requires: confset section-delete <file> <section>"
+				return 1
+			fi
+
+			__confset_op_section_delete "$file_path" "$cs_section"
+			;;
+		*)
+			__confset_err "unknown operation: '$operation'. Valid: set, get, delete, comment, uncomment, exists, section-add, section-delete"
+			return 1
+			;;
+	esac
 }
 
 __is_valid_semver() {
