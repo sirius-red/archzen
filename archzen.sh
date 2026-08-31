@@ -168,7 +168,11 @@ if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
 	__IS_WSL=true
 fi
 
-__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
+if [ -z "$__LOG_FILE" ]; then
+	declare -x __LOG_FILE
+	__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
+fi
+
 __USERNAME="${SUDO_USER:-$(whoami)}"
 __USERHOME="$(eval echo "~${__USERNAME}")"
 
@@ -3474,7 +3478,7 @@ function setup_user_dirs() {
 		printf '%sSetting user directory %s... %s' "$(__info)" "$dir" "$result_text"
 
 		if mkdir -p "$path" &>>"$__LOG_FILE" &&
-			xdg-user-dirs-update --force --set "$dir" "$path" &>>"$__LOG_FILE" &&
+			sudo -EHu "$__USERNAME" xdg-user-dirs-update --force --set "$dir" "$path" | tee -a "$__LOG_FILE" &&
 			__takeown "$path"; then
 			__update_result_text 1 info
 		else
@@ -3483,7 +3487,7 @@ function setup_user_dirs() {
 		fi
 	done
 
-	xdg-user-dirs-update &>>"$__LOG_FILE"
+	sudo -EHu "$__USERNAME" xdg-user-dirs-update | tee -a "$__LOG_FILE"
 
 	__reset_line
 	if [ $updated_count -eq $total_count ]; then
