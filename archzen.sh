@@ -56,7 +56,7 @@ declare -x \
 	__QUIET \
 	__ARCHINSTALL_PRESET \
 	__USERNAME \
-	__USER_HOME \
+	__USERHOME \
 	__AUR_HELPER_BIN \
 	__AUR_HELPER_IS_INSTALLED \
 	__ESP \
@@ -170,23 +170,23 @@ fi
 
 __LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
 __USERNAME="${SUDO_USER:-$(whoami)}"
-__USER_HOME="$(eval echo "~${__USERNAME}")"
+__USERHOME="$(eval echo "~${__USERNAME}")"
 
 __SHELL_PROFILES=(
-	[default]="${__USER_HOME}/.profile"
-	[bash]="${__USER_HOME}/.bash_profile"
-	[zsh]="${__USER_HOME}/.zprofile"
-	[fish]="${__USER_HOME}/.config/fish/config.fish"
-	[csh]="${__USER_HOME}/.login"
-	[tcsh]="${__USER_HOME}/.login"
-	[ksh]="${__USER_HOME}/.profile"
-	[mksh]="${__USER_HOME}/.profile"
-	[dash]="${__USER_HOME}/.profile"
-	[ash]="${__USER_HOME}/.profile"
-	[xonsh]="${__USER_HOME}/.xonshrc"
-	[elvish]="${__USER_HOME}/.config/elvish/rc.elv"
-	[nushell]="${__USER_HOME}/.config/nushell/config.nu"
-	[yash]="${__USER_HOME}/.profile"
+	[default]="${__USERHOME}/.profile"
+	[bash]="${__USERHOME}/.bash_profile"
+	[zsh]="${__USERHOME}/.zprofile"
+	[fish]="${__USERHOME}/.config/fish/config.fish"
+	[csh]="${__USERHOME}/.login"
+	[tcsh]="${__USERHOME}/.login"
+	[ksh]="${__USERHOME}/.profile"
+	[mksh]="${__USERHOME}/.profile"
+	[dash]="${__USERHOME}/.profile"
+	[ash]="${__USERHOME}/.profile"
+	[xonsh]="${__USERHOME}/.xonshrc"
+	[elvish]="${__USERHOME}/.config/elvish/rc.elv"
+	[nushell]="${__USERHOME}/.config/nushell/config.nu"
+	[yash]="${__USERHOME}/.profile"
 )
 
 # [TYPE]="possible values in a space separated format"
@@ -2639,7 +2639,7 @@ function __install_gnome_extensions() {
 	declare result_text=""
 	declare -a gnome_ext_dirs=(
 		"${__ROOT}/usr/share/gnome-shell/extensions"
-		"${__USER_HOME}/.local/share/gnome-shell/extensions"
+		"${__USERHOME}/.local/share/gnome-shell/extensions"
 	)
 	declare force_restart_requirement=false
 	declare -a version_fixed_extensions=()
@@ -3408,6 +3408,30 @@ function setup_locale() {
 	localectl set-locale LANG=$LOCALE
 }
 
+function setup_user_dirs() {
+	declare pairs=(
+		"DESKTOP=desktop"
+		"DOCUMENTS=documents"
+		"DOWNLOAD=downloads"
+		"MUSIC=music"
+		"PICTURES=pictures"
+		"PROJECTS=projects"
+		"PUBLICSHARE=public"
+		"TEMPLATES=templates"
+		"VIDEOS=videos"
+	)
+
+	for pair in "${pairs[@]}"; do
+		declare dir="${pair%=*}"
+		declare path="${__USERHOME}/${pair#*=}"
+
+		mkdir -p "$path"
+		xdg-user-dirs-update --force --set "$dir" "$path"
+	done
+
+	xdg-user-dirs-update
+}
+
 function install_aurbuilder() {
 	__title "Installing aurbuilder"
 
@@ -3773,8 +3797,8 @@ function install_desktop_profile() {
 		function __setup_desktop_profile() {
 			__install_gnome_extensions
 
-			cp -f "$__ARCHZEN_GNOME_MIMEAPPS_LIST_FILE" "${__USER_HOME}/.config/mimeapps.list" &>>"$__LOG_FILE" &&
-				__takeown "${__USER_HOME}/.config/mimeapps.list"
+			cp -f "$__ARCHZEN_GNOME_MIMEAPPS_LIST_FILE" "${__USERHOME}/.config/mimeapps.list" &>>"$__LOG_FILE" &&
+				__takeown "${__USERHOME}/.config/mimeapps.list"
 		}
 		;;
 	plasma)
@@ -3920,7 +3944,7 @@ function setup_hyprland() {
 	}
 
 	function __apply_hyprland_settings() {
-		declare target_config_dir="${__USER_HOME}/.config"
+		declare target_config_dir="${__USERHOME}/.config"
 		declare -a config_files=()
 		declare success=false
 
@@ -3948,7 +3972,7 @@ function setup_hyprland() {
 				__apply_template_values __HYPR_TEMPLATE_VALUES "$final_path"
 		done && success=true
 
-		$success && __takeown "$__USER_HOME" && return 0
+		$success && __takeown "$__USERHOME" && return 0
 
 		__error "Error applying $(__error_params 'Hyprland Settings')"
 		return 1
@@ -4075,9 +4099,9 @@ function setup_dotfiles() {
 	total_count+=${#items[@]}
 
 	for i in "${items[@]}"; do
-		declare final_path="${__USER_HOME}/${i}"
+		declare final_path="${__USERHOME}/${i}"
 
-		cp -f --parents "$i" "$__USER_HOME" &>>"$__LOG_FILE" &&
+		cp -f --parents "$i" "$__USERHOME" &>>"$__LOG_FILE" &&
 			__takeown "$final_path" &&
 			{
 				# This is necessary to be in a block without `&&` because the increment `((installed_count++))`
@@ -4105,7 +4129,7 @@ function setup_dotfiles() {
 		printf 'Dotfiles items not installed:\n%s%s' '  - ' "${not_installed_items[@]}"
 	fi
 
-	__takeown "$__USER_HOME"
+	__takeown "$__USERHOME"
 
 	return $exit_code
 }
@@ -4178,12 +4202,12 @@ function setup_vscode() {
 
 		for f in "${files[@]}"; do
 			f="${f/\/Code/\/$code_folder}"
-			declare final_path="${__USER_HOME}/.config/${f}"
+			declare final_path="${__USERHOME}/.config/${f}"
 
 			__reset_line
 			printf "%sApplying settings: %s" "$(__info)" "$settings_result_text"
 
-			cp -f --parents "$f" "${__USER_HOME}/.config" &>>"$__LOG_FILE" &&
+			cp -f --parents "$f" "${__USERHOME}/.config" &>>"$__LOG_FILE" &&
 				__takeown "$final_path" &&
 				{
 					((applied_files++))
@@ -4201,7 +4225,7 @@ function setup_vscode() {
 	__reset_line
 	__apply_settings
 	__reset_line
-	__apply_template_values __VSCODE_TEMPLATE_VALUES "${__USER_HOME}/.config/${code_folder}/User/settings.json"
+	__apply_template_values __VSCODE_TEMPLATE_VALUES "${__USERHOME}/.config/${code_folder}/User/settings.json"
 	__takeown /opt/visual-studio-code
 
 	if [[ $installed_extensions -eq $total_extensions && $applied_files -eq $total_files ]]; then
@@ -4219,7 +4243,7 @@ function setup_vscode() {
 	printf "%s\n" "$result_message"
 	__info "After starting the VS Code for the first time, run the command \`$(__info_params "Enable Custom CSS and JS Loader")\`"
 
-	__takeown "$__USER_HOME"
+	__takeown "$__USERHOME"
 
 	return $exit_code
 }
@@ -4353,6 +4377,7 @@ function setup_archlinux() {
 		setup_pacman || return $?
 		rate_mirrors || return $?
 		setup_locale
+		setup_user_dirs
 		touch "$__VAR_INITIAL_OS_SETUP_INSTALLED" || return $?
 	fi
 
