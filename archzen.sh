@@ -162,6 +162,7 @@ __DEPENDENCIES=(
 	sed
 	xz
 	expac
+	xdg-user-dirs
 )
 
 if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
@@ -454,7 +455,6 @@ function __set_global_variables() {
 	__TERMINAL_PKGLIST=(
 		less
 		wget
-		xdg-user-dirs
 		fastfetch
 		neovim
 		arch-install-scripts
@@ -1921,8 +1921,8 @@ function __log() {
 
 function __title() {
 	declare message formatted
-	message="$*"
-	formatted="$(__purple "[#]") ${message}"
+	message="[#] $*"
+	formatted="$(__purple "[#]") $*"
 
 	__log "$message" "$formatted"
 	return 0
@@ -1955,8 +1955,8 @@ function __question_params() {
 
 function __info() {
 	declare message formatted
-	message="$*"
-	formatted="$(__blue "[i]") ${message}"
+	message="[i] $*"
+	formatted="$(__blue "[i]") $*"
 
 	__log "$message" "$formatted"
 	return 0
@@ -1970,8 +1970,8 @@ function __info_params() {
 
 function __success() {
 	declare message formatted
-	message="$*"
-	formatted="$(__green "[+]") ${message}"
+	message="[+] $*"
+	formatted="$(__green "[+]") $*"
 
 	__log "$message" "$formatted"
 	return 0
@@ -1985,8 +1985,8 @@ function __success_params() {
 
 function __warn() {
 	declare message formatted
-	message="$*"
-	formatted="$(__yellow "[!]") ${message}"
+	message="[!] $*"
+	formatted="$(__yellow "[!]") $*"
 
 	__log "$message" "$formatted"
 	return 0
@@ -2000,8 +2000,8 @@ function __warn_params() {
 
 function __error() {
 	declare message formatted
-	message="$*"
-	formatted="$(__red "[x]") ${message}"
+	message="[x] $*"
+	formatted="$(__red "[x]") $*"
 
 	__log "$message" "$formatted"
 	return 1
@@ -3432,6 +3432,11 @@ function setup_locale() {
 }
 
 function setup_user_dirs() {
+	if ! __is_installed xdg-user-dirs; then
+		__warn "The package \"xdg-user-dirs\" is not installed\n    Installs  with \`pacman -S xdg-user-dirs\`"
+		return 0
+	fi
+
 	declare -a pairs=(
 		"DESKTOP=desktop"
 		"DOCUMENTS=documents"
@@ -3873,7 +3878,7 @@ function install_other_packages() {
 }
 
 function install_gpu_drivers() {
-	$__IS_WSL && return
+	$__IS_WSL && return 0
 	[ -n "$GPU" ] || return
 
 	declare success=false

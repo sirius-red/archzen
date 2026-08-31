@@ -1,11 +1,11 @@
 # @fish-lsp-disable 2002
 
 # Replace ls with eza
-alias ls='eza --color=always --group-directories-first --icons' # preferred listing
-alias la='eza -a --color=always --group-directories-first --icons' # all files and dirs
-alias ll='eza -l --color=always --group-directories-first --icons' # long format
-alias lla='eza -la --color=always --group-directories-first --icons' # all files in long format
-alias lt='eza -aT --color=always --group-directories-first --icons' # tree listing
+alias ls='eza --color=always --group-directories-first --icons=always' # preferred listing
+alias la='eza -a --color=always --group-directories-first --icons=always' # all files and dirs
+alias ll='eza -l --color=always --group-directories-first --icons=always' # long format
+alias lla='eza -la --color=always --group-directories-first --icons=always' # all files in long format
+alias lt='eza -aT --color=always --group-directories-first --icons=always' # tree listing
 alias l.="eza -a | grep -e '^\.'" # show only dotfiles
 
 # Dir navigation shortcuts
@@ -74,7 +74,7 @@ alias snap-stop='systemctl stop snapd.apparmor.service && systemctl stop snapd.s
 
 # pacboy aliases
 if type -q pacboy
-	alias pb='pacboy'
-	alias pbf='pb find'
-	alias pbs='pb sync'
+    alias pb='pacboy'
+    alias pbf='pb find'
+    alias pbs='pb sync'
 end
