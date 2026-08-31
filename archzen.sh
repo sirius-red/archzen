@@ -3399,17 +3399,36 @@ function rate_mirrors() {
 
 function setup_locale() {
 	declare curr_locale
-	curr_locale="$(localectl status | grep -e 'LANG=' | cut -d'=' -f2)"
+	declare locale_gen="${__ROOT}/etc/locale.gen"
+	declare success=false
 
-	[[ "$LOCALE" == "$curr_locale" ]] && return 0
+	curr_locale="$(localectl status 2>>"$__LOG_FILE" | grep -e 'LANG=' | cut -d'=' -f2)"
 
-	confset uncoment /etc/locale.gen $LOCALE --format conf --separator ' '
-	locale-gen
-	localectl set-locale LANG=$LOCALE
+	__title "Configuring locale: $(__title_params "$LOCALE")"
+
+	if [[ "$LOCALE" == "$curr_locale" ]]; then
+		__info "Locale is already configured: $(__info_params "$LOCALE")"
+		return 0
+	fi
+
+	confset uncomment "$locale_gen" "$LOCALE" --format conf --separator ' ' &>>"$__LOG_FILE"
+
+	if locale-gen &>>"$__LOG_FILE" &&
+		localectl set-locale LANG="$LOCALE" &>>"$__LOG_FILE"; then
+		success=true
+	fi
+
+	if $success; then
+		__success "Locale configured successfully: $(__success_params "$LOCALE")"
+		return 0
+	else
+		__error "Error configuring locale: $(__error_params "$LOCALE")"
+		return 1
+	fi
 }
 
 function setup_user_dirs() {
-	declare pairs=(
+	declare -a pairs=(
 		"DESKTOP=desktop"
 		"DOCUMENTS=documents"
 		"DOWNLOAD=downloads"
@@ -3420,16 +3439,74 @@ function setup_user_dirs() {
 		"TEMPLATES=templates"
 		"VIDEOS=videos"
 	)
+	declare -i updated_count=0
+	declare -i total_count=${#pairs[@]}
+	declare -i exit_code=0
+	declare result_text=""
+	declare -a not_updated_dirs=()
+
+	__title "Setting up user directories"
+
+	function __update_result_text() {
+		declare -i increment=$1
+		declare log_type="$2"
+
+		((updated_count += increment))
+		result_text="(${updated_count}/${total_count}) directories"
+
+		case "$log_type" in
+		title) result_text="$(__title_params "$result_text")" ;;
+		info) result_text="$(__info_params "$result_text")" ;;
+		success) result_text="$(__success_params "$result_text")" ;;
+		warn) result_text="$(__warn_params "$result_text")" ;;
+		error) result_text="$(__error_params "$result_text")" ;;
+		*) result_text="$(__bold "$result_text")" ;;
+		esac
+	}
+
+	__update_result_text 0 info
 
 	for pair in "${pairs[@]}"; do
 		declare dir="${pair%=*}"
 		declare path="${__USERHOME}/${pair#*=}"
 
-		mkdir -p "$path"
-		xdg-user-dirs-update --force --set "$dir" "$path"
+		__reset_line
+		printf '%sSetting user directory %s... %s' "$(__info)" "$dir" "$result_text"
+
+		if mkdir -p "$path" &>>"$__LOG_FILE" &&
+			xdg-user-dirs-update --force --set "$dir" "$path" &>>"$__LOG_FILE" &&
+			__takeown "$path"; then
+			__update_result_text 1 info
+		else
+			not_updated_dirs+=("$dir")
+			__update_result_text 0 warn
+		fi
 	done
 
-	xdg-user-dirs-update
+	xdg-user-dirs-update &>>"$__LOG_FILE"
+
+	__reset_line
+	if [ $updated_count -eq $total_count ]; then
+		__update_result_text 0 success
+		printf '%s\t%s\n' "$(__success 'User directories configured successfully.')" "$result_text"
+		exit_code=0
+	elif [ $updated_count -gt 0 ]; then
+		__update_result_text 0 warn
+		printf '%s\t%s\n' "$(__warn 'User directories configured with some errors.')" "$result_text"
+		exit_code=0
+	else
+		__update_result_text 0 error
+		printf '%s\t%s\n' "$(__error 'Error configuring user directories.')" "$result_text"
+		exit_code=1
+	fi
+
+	if [ $updated_count -ne $total_count ]; then
+		printf 'Directories not configured:\n%s%s' '  - ' "${not_updated_dirs[@]}"
+	fi
+
+	[ -f "${__USERHOME}/.config/user-dirs.dirs" ] && __takeown "${__USERHOME}/.config/user-dirs.dirs"
+
+	return $exit_code
 }
 
 function install_aurbuilder() {
@@ -3604,23 +3681,82 @@ function setup_bootloader() {
 function setup_wsl() {
 	$__IS_WSL || return 0
 
-	# Sets the default user
-	if [ -n "$__USERNAME" ]; then
-		confset set "$__WSL_CONF" default "$__USERNAME" user
-	fi
+	declare -i return_code=0
 
-	# Enables GUI in WSL
-	if $WSL_ENABLE_GUI; then
-		__install_pkglist "${__WSL_GUI_PKGLIST[@]}"
+	__title "Configuring WSL"
 
+	function __set_default_user() {
+		[ -n "$__USERNAME" ] || return 0
+
+		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
+
+		if [ ! -f "$__WSL_CONF" ]; then
+			touch "$__WSL_CONF" &>>"$__LOG_FILE"
+		fi
+
+		if ! grep -qE "^\[user\]" "$__WSL_CONF" 2>/dev/null; then
+			confset section-add "$__WSL_CONF" "user" &>>"$__LOG_FILE"
+		fi
+
+		if confset set "$__WSL_CONF" default "$__USERNAME" user &>>"$__LOG_FILE"; then
+			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
+			return 0
+		else
+			__error "Error setting default WSL user: $(__error_params "$__USERNAME")"
+			return 1
+		fi
+	}
+
+	function __setup_wsl_gui() {
+		$WSL_ENABLE_GUI || return 0
+
+		declare -i exit_code=0
 		declare v='d3d12'
-		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
-			confset set /etc/environment $k $v --format conf --create
-		done
-	fi
+		declare env_file="${__ROOT}/etc/environment"
 
-	# Enables interoperability between WSL and Windows, and GUI support in WSL
-	confset set "$__WSL_CONF" enabled $WSL_ENABLE_INTEROP interop
+		__title "Configuring WSL GUI support"
+
+		if [ ${#__WSL_GUI_PKGLIST[@]} -gt 0 ]; then
+			__install_pkglist "${__WSL_GUI_PKGLIST[@]}" || exit_code=1
+		fi
+
+		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
+			if confset set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
+				__success "Environment variable configured successfully: $(__success_params "${k}=${v}")"
+			else
+				__error "Error setting environment variable: $(__error_params "${k}=${v}")"
+				exit_code=1
+			fi
+		done
+
+		return $exit_code
+	}
+
+	function __setup_wsl_interop() {
+		__title "Configuring WSL interop"
+
+		if [ ! -f "$__WSL_CONF" ]; then
+			touch "$__WSL_CONF" &>>"$__LOG_FILE"
+		fi
+
+		if ! grep -qE "^\[interop\]" "$__WSL_CONF" 2>/dev/null; then
+			confset section-add "$__WSL_CONF" "interop" &>>"$__LOG_FILE"
+		fi
+
+		if confset set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop &>>"$__LOG_FILE"; then
+			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
+			return 0
+		else
+			__error "Error configuring WSL interop: $(__error_params "enabled=${WSL_ENABLE_INTEROP}")"
+			return 1
+		fi
+	}
+
+	__set_default_user || return_code=1
+	__setup_wsl_gui || return_code=1
+	__setup_wsl_interop || return_code=1
+
+	return $return_code
 }
 
 function setup_os() {
