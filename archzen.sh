@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# >>>>>>>>>>>>>>>>>>>>>>>> Main Settings >>>>>>>>>>>>>>>>>>>>>>>>
+LOCALE="en_US.UTF-8"               # Use `cat /usr/share/i18n/SUPPORTED | cut -d' ' -f1` to list possible values
 KB_LAYOUT="us"                     # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
 KB_VARIANT="intl,altgr-intl"       # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
 TIMESTAMP_TIMEOUT=-1               # number of minutes before the sudo password prompt times out, or -1 for no timeout
@@ -21,9 +23,21 @@ ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS reposito
 # EXPLORER="dolphin"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 # BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
 # NOTE="obsidian"                  # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
+# <<<<<<<<<<<<<<<<<<<<<<<< Main Settings <<<<<<<<<<<<<<<<<<<<<<<<
+
+# >>>>>>>>>>>>>>>>>>>>>>>> WSL Settings >>>>>>>>>>>>>>>>>>>>>>>>
+# These variables will be ignored if archzen is not running on a
+# WSL installation.
+# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+WSL_ENABLE_GUI=true     # Enables GUI in WSL
+WSL_ENABLE_INTEROP=true # Enables interoperability between WSL and Windows, and GUI support in WSL
+WSL_PKGLIST=()          # Packages to install on WSL
+# <<<<<<<<<<<<<<<<<<<<<<<< WSL Settings <<<<<<<<<<<<<<<<<<<<<<<<
 
 # Delay to reboot system automatically in seconds
 declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
+
+declare -x CONFSET_ENABLE_BACKUP=true
 
 declare -x \
 	__VERSION="0.0.1" \
@@ -32,6 +46,7 @@ declare -x \
 	__MOUNT_DIR="/mnt/archinstall" \
 	__FORCE_REBOOT_SYSTEM=false \
 	__IS_WSL=false \
+	__WSL_CONF="/etc/wsl.conf" \
 	__LOG_FILE \
 	__COMMAND_ARG \
 	__ARCHZEN_IS_RUNNING_FROM_BINARY \
@@ -40,7 +55,7 @@ declare -x \
 	__THIS_SCRIPT \
 	__QUIET \
 	__ARCHINSTALL_PRESET \
-	__USER_NAME \
+	__USERNAME \
 	__USER_HOME \
 	__AUR_HELPER_BIN \
 	__AUR_HELPER_IS_INSTALLED \
@@ -111,6 +126,8 @@ declare -xa \
 	__HYDE_PACKAGE_BLACKLIST \
 	__HYDE_SERVICE_BLACKLIST \
 	__OTHERS_PKGLIST \
+	__WSL_PKGLIST \
+	__WSL_GUI_PKGLIST \
 	__GNOME_EXTENSIONS \
 	__VSCODE_EXTENSIONS
 
@@ -152,8 +169,8 @@ if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
 fi
 
 __LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
-__USER_NAME="${SUDO_USER:-$(whoami)}"
-__USER_HOME="$(eval echo "~${__USER_NAME}")"
+__USERNAME="${SUDO_USER:-$(whoami)}"
+__USER_HOME="$(eval echo "~${__USERNAME}")"
 
 __SHELL_PROFILES=(
 	[default]="${__USER_HOME}/.profile"
@@ -716,6 +733,21 @@ function __set_global_variables() {
 		kvantum
 		vesktop
 	)
+
+	__WSL_PKGLIST=(xdg-utils)
+
+	__WSL_GUI_PKGLIST=(
+		mesa
+		vulkan-icd-loader
+	)
+
+	if $PACMAN_ENABLE_MULTILIB; then
+		__WSL_GUI_PKGLIST+=(lib32-vulkan-icd-loader)
+	fi
+
+	if [ ${#WSL_PKGLIST[@]} -gt 0 ]; then
+		__WSL_PKGLIST+=("${WSL_PKGLIST[@]}")
+	fi
 
 	__GNOME_EXTENSIONS=(
 		'AppIndicator and KStatusNotifierItem Support:appindicatorsupport@rgcjonas.gmail.com'
@@ -1323,7 +1355,7 @@ function confset() {
 	fi
 
 	# Create backup if requested
-	if $opt_backup && [[ -f "$file_path" ]]; then
+	if [[ $CONFSET_ENABLE_BACKUP || $opt_backup ]] && [[ -f "$file_path" ]]; then
 		cp -p "$file_path" "${file_path}.bak" || {
 			__confset_err "failed to create backup of '$file_path'"
 			return 1
@@ -1859,14 +1891,14 @@ function __banner() {
 	printf "${pad}%$((width - 4))s${pad}\n"
 	[ "${#info_lines}" -gt 0 ] && printf "${pad}%s${pad}\n" "$separator"
 	for line in "${info_lines[@]}"; do
-		key="$(echo "$line" | cut -d':' -f1):"
+		k="$(echo "$line" | cut -d':' -f1):"
 		value="$(echo "$line" | cut -d':' -f2-)"
 		if [[ "$line" =~ ^REF_URL: ]]; then
-			key="${key//?/ }"
+			k="${k//?/ }"
 		else
 			printf "${pad}%$((width - 4))s${pad}\n"
 		fi
-		echo -e "${pad} $key $(__colorize "$primary_color" "$value") $(printf "%$((width - ${#key} - ${#value} - 7))s")${pad}"
+		echo -e "${pad} $k $(__colorize "$primary_color" "$value") $(printf "%$((width - ${#k} - ${#value} - 7))s")${pad}"
 	done
 	[ "${#info_lines}" -gt 0 ] && printf "${pad}%$((width - 4))s${pad}\n"
 	echo "$edge"
@@ -2103,7 +2135,7 @@ function __aur_install() {
 
 	if $__AUR_HELPER_IS_INSTALLED; then
 		{
-			sudo -Hu "$__USER_NAME" "$__AUR_HELPER_BIN" -S --noconfirm "${packages[@]}" ||
+			sudo -Hu "$__USERNAME" "$__AUR_HELPER_BIN" -S --noconfirm "${packages[@]}" ||
 				exit_code=1
 		} &>>"$__LOG_FILE"
 	else
@@ -2391,10 +2423,10 @@ function __apply_template_values() {
 	declare -a not_replaced=()
 
 	function __replace_variables() {
-		for key in $(eval 'echo ${!'"$template_var"'[@]}' 2>>"$__LOG_FILE"); do
+		for k in $(eval 'echo ${!'"$template_var"'[@]}' 2>>"$__LOG_FILE"); do
 			declare template_key template_value
-			template_key="{{ARCHZEN_${key}}}"
-			template_value="$(eval 'echo ${'"$template_var""[$key]}" 2>>"$__LOG_FILE")"
+			template_key="{{ARCHZEN_${k}}}"
+			template_value="$(eval 'echo ${'"$template_var""[$k]}" 2>>"$__LOG_FILE")"
 
 			if ! sed -i "s/${template_key}/${template_value}/g" "$file_path" &>>"$__LOG_FILE"; then
 				not_replaced+=("$template_key")
@@ -2433,7 +2465,7 @@ function __apply_template_values() {
 
 function __takeown() {
 	declare target="$1"
-	declare -a args=("${__USER_NAME}:${__USER_NAME}" "$target")
+	declare -a args=("${__USERNAME}:${__USERNAME}" "$target")
 
 	[ -d "$target" ] && args=(-R "${args[@]}")
 
@@ -2725,7 +2757,7 @@ function __install_gnome_extensions() {
 
 			__log ''
 
-			{ sudo -Eu "$__USER_NAME" gnome-session-quit --logout --no-prompt; } &>>"$__LOG_FILE"
+			{ sudo -Eu "$__USERNAME" gnome-session-quit --logout --no-prompt; } &>>"$__LOG_FILE"
 
 			__warn "Could not restart Gnome Shell, you have to restart it manually"
 			__log ''
@@ -3041,17 +3073,17 @@ function setup_sudoers() {
 	}
 
 	function __apply_user_options() {
-		declare sudoers_user="${__ROOT}/etc/sudoers.d/00_${__USER_NAME}"
+		declare sudoers_user="${__ROOT}/etc/sudoers.d/00_${__USERNAME}"
 		declare -a sudoers_user_options=(
-			"${__USER_NAME}	ALL=(ALL:ALL)	ALL"
-			"%${__USER_NAME}	ALL=(ALL:ALL)	ALL"
+			"${__USERNAME}	ALL=(ALL:ALL)	ALL"
+			"%${__USERNAME}	ALL=(ALL:ALL)	ALL"
 		)
 
 		if [ ! -f "$sudoers_user" ]; then
 			__add_lines_to_file "${sudoers_user}" "w" false "${sudoers_user_options[@]}"
 		else
 			declare -i line_n
-			line_n=$(__get_line "^${__USER_NAME} ALL=(ALL) ALL")
+			line_n=$(__get_line "^${__USERNAME} ALL=(ALL) ALL")
 
 			if [ $line_n -gt 0 ]; then
 				sed -i "${line_n}d" &>>"$__LOG_FILE"
@@ -3059,7 +3091,7 @@ function setup_sudoers() {
 
 			for option in "${sudoers_user_options[@]}"; do
 				if grep -qe "$option" "$sudoers_user" &>>"$__LOG_FILE"; then
-					__info "Config already defined for user ${__USER_NAME}: $(__info_params "$option")"
+					__info "Config already defined for user ${__USERNAME}: $(__info_params "$option")"
 					continue
 				fi
 
@@ -3077,7 +3109,7 @@ function setup_sudoers() {
 		return $?
 	fi
 
-	__title "Configuring sudoers for user: $(__title_params "$__USER_NAME")"
+	__title "Configuring sudoers for user: $(__title_params "$__USERNAME")"
 
 	__apply_options
 	__apply_user_options
@@ -3365,6 +3397,17 @@ function rate_mirrors() {
 	return $?
 }
 
+function setup_locale() {
+	declare curr_locale
+	curr_locale="$(localectl status | grep -e 'LANG=' | cut -d'=' -f2)"
+
+	[[ "$LOCALE" == "$curr_locale" ]] && return 0
+
+	confset uncoment /etc/locale.gen $LOCALE --format conf --separator ' '
+	locale-gen
+	localectl set-locale LANG=$LOCALE
+}
+
 function install_aurbuilder() {
 	__title "Installing aurbuilder"
 
@@ -3534,6 +3577,28 @@ function setup_bootloader() {
 	return $?
 }
 
+function setup_wsl() {
+	$__IS_WSL || return 0
+
+	# Sets the default user
+	if [ -n "$__USERNAME" ]; then
+		confset set "$__WSL_CONF" default "$__USERNAME" user
+	fi
+
+	# Enables GUI in WSL
+	if $WSL_ENABLE_GUI; then
+		__install_pkglist "${__WSL_GUI_PKGLIST[@]}"
+
+		declare v='d3d12'
+		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
+			confset set /etc/environment $k $v --format conf --create
+		done
+	fi
+
+	# Enables interoperability between WSL and Windows, and GUI support in WSL
+	confset set "$__WSL_CONF" enabled $WSL_ENABLE_INTEROP interop
+}
+
 function setup_os() {
 	declare -i return_code=0
 
@@ -3602,7 +3667,7 @@ function setup_os() {
 			fi
 		fi
 
-		if $proceed && chsh -s "$(which "$USER_SHELL")" "$__USER_NAME"; then
+		if $proceed && chsh -s "$(which "$USER_SHELL")" "$__USERNAME"; then
 			__success "Shell changed successfully to: $(__success_params "$USER_SHELL")"
 		else
 			__error "Error changing shell to: $(__error_params "$USER_SHELL")"
@@ -3841,7 +3906,7 @@ function setup_hyprland() {
 		declare hyde_args="-${1}"
 
 		cd "$hyde_dir/Scripts" &&
-			sudo -EHu "$__USER_NAME" ./install.sh "$hyde_args" &&
+			sudo -EHu "$__USERNAME" ./install.sh "$hyde_args" &&
 			return 0
 
 		return 1
@@ -4078,7 +4143,7 @@ function setup_vscode() {
 			printf "%sInstalling %s... Installed extensions: %s" "$(__info)" "$name" "$extensions_result_text"
 
 			{
-				sudo -EHu "$__USER_NAME" code --install-extension "$id" --force &&
+				sudo -EHu "$__USERNAME" code --install-extension "$id" --force &&
 					((installed_extensions++))
 			} &>>"$__LOG_FILE"
 
@@ -4254,7 +4319,7 @@ function add_user_groups() {
 		__reset_line
 		printf '%sAdding user to group %s... %s' "$(__info)" "$group" "$result_text"
 
-		if usermod -aG "$group" "$__USER_NAME" &>>"$__LOG_FILE"; then
+		if usermod -aG "$group" "$__USERNAME" &>>"$__LOG_FILE"; then
 			__update_result_text 1 info
 		else
 			not_added_groups+=("$group")
@@ -4287,6 +4352,7 @@ function setup_archlinux() {
 		setup_zram || return $?
 		setup_pacman || return $?
 		rate_mirrors || return $?
+		setup_locale
 		touch "$__VAR_INITIAL_OS_SETUP_INSTALLED" || return $?
 	fi
 
@@ -4296,6 +4362,7 @@ function setup_archlinux() {
 	enable_cachyos_kit || return $?
 	update_system || return $?
 	setup_bootloader auto true
+	setup_wsl
 	setup_os
 	install_other_packages
 	install_gpu_drivers
