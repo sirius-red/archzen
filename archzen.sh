@@ -925,7 +925,11 @@ function confset() {
 		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 
 		# Match: optional comment + optional whitespace + key + optional whitespace + separator
-		printf '^[%s]*[[:space:]]*%s[[:space:]]*%s' "$comment_char" "$escaped_key" "$escaped_sep"
+		if [[ -n "$escaped_sep" ]]; then
+			printf '^[%s]*[[:space:]]*%s[[:space:]]*%s' "$comment_char" "$escaped_key" "$escaped_sep"
+		else
+			printf '^[%s]*[[:space:]]*%s([[:space:]]|$)' "$comment_char" "$escaped_key"
+		fi
 	}
 
 	# Build the regex to match a section header
@@ -1003,7 +1007,13 @@ function confset() {
 		declare key="$1"
 		declare value="$2"
 
-		if $__cs_space_around_sep; then
+		if [[ -z "$__cs_sep" ]]; then
+			if [[ -n "$value" ]]; then
+				printf '%s %s' "$key" "$value"
+			else
+				printf '%s' "$key"
+			fi
+		elif $__cs_space_around_sep; then
 			printf '%s %s %s' "$key" "$__cs_sep" "$value"
 		else
 			printf '%s%s%s' "$key" "$__cs_sep" "$value"
@@ -1025,10 +1035,10 @@ function confset() {
 
 		if [[ -n "$section" ]]; then
 			declare range start_line end_line
-			range=$(__confset_section_range "$file_path" "$section") || {
-				__confset_err "section '[$section]' not found in '$file_path'"
-				return 1
-			}
+			if ! range=$(__confset_section_range "$file_path" "$section"); then
+				__confset_op_section_add "$file_path" "$section" || return 1
+				range=$(__confset_section_range "$file_path" "$section") || return 1
+			fi
 			read -r start_line end_line <<< "$range"
 
 			# Check if key exists within section range
@@ -1065,9 +1075,10 @@ function confset() {
 		declare file_path="$1"
 		declare key="$2"
 		declare section="$3"
-		declare key_pat result
+		declare key_pat result escaped_key escaped_sep
 
-		key_pat=$(__confset_key_pattern "$key" "$__cs_comment_char")
+		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
+		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 
 		if [[ -n "$section" ]]; then
 			declare range start_line end_line
@@ -1077,16 +1088,31 @@ function confset() {
 			}
 			read -r start_line end_line <<< "$range"
 
-			result=$(sed -n "${start_line},${end_line}p" "$file_path" \
-				| grep -E "^[[:space:]]*${key//[.[\*^$()+?{|\\]/\\&}[[:space:]]*$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')" \
-				| head -1 \
-				| sed "s/^[[:space:]]*[^${__cs_sep}]*${__cs_sep}[[:space:]]*//" \
-				| sed 's/[[:space:]]*$//')
+			if [[ -n "$escaped_sep" ]]; then
+				result=$(sed -n "${start_line},${end_line}p" "$file_path" \
+					| grep -E "^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}" \
+					| head -1 \
+					| sed "s/^[[:space:]]*[^${__cs_sep}]*${__cs_sep}[[:space:]]*//" \
+					| sed 's/[[:space:]]*$//')
+			else
+				result=$(sed -n "${start_line},${end_line}p" "$file_path" \
+					| grep -E "^[[:space:]]*${escaped_key}([[:space:]]|$)" \
+					| head -1 \
+					| sed "s/^[[:space:]]*${escaped_key}[[:space:]]*//" \
+					| sed 's/[[:space:]]*$//')
+			fi
 		else
-			result=$(grep -E "^[[:space:]]*${key//[.[\*^$()+?{|\\]/\\&}[[:space:]]*$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')" "$file_path" \
-				| head -1 \
-				| sed "s/^[[:space:]]*[^${__cs_sep}]*${__cs_sep}[[:space:]]*//" \
-				| sed 's/[[:space:]]*$//')
+			if [[ -n "$escaped_sep" ]]; then
+				result=$(grep -E "^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}" "$file_path" \
+					| head -1 \
+					| sed "s/^[[:space:]]*[^${__cs_sep}]*${__cs_sep}[[:space:]]*//" \
+					| sed 's/[[:space:]]*$//')
+			else
+				result=$(grep -E "^[[:space:]]*${escaped_key}([[:space:]]|$)" "$file_path" \
+					| head -1 \
+					| sed "s/^[[:space:]]*${escaped_key}[[:space:]]*//" \
+					| sed 's/[[:space:]]*$//')
+			fi
 		fi
 
 		if [[ -z "$result" ]]; then
@@ -1139,7 +1165,11 @@ function confset() {
 		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 		# Match only active (non-commented) lines
-		active_pat="^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+		if [[ -n "$escaped_sep" ]]; then
+			active_pat="^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+		else
+			active_pat="^[[:space:]]*${escaped_key}([[:space:]]|$)"
+		fi
 
 		if [[ -n "$section" ]]; then
 			declare range start_line end_line
@@ -1154,16 +1184,26 @@ function confset() {
 				return 1
 			}
 
-			sed "${start_line},${end_line}s|^\\([[:space:]]*\\)\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
-				| __confset_atomic_write "$file_path"
+			if [[ -n "$escaped_sep" ]]; then
+				sed "${start_line},${end_line}s|^\\([[:space:]]*\\)\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			else
+				sed "${start_line},${end_line}s|^\\([[:space:]]*\\)\\(${escaped_key}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			fi
 		else
 			grep -qE "$active_pat" "$file_path" 2>/dev/null || {
 				__confset_err "active key '$key' not found in '$file_path'"
 				return 1
 			}
 
-			sed "s|^\\([[:space:]]*\\)\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
-				| __confset_atomic_write "$file_path"
+			if [[ -n "$escaped_sep" ]]; then
+				sed "s|^\\([[:space:]]*\\)\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			else
+				sed "s|^\\([[:space:]]*\\)\\(${escaped_key}\\)|\\1${__cs_comment_char} \\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			fi
 		fi
 	}
 
@@ -1176,7 +1216,11 @@ function confset() {
 		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 		# Match commented lines: comment_char + optional space + key
-		commented_pat="^[[:space:]]*[${__cs_comment_char}]+[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+		if [[ -n "$escaped_sep" ]]; then
+			commented_pat="^[[:space:]]*[${__cs_comment_char}]+[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+		else
+			commented_pat="^[[:space:]]*[${__cs_comment_char}]+[[:space:]]*${escaped_key}([[:space:]]|$)"
+		fi
 
 		if [[ -n "$section" ]]; then
 			declare range start_line end_line
@@ -1191,16 +1235,26 @@ function confset() {
 				return 1
 			}
 
-			sed "${start_line},${end_line}s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1\\2|" "$file_path" \
-				| __confset_atomic_write "$file_path"
+			if [[ -n "$escaped_sep" ]]; then
+				sed "${start_line},${end_line}s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1\\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			else
+				sed "${start_line},${end_line}s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}\\)|\\1\\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			fi
 		else
 			grep -qE "$commented_pat" "$file_path" 2>/dev/null || {
 				__confset_err "commented key '$key' not found in '$file_path'"
 				return 1
 			}
 
-			sed "s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1\\2|" "$file_path" \
-				| __confset_atomic_write "$file_path"
+			if [[ -n "$escaped_sep" ]]; then
+				sed "s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}[[:space:]]*${escaped_sep}\\)|\\1\\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			else
+				sed "s|^\\([[:space:]]*\\)[${__cs_comment_char}][[:space:]]*\\(${escaped_key}\\)|\\1\\2|" "$file_path" \
+					| __confset_atomic_write "$file_path"
+			fi
 		fi
 	}
 
@@ -1212,7 +1266,11 @@ function confset() {
 
 		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
 		escaped_sep=$(printf '%s' "$__cs_sep" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
-		active_pat="^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+		if [[ -n "$escaped_sep" ]]; then
+			active_pat="^[[:space:]]*${escaped_key}[[:space:]]*${escaped_sep}"
+		else
+			active_pat="^[[:space:]]*${escaped_key}([[:space:]]|$)"
+		fi
 
 		if [[ -n "$section" ]]; then
 			declare range start_line end_line
@@ -1276,6 +1334,7 @@ function confset() {
 	# Collect positional args and flags
 	declare -a positional_args=()
 	declare opt_format="" opt_separator="" opt_backup=false opt_create=false
+	declare opt_separator_set=false
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -1285,6 +1344,7 @@ function confset() {
 				;;
 			--separator)
 				opt_separator="$2"
+				opt_separator_set=true
 				shift 2
 				;;
 			--backup)
@@ -1354,7 +1414,7 @@ function confset() {
 	fi
 
 	# Override separator if specified
-	if [[ -n "$opt_separator" ]]; then
+	if $opt_separator_set; then
 		__cs_sep="$opt_separator"
 	fi
 
@@ -3252,9 +3312,10 @@ function setup_pacman() {
 
 		__show_title "Enable colors"
 
-		if grep -qe '^Color$' "$pacman_conf" &>>"$__LOG_FILE"; then
+		if confset exists "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif sed -i 's/^#\s*Color/Color/' "$pacman_conf" &>>"$__LOG_FILE"; then
+		elif confset uncomment "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE" ||
+			confset set "$pacman_conf" "Color" "" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3269,10 +3330,10 @@ function setup_pacman() {
 
 		__show_title "Enable pacman's most important option"
 
-		if grep -qe '^ILoveCandy$' "$pacman_conf"; then
+		if confset exists "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif sed -i '/^#\?\s*Color$/a ILoveCandy' "$pacman_conf" &>>"$__LOG_FILE"; then
-			# sed -i '/^#\?\s*ILoveCandy/d' "$pacman_conf" &>>"$__LOG_FILE"
+		elif confset uncomment "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE" ||
+			confset set "$pacman_conf" "ILoveCandy" "" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3288,9 +3349,9 @@ function setup_pacman() {
 
 		__show_title "Set value of parallel downloads"
 
-		if grep -qe "^ParallelDownloads = ${value}$" "$pacman_conf" &>>"$__LOG_FILE"; then
+		if [[ "$(confset get "$pacman_conf" "ParallelDownloads" "options" 2>>"$__LOG_FILE")" == "$value" ]]; then
 			status="keep"
-		elif sed -i "s/^#\?\s*\(ParallelDownloads\).*/\1 = ${value}/" "$pacman_conf" &>>"$__LOG_FILE"; then
+		elif confset set "$pacman_conf" "ParallelDownloads" "$value" "options" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3305,30 +3366,12 @@ function setup_pacman() {
 
 		__show_title "Enable multilib repository"
 
-		if grep -qe '^\[[Mm]ultilib\]$' "$pacman_conf" &>>"$__LOG_FILE"; then
+		if confset exists "$pacman_conf" "Include" "multilib" &>>"$__LOG_FILE"; then
 			status="keep"
+		elif confset set "$pacman_conf" "Include" "/etc/pacman.d/mirrorlist" "multilib" &>>"$__LOG_FILE"; then
+			status="changed"
 		else
-			declare -i line
-			line=$(__get_line '\[[Mm]ultilib\]' "$pacman_conf")
-
-			if [ $line -gt 0 ]; then
-				if sed -i "${line}s/#\s*//" "$pacman_conf" && ((line++)) && sed -i "${line}s/#\s*//" "$pacman_conf" &>>"$__LOG_FILE"; then
-					status="changed"
-				else
-					status="unchanged"
-				fi
-			else
-				declare -a multilib_lines=(
-					'[multilib]'
-					'Include = /etc/pacman.d/mirrorlist'
-				)
-
-				if __add_lines_to_file "$pacman_conf" "a" true "${multilib_lines[@]}"; then
-					status="changed"
-				else
-					status="unchanged"
-				fi
-			fi
+			status="unchanged"
 		fi
 
 		__show_result "$status" "[multilib]"
@@ -3699,15 +3742,7 @@ function setup_wsl() {
 
 		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
 
-		if [ ! -f "$__WSL_CONF" ]; then
-			touch "$__WSL_CONF" &>>"$__LOG_FILE"
-		fi
-
-		if ! grep -qE "^\[user\]" "$__WSL_CONF" 2>/dev/null; then
-			confset section-add "$__WSL_CONF" "user" &>>"$__LOG_FILE"
-		fi
-
-		if confset set "$__WSL_CONF" default "$__USERNAME" user &>>"$__LOG_FILE"; then
+		if confset set "$__WSL_CONF" default "$__USERNAME" user --create &>>"$__LOG_FILE"; then
 			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
 			return 0
 		else
@@ -3744,15 +3779,7 @@ function setup_wsl() {
 	function __setup_wsl_interop() {
 		__title "Configuring WSL interop"
 
-		if [ ! -f "$__WSL_CONF" ]; then
-			touch "$__WSL_CONF" &>>"$__LOG_FILE"
-		fi
-
-		if ! grep -qE "^\[interop\]" "$__WSL_CONF" 2>/dev/null; then
-			confset section-add "$__WSL_CONF" "interop" &>>"$__LOG_FILE"
-		fi
-
-		if confset set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop &>>"$__LOG_FILE"; then
+		if confset set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop --create &>>"$__LOG_FILE"; then
 			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
 			return 0
 		else
