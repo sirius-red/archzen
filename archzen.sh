@@ -4598,6 +4598,7 @@ $(__tab 4)$(__white "(Default: $(__yellow "$DESKTOP_PROFILE"))")
 $(__tab 1)$(__bright_blue hyprland), $(__bright_blue hypr)$(__tab 2)Setup Hyprland.
 $(__tab 1)$(__bright_blue dotfiles), $(__bright_blue d)$(__tab 2)Copies Archzen's dotfiles to ~/.config.
 $(__tab 1)$(__bright_blue vscode), $(__bright_blue vsc)$(__tab 2)Setup VS Code settings, keymaps and extensions.
+$(__tab 1)$(__bright_blue wsl), $(__bright_blue w)$(__tab 3)Setup WSL configurations.
 
 $(__bold_underline UTILITIES COMMANDS:)
 $(__tab 1)$(__bright_blue version), $(__bright_blue v)$(__tab 2)Show the script version.
@@ -4697,6 +4698,9 @@ function run() {
 		;;
 	vscode | vsc)
 		setup_vscode
+		;;
+	wsl | w)
+		setup_wsl
 		;;
 	func | f)
 		if ! __func_exists "${args[0]}"; then
