@@ -1,6 +1,5 @@
 {
 	"cSpell.ignorePaths": [".git", ".vscode", "*.sh"],
-	"commentTranslate.targetLanguage": "en",
 	"files.associations": {
 		"*.ps1.template": "powershell"
 	}
