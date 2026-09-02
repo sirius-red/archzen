@@ -34,6 +34,7 @@ WSL_ENABLE_INTEROP=true # Enables interoperability between WSL and Windows, and 
 WSL_PKGLIST=()          # Packages to install on WSL
 # <<<<<<<<<<<<<<<<<<<<<<<< WSL Settings <<<<<<<<<<<<<<<<<<<<<<<<
 
+# >>>>>>>>>>>>>>>>>>>>>>>> Global Declarations >>>>>>>>>>>>>>>>>>>>>>>>
 # Delay to reboot system automatically in seconds
 declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
 
@@ -839,7 +840,9 @@ function __set_global_variables() {
 		__KERNEL_PKGLIST+=("${CPU}-ucode")
 	fi
 }
+# <<<<<<<<<<<<<<<<<<<<<<<< Global Declarations <<<<<<<<<<<<<<<<<<<<<<<<
 
+# >>>>>>>>>>>>>>>>>>>>>>>> Library: confedit >>>>>>>>>>>>>>>>>>>>>>>>
 # ==============================================================================
 # confedit — Self-contained configuration file editor
 # ==============================================================================
@@ -1523,36 +1526,9 @@ function __confedit() {
 			;;
 	esac
 }
+# <<<<<<<<<<<<<<<<<<<<<<<< Library: confedit <<<<<<<<<<<<<<<<<<<<<<<<
 
-# shellcheck disable=SC2120
-function action_exec_func() {
-	declare func_name=""
-	declare -a extra_args=()
-
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		elif [[ -z "$func_name" ]]; then
-			func_name="$arg"
-		else
-			extra_args+=("$arg")
-		fi
-	done
-
-	if [[ -z "$func_name" ]]; then
-		__error "Function name required"
-		return 1
-	fi
-
-	if ! __func_exists "$func_name"; then
-		__error "Function not exists: $(__error_params "$func_name")"
-		return 1
-	fi
-
-	"$func_name" "${extra_args[@]}"
-}
-
+# >>>>>>>>>>>>>>>>>>>>>>>> Engine: cli_parser >>>>>>>>>>>>>>>>>>>>>>>>
 # ==============================================================================
 # __cli_parser — Self-contained declarative CLI engine for YAML and JSON
 # ==============================================================================
@@ -2199,7 +2175,9 @@ function __cli_parser() {
 	__finish
 	return $action_status
 }
+# <<<<<<<<<<<<<<<<<<<<<<<< Engine: cli_parser <<<<<<<<<<<<<<<<<<<<<<<<
 
+# >>>>>>>>>>>>>>>>>>>>>>>> Core Utilities >>>>>>>>>>>>>>>>>>>>>>>>
 __is_valid_semver() {
 	declare version="$1"
 
@@ -2285,7 +2263,9 @@ function __tab() {
 		printf '\t'
 	done
 }
+# <<<<<<<<<<<<<<<<<<<<<<<< Core Utilities <<<<<<<<<<<<<<<<<<<<<<<<
 
+# >>>>>>>>>>>>>>>>>>>>>>>> Terminal & Logging Utilities >>>>>>>>>>>>>>>>>>>>>>>>
 function __reset_line() {
 	declare -i cols
 	cols=$(tput cols)
@@ -2782,6 +2762,21 @@ function __confirm() {
 	return $return_code
 }
 
+function __show_log_msglist() {
+	declare log_func="__${1}"
+	shift 1
+	declare msglist=("$@")
+
+	[[ -z "${msglist[*]}" || ${#msglist[@]} -le 0 ]] && return 0
+
+	__log ""
+	for msg in "${msglist[@]}"; do
+		$log_func "$msg"
+	done
+}
+# <<<<<<<<<<<<<<<<<<<<<<<< Terminal & Logging Utilities <<<<<<<<<<<<<<<<<<<<<<<<
+
+# >>>>>>>>>>>>>>>>>>>>>>>> System & Package Utilities >>>>>>>>>>>>>>>>>>>>>>>>
 function __check_type_alias() {
 	declare type value
 	declare quiet="$__QUIET"
@@ -3678,137 +3673,9 @@ function __update_system() {
 
 	return $?
 }
+# <<<<<<<<<<<<<<<<<<<<<<<< System & Package Utilities <<<<<<<<<<<<<<<<<<<<<<<<
 
-function __show_log_msglist() {
-	declare log_func="__${1}"
-	shift 1
-	declare msglist=("$@")
-
-	[[ -z "${msglist[*]}" || ${#msglist[@]} -le 0 ]] && return 0
-
-	__log ""
-	for msg in "${msglist[@]}"; do
-		$log_func "$msg"
-	done
-}
-
-# shellcheck disable=SC2120
-function action_install_archzen() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
-
-	declare success=false
-	declare script_name
-	script_name="$(basename "$__MAIN_SCRIPT_PATH")"
-	script_name="${script_name/.sh/}"
-	declare -a bin_file_lines=(
-		'#!/usr/bin/env bash'
-		''
-		'if [[ $EUID -eq 0 ]]; then'
-		'	printf "\033[1;31m[x]\033[0m Do not run the Archzen binary with sudo"'
-		'	exit 1'
-		'fi'
-		''
-		'export ARCHZEN_IS_RUNNING_FROM_BINARY=true'
-		''
-		'if [[ "$1" =~ ^version$|^v$|^--version$|^-v$|^help$|^h$|^--help$|^-h$ || -z "$1" || ( "$1" =~ ^install$|^i$ && "$2" =~ ^self$|^s$ ) ]]; then'
-		"	$__MAIN_SCRIPT_BASE_PATH \"\$@\""
-		'else'
-		"	sudo -E $__MAIN_SCRIPT_BASE_PATH \"\$@\""
-		'fi'
-	)
-	declare tmp_script_dir="${__ROOT}/tmp/archzen/scripts-$$"
-
-	__title "Installing Archzen"
-
-	[ -d "$__ARCHZEN_SCRIPTS_DIR" ] && cp -rf "$__ARCHZEN_SCRIPTS_DIR" "$tmp_script_dir" &>>"$__LOG_FILE"
-	[ -d "$__ARCHZEN_DIR" ] && rm -rf "$__ARCHZEN_DIR" &>>"$__LOG_FILE"
-	mkdir -p "$__ARCHZEN_DIR" &>>"$__LOG_FILE"
-
-	{
-		[ -d "$__ARCHZEN_DIR" ] &&
-			{
-				if [ -d "$tmp_script_dir" ]; then
-					cp -rf "$tmp_script_dir" "$__ARCHZEN_SCRIPTS_DIR" &>>"$__LOG_FILE"
-				else
-					true
-				fi
-			} &&
-			cp -f "$__THIS_SCRIPT" "$__MAIN_SCRIPT_PATH" &&
-			chmod +x "$__MAIN_SCRIPT_PATH" &&
-			__save_script "$script_name" true "${bin_file_lines[@]}" &&
-			cp -rf "$__PWD_RESOURCES_DIR" "$__ARCHZEN_RESOURCES_DIR" &&
-			cp -f "${__PWD}/LICENSE" "$__ARCHZEN_DIR" &&
-			{ [[ -f "${__PWD}/archzen.yml" ]] && cp -f "${__PWD}/archzen.yml" "$__ARCHZEN_DIR"; true; } &&
-			{ [[ -f "${__PWD}/archzen.json" ]] && cp -f "${__PWD}/archzen.json" "$__ARCHZEN_DIR"; true; } &&
-			touch "$__VAR_ARCHZEN_INSTALLED" &&
-			success=true
-	} &>>"$__LOG_FILE"
-
-	if $success; then
-		__success "ArchZen successfully installed"
-	else
-		__error "Error installing ArchZen"
-	fi
-
-	return $?
-}
-
-# shellcheck disable=SC2120
-function action_install_archlinux() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
-
-	if ! command -v archinstall &>>"$__LOG_FILE"; then
-		__error "Executable not found in PATH: $(__error_params "archinstall")"
-		return $?
-	fi
-
-	declare first_line_warn rest_lines_warn
-	declare quiet="$__QUIET"
-	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try load a config"
-	rest_lines_warn="$(
-		cat <<EOL
-    file with the "profile_config" property set, choose it manually from the installation menu.
-    Choose another profile may not interfere with the installation and the rest of the setup,
-    but things can be strange in the end, since ArchZen installs the desktop environment on its own
-    (if you want a diffrent profile from plasma, which is defined by default in ArchZen, set it
-    in the "DESKTOP_PROFILE" variable in the "archzen.sh" file)
-EOL
-	)"
-
-	__log "" ""
-	__warn "$first_line_warn"
-	__QUIET=true
-	__log "$rest_lines_warn" "$rest_lines_warn"
-	__QUIET="$quiet"
-	echo "$rest_lines_warn"
-	__log "" ""
-
-	__confirm "Proceed?" || exit 0
-	__log "" ""
-
-	__setup_pacman || return 1
-	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
-
-	declare current_root="$__ROOT"
-	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
-
-	action_install_archzen &&
-		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
-		__setup_sudoers
-
-	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
-}
-
+# >>>>>>>>>>>>>>>>>>>>>>>> Internal Setup Steps >>>>>>>>>>>>>>>>>>>>>>>>
 function __setup_sudoers() {
 	function __apply_options() {
 		declare sudoers="${__ROOT}/etc/sudoers"
@@ -3873,108 +3740,6 @@ function __setup_sudoers() {
 
 	__apply_options
 	__apply_user_options
-
-	return $?
-}
-
-# shellcheck disable=SC2120
-function action_setup_zram() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
-
-	$SETUP_ZRAM || return 0
-	zramctl &>>"$__LOG_FILE" || return 0
-
-	function __setup_zram() {
-		declare zram_generator_conf="${__ROOT}/etc/systemd/zram-generator.conf"
-		declare zram_parameters_conf="${__ROOT}/etc/sysctl.d/99-vm-zram-parameters.conf"
-		declare -a zram_generator_lines=(
-			'# Defines the first zram unit'
-			'[zram0]'
-			''
-			'# Defines ZRAM size to a range of at least 10% and at a 4XIMUM 50% (with a maximum limit of 16g)'
-			'zram-size = max(ram / 10, min(ram / 2, 16384M))'
-			''
-			'# Compression algorithm'
-			'compression-algorithm = zstd lz4 (type=huge)'
-			''
-			'# High priority to ensure that zram is used before any disk swap'
-			'swap-priority = 100'
-			''
-			'# ZRAM Partition File System Type'
-			'fs-type = swap'
-		)
-		declare -a zram_parameters_lines=(
-			'# Avoid use of swap until really necessary'
-			'vm.swappiness = 20'
-			''
-			'# Reserves a little RAM as "buffer" to avoid pressure under pressure'
-			'vm.watermark_boost_factor = 150'
-			''
-			'# Sensitivity of memory pressure (the smaller, the less aggressive)'
-			'vm.watermark_scale_factor = 10'
-			''
-			'# Exchange only one page at a time on swap (lower latency, ideal for zram)'
-			'vm.page-cluster = 0'
-			''
-			'# Releases Pagecache more aggressively (good for builds, compilations, etc.)'
-			'vm.vfs_cache_pressure = 100'
-			''
-			'# Prevents excessive dirty cache flushs'
-			'vm.dirty_background_ratio = 5'
-			'vm.dirty_ratio = 20'
-		)
-
-		__title "Configuring zram"
-
-		__install_package zram-generator &&
-			__add_lines_to_file "$zram_generator_conf" "w" false "${zram_generator_lines[@]}" &&
-			__add_lines_to_file "$zram_parameters_conf" "w" false "${zram_parameters_lines[@]}" &&
-			return 0
-
-		return 1
-	}
-
-	function __setup_swapfile() {
-		declare swapfile="${__ROOT}/swapfile"
-		declare fstab="${__ROOT}/etc/fstab"
-		declare -a fstab_lines=(
-			"${swapfile} none swap pri=10 0 0"
-		)
-		declare proceed=false
-
-		__title "Configuring swapfile fallback"
-
-		if [[ "$__ROOT_FSTYPE" == "btrfs" ]]; then
-			btrfs filesystem mkswapfile "$swapfile" &&
-				proceed=true
-		elif fallocate -l 4G "$swapfile" || dd if=/dev/zero of="$swapfile" bs=1M count=4096 status=progress; then
-			chmod 600 "$swapfile" &&
-				proceed=true
-		fi
-
-		[[ "$proceed" == true ]] &&
-			mkswap "$swapfile" &&
-			__add_lines_to_file "$fstab" "a" true "${fstab_lines[@]}" &&
-			swapon "$swapfile" &&
-			return 0
-
-		return 1
-	}
-
-	if __setup_zram &>>"$__LOG_FILE"; then
-		__success "Zram configured successfully"
-
-		if [[ $USE_SWAPFILE ]]; then
-			__setup_swapfile &>>"$__LOG_FILE" || __warn "Swapfile was not configured correctly"
-		fi
-	else
-		__error "Error configuring zram"
-	fi
 
 	return $?
 }
@@ -4368,146 +4133,6 @@ function __enable_cachyos_kit() {
 	return $?
 }
 
-# shellcheck disable=SC2120
-function action_setup_bootloader() {
-	$__IS_WSL && return
-
-	declare bootloader="${1:-auto}"
-	declare gen_scripts="${2:-true}"
-
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
-
-	__check_type_alias BOOTLOADER "$bootloader"
-	__check_type_alias BOOLEAN "$gen_scripts"
-
-	[[ "$bootloader" == "auto" ]] && bootloader=$(__detect_bootloader)
-
-	function __setup_bootloader() {
-		declare sb_success=false
-
-		__title "Configuring bootloader: $(__title_params "$bootloader")"
-
-		case $bootloader in
-		sdboot)
-			__setup_sdboot && sb_success=true
-			;;
-		refind | grub | lilo)
-			__warn "$(__yellow "setup_bootloader()") not implemented yet for: $(__warn_params "$bootloader")"
-			return $?
-			;;
-		*)
-			__warn "Unknown bootloader, skipping setup..."
-			return $?
-			;;
-		esac
-
-		if $sb_success; then
-			__success "Bootloader configured successfully: $(__success_params "$bootloader")"
-		else
-			__error "Error configuring bootloader: $(__error_params "$bootloader")"
-		fi
-	}
-
-	function __gen_scripts() {
-		[[ $gen_scripts == true ]] || return
-
-		declare gs_success=false
-
-		__title "Generating bootloader script for: $(__title_params "$bootloader")"
-		__gen_bootloader_update_script "$bootloader" &>>"$__LOG_FILE" && gs_success=true
-
-		if $gs_success; then
-			__success "Bootloader script generated successfully for: $(__success_params "$bootloader")"
-		else
-			__error "Error generating bootloader script for: $(__error_params "$bootloader")"
-		fi
-	}
-
-	__setup_bootloader
-	[[ "$GPU" != *nvidia* ]] && __enable_kernel_modules
-	__gen_scripts
-
-	return $?
-}
-
-# shellcheck disable=SC2120
-function action_setup_wsl() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
-
-	$__IS_WSL || return 0
-
-	declare -i return_code=0
-
-	__title "Configuring WSL"
-
-	function __set_default_user() {
-		[ -n "$__USERNAME" ] || return 0
-
-		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
-
-		if __confedit set "$__WSL_CONF" default "$__USERNAME" user --create &>>"$__LOG_FILE"; then
-			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
-			return 0
-		else
-			__error "Error setting default WSL user: $(__error_params "$__USERNAME")"
-			return 1
-		fi
-	}
-
-	function __setup_wsl_gui() {
-		$WSL_ENABLE_GUI || return 0
-
-		declare -i exit_code=0
-		declare v='d3d12'
-		declare env_file="${__ROOT}/etc/environment"
-
-		__title "Configuring WSL GUI support"
-
-		if [ ${#__WSL_GUI_PKGLIST[@]} -gt 0 ]; then
-			__install_pkglist "${__WSL_GUI_PKGLIST[@]}" || exit_code=1
-		fi
-
-		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
-			if __confedit set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
-				__success "Environment variable configured successfully: $(__success_params "${k}=${v}")"
-			else
-				__error "Error setting environment variable: $(__error_params "${k}=${v}")"
-				exit_code=1
-			fi
-		done
-
-		return $exit_code
-	}
-
-	function __setup_wsl_interop() {
-		__title "Configuring WSL interop"
-
-		if __confedit set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop --create &>>"$__LOG_FILE"; then
-			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
-			return 0
-		else
-			__error "Error configuring WSL interop: $(__error_params "enabled=${WSL_ENABLE_INTEROP}")"
-			return 1
-		fi
-	}
-
-	__set_default_user || return_code=1
-	__setup_wsl_gui || return_code=1
-	__setup_wsl_interop || return_code=1
-
-	return $return_code
-}
-
 function __setup_os() {
 	declare -i return_code=0
 
@@ -4661,108 +4286,6 @@ function __install_gpu_drivers() {
 }
 
 # shellcheck disable=SC2120
-function action_install_desktop_profile() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		elif [[ -n "$arg" && "$arg" != -* ]]; then
-			export DESKTOP_PROFILE="$arg"
-		fi
-	done
-
-	declare displaymgr
-	declare -a pkglist=()
-	declare success=false
-	declare is_displaymgr_service_enabled=false
-	declare proceed=true
-	declare -i exit_code=0
-
-	case $DESKTOP_PROFILE in
-	xorg)
-		pkglist=("${__XORG_PKGLIST[@]}")
-		;;
-	xorg-minimal)
-		pkglist+=("${__XORG_MINIMAL_PKGLIST[@]}")
-		;;
-	gnome)
-		displaymgr="gdm"
-		pkglist+=("${__GNOME_PKGLIST[@]}" "$displaymgr")
-
-		function __setup_desktop_profile() {
-			__install_gnome_extensions
-
-			cp -f "$__ARCHZEN_GNOME_MIMEAPPS_LIST_FILE" "${__USERHOME}/.config/mimeapps.list" &>>"$__LOG_FILE" &&
-				__takeown "${__USERHOME}/.config/mimeapps.list"
-		}
-		;;
-	plasma)
-		displaymgr="sddm"
-		pkglist+=("${__PLASMA_PKGLIST[@]}" "$displaymgr")
-
-		function __setup_desktop_profile() {
-			__set_sddm_settings
-		}
-		;;
-	hyprland)
-		pkglist+=("${__HYPRLAND_PKGLIST[@]}")
-
-		function __setup_desktop_profile() {
-			__setup_hyprland setup
-		}
-		;;
-	*)
-		proceed=false
-		__error "Invalid DESKTOP_PROFILE value: $(__error_params "$DESKTOP_PROFILE")"
-		;;
-	esac
-
-	if $proceed; then
-		pkglist+=("${__DE_COMMON_PKGLIST[@]}")
-		__title "Installing Desktop Profile: $(__title_params "$DESKTOP_PROFILE")"
-
-		{
-			if [ "${#pkglist[@]}" -gt 0 ]; then
-				__install_pkglist "${pkglist[@]}"
-			else
-				true
-			fi
-		} &&
-			{
-				if [ -n "$displaymgr" ]; then
-					systemctl enable "${displaymgr}.service" &>>"$__LOG_FILE" &&
-						is_displaymgr_service_enabled=true
-				fi
-				true
-			} &&
-			{
-				if __func_exists __setup_desktop_profile; then
-					__setup_desktop_profile
-				fi
-				true
-			} &&
-			success=true
-	fi
-
-	if $success; then
-		__success "Desktop Profile installed successfully"
-	else
-		__error "No desktop profile will be installed! Install manually after system installation is complete."
-	fi
-
-	exit_code=$?
-	[ -n "$displaymgr" ] || return $exit_code
-
-	if $is_displaymgr_service_enabled; then
-		__success "The ${displaymgr} service was successfully enabled"
-	else
-		__warn "The ${displaymgr} service has not been enabled"
-	fi
-
-	return $exit_code
-}
-
-# shellcheck disable=SC2120
 function __setup_hyprland() {
 	declare action="${1:-setup}"
 
@@ -4780,7 +4303,6 @@ function __setup_hyprland() {
 
 	function __clone_hyde_repo() {
 		declare hyde_repo="https://github.com/HyDE-Project/HyDE.git"
-
 		rm -rf "$hyde_dir" &>>"$__LOG_FILE"
 		mkdir -p "$(dirname "$hyde_dir")" &>>"$__LOG_FILE"
 		git clone --depth 1 "$hyde_repo" "$hyde_dir" &&
@@ -4980,6 +4502,628 @@ function __setup_hyprland() {
 	return $return_code
 }
 
+function __enable_services() {
+	declare -i enabled_count=0
+	declare -i total_count=${#__SERVICES_TO_ENABLE[@]}
+
+	[ $total_count -eq 0 ] && return
+
+	declare result_text=""
+	declare -a not_enabled_services=()
+
+	__title "Enabling services"
+
+	function __update_result_text() {
+		declare -i increment=$1
+		declare log_type="$2"
+
+		((enabled_count += increment))
+		result_text="(${enabled_count}/${total_count}) services"
+
+		case "$log_type" in
+		title) result_text="$(__title_params "$result_text")" ;;
+		info) result_text="$(__info_params "$result_text")" ;;
+		success) result_text="$(__success_params "$result_text")" ;;
+		warn) result_text="$(__warn_params "$result_text")" ;;
+		error) result_text="$(__error_params "$result_text")" ;;
+		*) result_text="$(__bold "$result_text")" ;;
+		esac
+	}
+
+	__update_result_text 0 info
+
+	for service in "${__SERVICES_TO_ENABLE[@]}"; do
+		__reset_line
+		printf '%sEnabling service %s... %s' "$(__info)" "$service" "$result_text"
+
+		if systemctl enable "${service}.service" &>>"$__LOG_FILE"; then
+			__update_result_text 1 info
+		else
+			not_enabled_services+=("$service")
+			__update_result_text 0 warn
+		fi
+	done
+
+	__reset_line
+	if [ $enabled_count -eq $total_count ]; then
+		__update_result_text 0 success
+		printf '%s\t%s\n' "$(__success 'Services enabled successfully.')" "$result_text"
+	elif [ $enabled_count -gt 0 ]; then
+		__update_result_text 0 warn
+		printf '%s\t%s\n' "$(__warn 'Services enabled with some errors.')" "$result_text"
+	else
+		__update_result_text 0 error
+		printf '%s\t%s\n' "$(__error 'Error enabling services.')" "$result_text"
+	fi
+
+	if [ $enabled_count -ne $total_count ]; then
+		printf 'Services not enabled:\n'
+		for srv in "${not_enabled_services[@]}"; do
+			printf '  - %s\n' "$srv"
+		done
+		return 1
+	fi
+
+	return 0
+}
+
+function __add_user_groups() {
+	declare -i added_count=0
+	declare -i total_count=${#__USER_GROUPS[@]}
+
+	[ $total_count -eq 0 ] && return
+
+	declare result_text=""
+	declare -a not_added_groups=()
+
+	__title "Adding user to groups"
+
+	function __update_result_text() {
+		declare -i increment=$1
+		declare log_type="$2"
+
+		((added_count += increment))
+		result_text="(${added_count}/${total_count}) groups"
+
+		case "$log_type" in
+		title) result_text="$(__title_params "$result_text")" ;;
+		info) result_text="$(__info_params "$result_text")" ;;
+		success) result_text="$(__success_params "$result_text")" ;;
+		warn) result_text="$(__warn_params "$result_text")" ;;
+		error) result_text="$(__error_params "$result_text")" ;;
+		*) result_text="$(__bold "$result_text")" ;;
+		esac
+	}
+
+	__update_result_text 0 info
+
+	for group in "${__USER_GROUPS[@]}"; do
+		__reset_line
+		printf '%sAdding user to group %s... %s' "$(__info)" "$group" "$result_text"
+
+		if usermod -aG "$group" "$__USERNAME" &>>"$__LOG_FILE"; then
+			__update_result_text 1 info
+		else
+			not_added_groups+=("$group")
+			__update_result_text 0 warn
+		fi
+	done
+
+	__reset_line
+	if [ $added_count -eq $total_count ]; then
+		__update_result_text 0 success
+		printf '%s\t%s\n' "$(__success 'User added to groups successfully.')" "$result_text"
+	elif [ $added_count -gt 0 ]; then
+		__update_result_text 0 warn
+		printf '%s\t%s\n' "$(__warn 'User added to groups with some errors.')" "$result_text"
+	else
+		__update_result_text 0 error
+		printf '%s\t%s\n' "$(__error 'Error adding user to groups.')" "$result_text"
+	fi
+
+	if [ $added_count -ne $total_count ]; then
+		printf 'Groups not added:\n'
+		for grp in "${not_added_groups[@]}"; do
+			printf '  - %s\n' "$grp"
+		done
+		return 1
+	fi
+
+	return 0
+}
+# <<<<<<<<<<<<<<<<<<<<<<<< Internal Setup Steps <<<<<<<<<<<<<<<<<<<<<<<<
+
+# >>>>>>>>>>>>>>>>>>>>>>>> CLI Actions >>>>>>>>>>>>>>>>>>>>>>>>
+# shellcheck disable=SC2120
+function action_exec_func() {
+	declare func_name=""
+	declare -a extra_args=()
+
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		elif [[ -z "$func_name" ]]; then
+			func_name="$arg"
+		else
+			extra_args+=("$arg")
+		fi
+	done
+
+	if [[ -z "$func_name" ]]; then
+		__error "Function name required"
+		return 1
+	fi
+
+	if ! __func_exists "$func_name"; then
+		__error "Function not exists: $(__error_params "$func_name")"
+		return 1
+	fi
+
+	"$func_name" "${extra_args[@]}"
+}
+
+# shellcheck disable=SC2120
+function action_install_archzen() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	declare success=false
+	declare script_name
+	script_name="$(basename "$__MAIN_SCRIPT_PATH")"
+	script_name="${script_name/.sh/}"
+	declare -a bin_file_lines=(
+		'#!/usr/bin/env bash'
+		''
+		'if [[ $EUID -eq 0 ]]; then'
+		'	printf "\033[1;31m[x]\033[0m Do not run the Archzen binary with sudo"'
+		'	exit 1'
+		'fi'
+		''
+		'export ARCHZEN_IS_RUNNING_FROM_BINARY=true'
+		''
+		'if [[ "$1" =~ ^version$|^v$|^--version$|^-v$|^help$|^h$|^--help$|^-h$ || -z "$1" || ( "$1" =~ ^install$|^i$ && "$2" =~ ^self$|^s$ ) ]]; then'
+		"	$__MAIN_SCRIPT_BASE_PATH \"\$@\""
+		'else'
+		"	sudo -E $__MAIN_SCRIPT_BASE_PATH \"\$@\""
+		'fi'
+	)
+	declare tmp_script_dir="${__ROOT}/tmp/archzen/scripts-$$"
+
+	__title "Installing Archzen"
+
+	[ -d "$__ARCHZEN_SCRIPTS_DIR" ] && cp -rf "$__ARCHZEN_SCRIPTS_DIR" "$tmp_script_dir" &>>"$__LOG_FILE"
+	[ -d "$__ARCHZEN_DIR" ] && rm -rf "$__ARCHZEN_DIR" &>>"$__LOG_FILE"
+	mkdir -p "$__ARCHZEN_DIR" &>>"$__LOG_FILE"
+
+	{
+		[ -d "$__ARCHZEN_DIR" ] &&
+			{
+				if [ -d "$tmp_script_dir" ]; then
+					cp -rf "$tmp_script_dir" "$__ARCHZEN_SCRIPTS_DIR" &>>"$__LOG_FILE"
+				else
+					true
+				fi
+			} &&
+			cp -f "$__THIS_SCRIPT" "$__MAIN_SCRIPT_PATH" &&
+			chmod +x "$__MAIN_SCRIPT_PATH" &&
+			__save_script "$script_name" true "${bin_file_lines[@]}" &&
+			cp -rf "$__PWD_RESOURCES_DIR" "$__ARCHZEN_RESOURCES_DIR" &&
+			cp -f "${__PWD}/LICENSE" "$__ARCHZEN_DIR" &&
+			{ [[ -f "${__PWD}/archzen.yml" ]] && cp -f "${__PWD}/archzen.yml" "$__ARCHZEN_DIR"; true; } &&
+			{ [[ -f "${__PWD}/archzen.json" ]] && cp -f "${__PWD}/archzen.json" "$__ARCHZEN_DIR"; true; } &&
+			touch "$__VAR_ARCHZEN_INSTALLED" &&
+			success=true
+	} &>>"$__LOG_FILE"
+
+	if $success; then
+		__success "ArchZen successfully installed"
+	else
+		__error "Error installing ArchZen"
+	fi
+
+	return $?
+}
+
+# shellcheck disable=SC2120
+function action_install_archlinux() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	if ! command -v archinstall &>>"$__LOG_FILE"; then
+		__error "Executable not found in PATH: $(__error_params "archinstall")"
+		return $?
+	fi
+
+	declare first_line_warn rest_lines_warn
+	declare quiet="$__QUIET"
+	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try load a config"
+	rest_lines_warn="$(
+		cat <<EOL
+    file with the "profile_config" property set, choose it manually from the installation menu.
+    Choose another profile may not interfere with the installation and the rest of the setup,
+    but things can be strange in the end, since ArchZen installs the desktop environment on its own
+    (if you want a diffrent profile from plasma, which is defined by default in ArchZen, set it
+    in the "DESKTOP_PROFILE" variable in the "archzen.sh" file)
+EOL
+	)"
+
+	__log "" ""
+	__warn "$first_line_warn"
+	__QUIET=true
+	__log "$rest_lines_warn" "$rest_lines_warn"
+	__QUIET="$quiet"
+	echo "$rest_lines_warn"
+	__log "" ""
+
+	__confirm "Proceed?" || exit 0
+	__log "" ""
+
+	__setup_pacman || return 1
+	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
+
+	declare current_root="$__ROOT"
+	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+
+	action_install_archzen &&
+		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
+		__setup_sudoers
+
+	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+}
+
+# shellcheck disable=SC2120
+function action_setup_zram() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	$SETUP_ZRAM || return 0
+	zramctl &>>"$__LOG_FILE" || return 0
+
+	function __setup_zram() {
+		declare zram_generator_conf="${__ROOT}/etc/systemd/zram-generator.conf"
+		declare zram_parameters_conf="${__ROOT}/etc/sysctl.d/99-vm-zram-parameters.conf"
+		declare -a zram_generator_lines=(
+			'# Defines the first zram unit'
+			'[zram0]'
+			''
+			'# Defines ZRAM size to a range of at least 10% and at a 4XIMUM 50% (with a maximum limit of 16g)'
+			'zram-size = max(ram / 10, min(ram / 2, 16384M))'
+			''
+			'# Compression algorithm'
+			'compression-algorithm = zstd lz4 (type=huge)'
+			''
+			'# High priority to ensure that zram is used before any disk swap'
+			'swap-priority = 100'
+			''
+			'# ZRAM Partition File System Type'
+			'fs-type = swap'
+		)
+		declare -a zram_parameters_lines=(
+			'# Avoid use of swap until really necessary'
+			'vm.swappiness = 20'
+			''
+			'# Reserves a little RAM as "buffer" to avoid pressure under pressure'
+			'vm.watermark_boost_factor = 150'
+			''
+			'# Sensitivity of memory pressure (the smaller, the less aggressive)'
+			'vm.watermark_scale_factor = 10'
+			''
+			'# Exchange only one page at a time on swap (lower latency, ideal for zram)'
+			'vm.page-cluster = 0'
+			''
+			'# Releases Pagecache more aggressively (good for builds, compilations, etc.)'
+			'vm.vfs_cache_pressure = 100'
+			''
+			'# Prevents excessive dirty cache flushs'
+			'vm.dirty_background_ratio = 5'
+			'vm.dirty_ratio = 20'
+		)
+
+		__title "Configuring zram"
+
+		__install_package zram-generator &&
+			__add_lines_to_file "$zram_generator_conf" "w" false "${zram_generator_lines[@]}" &&
+			__add_lines_to_file "$zram_parameters_conf" "w" false "${zram_parameters_lines[@]}" &&
+			return 0
+
+		return 1
+	}
+
+	function __setup_swapfile() {
+		declare swapfile="${__ROOT}/swapfile"
+		declare fstab="${__ROOT}/etc/fstab"
+		declare -a fstab_lines=(
+			"${swapfile} none swap pri=10 0 0"
+		)
+		declare proceed=false
+
+		__title "Configuring swapfile fallback"
+
+		if [[ "$__ROOT_FSTYPE" == "btrfs" ]]; then
+			btrfs filesystem mkswapfile "$swapfile" &&
+				proceed=true
+		elif fallocate -l 4G "$swapfile" || dd if=/dev/zero of="$swapfile" bs=1M count=4096 status=progress; then
+			chmod 600 "$swapfile" &&
+				proceed=true
+		fi
+
+		[[ "$proceed" == true ]] &&
+			mkswap "$swapfile" &&
+			__add_lines_to_file "$fstab" "a" true "${fstab_lines[@]}" &&
+			swapon "$swapfile" &&
+			return 0
+
+		return 1
+	}
+
+	if __setup_zram &>>"$__LOG_FILE"; then
+		__success "Zram configured successfully"
+
+		if [[ $USE_SWAPFILE ]]; then
+			__setup_swapfile &>>"$__LOG_FILE" || __warn "Swapfile was not configured correctly"
+		fi
+	else
+		__error "Error configuring zram"
+	fi
+
+	return $?
+}
+
+# shellcheck disable=SC2120
+function action_setup_bootloader() {
+	$__IS_WSL && return
+
+	declare bootloader="${1:-auto}"
+	declare gen_scripts="${2:-true}"
+
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	__check_type_alias BOOTLOADER "$bootloader"
+	__check_type_alias BOOLEAN "$gen_scripts"
+
+	[[ "$bootloader" == "auto" ]] && bootloader=$(__detect_bootloader)
+
+	function __setup_bootloader() {
+		declare sb_success=false
+
+		__title "Configuring bootloader: $(__title_params "$bootloader")"
+
+		case $bootloader in
+		sdboot)
+			__setup_sdboot && sb_success=true
+			;;
+		refind | grub | lilo)
+			__warn "$(__yellow "setup_bootloader()") not implemented yet for: $(__warn_params "$bootloader")"
+			return $?
+			;;
+		*)
+			__warn "Unknown bootloader, skipping setup..."
+			return $?
+			;;
+		esac
+
+		if $sb_success; then
+			__success "Bootloader configured successfully: $(__success_params "$bootloader")"
+		else
+			__error "Error configuring bootloader: $(__error_params "$bootloader")"
+		fi
+	}
+
+	function __gen_scripts() {
+		[[ $gen_scripts == true ]] || return
+
+		declare gs_success=false
+
+		__title "Generating bootloader script for: $(__title_params "$bootloader")"
+		__gen_bootloader_update_script "$bootloader" &>>"$__LOG_FILE" && gs_success=true
+
+		if $gs_success; then
+			__success "Bootloader script generated successfully for: $(__success_params "$bootloader")"
+		else
+			__error "Error generating bootloader script for: $(__error_params "$bootloader")"
+		fi
+	}
+
+	__setup_bootloader
+	[[ "$GPU" != *nvidia* ]] && __enable_kernel_modules
+	__gen_scripts
+
+	return $?
+}
+
+# shellcheck disable=SC2120
+function action_setup_wsl() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	$__IS_WSL || return 0
+
+	declare -i return_code=0
+
+	__title "Configuring WSL"
+
+	function __set_default_user() {
+		[ -n "$__USERNAME" ] || return 0
+
+		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
+
+		if __confedit set "$__WSL_CONF" default "$__USERNAME" user --create &>>"$__LOG_FILE"; then
+			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
+			return 0
+		else
+			__error "Error setting default WSL user: $(__error_params "$__USERNAME")"
+			return 1
+		fi
+	}
+
+	function __setup_wsl_gui() {
+		$WSL_ENABLE_GUI || return 0
+
+		declare -i exit_code=0
+		declare v='d3d12'
+		declare env_file="${__ROOT}/etc/environment"
+
+		__title "Configuring WSL GUI support"
+
+		if [ ${#__WSL_GUI_PKGLIST[@]} -gt 0 ]; then
+			__install_pkglist "${__WSL_GUI_PKGLIST[@]}" || exit_code=1
+		fi
+
+		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
+			if __confedit set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
+				__success "Environment variable configured successfully: $(__success_params "${k}=${v}")"
+			else
+				__error "Error setting environment variable: $(__error_params "${k}=${v}")"
+				exit_code=1
+			fi
+		done
+
+		return $exit_code
+	}
+
+	function __setup_wsl_interop() {
+		__title "Configuring WSL interop"
+
+		if __confedit set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop --create &>>"$__LOG_FILE"; then
+			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
+			return 0
+		else
+			__error "Error configuring WSL interop: $(__error_params "enabled=${WSL_ENABLE_INTEROP}")"
+			return 1
+		fi
+	}
+
+	__set_default_user || return_code=1
+	__setup_wsl_gui || return_code=1
+	__setup_wsl_interop || return_code=1
+
+	return $return_code
+}
+
+# shellcheck disable=SC2120
+function action_install_desktop_profile() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		elif [[ -n "$arg" && "$arg" != -* ]]; then
+			export DESKTOP_PROFILE="$arg"
+		fi
+	done
+
+	declare displaymgr
+	declare -a pkglist=()
+	declare success=false
+	declare is_displaymgr_service_enabled=false
+	declare proceed=true
+	declare -i exit_code=0
+
+	case $DESKTOP_PROFILE in
+	xorg)
+		pkglist=("${__XORG_PKGLIST[@]}")
+		;;
+	xorg-minimal)
+		pkglist+=("${__XORG_MINIMAL_PKGLIST[@]}")
+		;;
+	gnome)
+		displaymgr="gdm"
+		pkglist+=("${__GNOME_PKGLIST[@]}" "$displaymgr")
+
+		function __setup_desktop_profile() {
+			__install_gnome_extensions
+
+			cp -f "$__ARCHZEN_GNOME_MIMEAPPS_LIST_FILE" "${__USERHOME}/.config/mimeapps.list" &>>"$__LOG_FILE" &&
+				__takeown "${__USERHOME}/.config/mimeapps.list"
+		}
+		;;
+	plasma)
+		displaymgr="sddm"
+		pkglist+=("${__PLASMA_PKGLIST[@]}" "$displaymgr")
+
+		function __setup_desktop_profile() {
+			__set_sddm_settings
+		}
+		;;
+	hyprland)
+		pkglist+=("${__HYPRLAND_PKGLIST[@]}")
+
+		function __setup_desktop_profile() {
+			__setup_hyprland setup
+		}
+		;;
+	*)
+		proceed=false
+		__error "Invalid DESKTOP_PROFILE value: $(__error_params "$DESKTOP_PROFILE")"
+		;;
+	esac
+
+	if $proceed; then
+		pkglist+=("${__DE_COMMON_PKGLIST[@]}")
+		__title "Installing Desktop Profile: $(__title_params "$DESKTOP_PROFILE")"
+
+		{
+			if [ "${#pkglist[@]}" -gt 0 ]; then
+				__install_pkglist "${pkglist[@]}"
+			else
+				true
+			fi
+		} &&
+			{
+				if [ -n "$displaymgr" ]; then
+					systemctl enable "${displaymgr}.service" &>>"$__LOG_FILE" &&
+						is_displaymgr_service_enabled=true
+				fi
+				true
+			} &&
+			{
+				if __func_exists __setup_desktop_profile; then
+					__setup_desktop_profile
+				fi
+				true
+			} &&
+			success=true
+	fi
+
+	if $success; then
+		__success "Desktop Profile installed successfully"
+	else
+		__error "No desktop profile will be installed! Install manually after system installation is complete."
+	fi
+
+	exit_code=$?
+	[ -n "$displaymgr" ] || return $exit_code
+
+	if $is_displaymgr_service_enabled; then
+		__success "The ${displaymgr} service was successfully enabled"
+	else
+		__warn "The ${displaymgr} service has not been enabled"
+	fi
+
+	return $exit_code
+}
+
 # shellcheck disable=SC2120
 function action_setup_dotfiles() {
 	for arg in "$@"; do
@@ -5170,136 +5314,6 @@ function action_setup_vscode() {
 	return $exit_code
 }
 
-function __enable_services() {
-	declare -i enabled_count=0
-	declare -i total_count=${#__SERVICES_TO_ENABLE[@]}
-
-	[ $total_count -eq 0 ] && return
-
-	declare result_text=""
-	declare -a not_enabled_services=()
-
-	__title "Enabling services"
-
-	function __update_result_text() {
-		declare -i increment=$1
-		declare log_type="$2"
-
-		((enabled_count += increment))
-		result_text="(${enabled_count}/${total_count}) services"
-
-		case "$log_type" in
-		title) result_text="$(__title_params "$result_text")" ;;
-		info) result_text="$(__info_params "$result_text")" ;;
-		success) result_text="$(__success_params "$result_text")" ;;
-		warn) result_text="$(__warn_params "$result_text")" ;;
-		error) result_text="$(__error_params "$result_text")" ;;
-		*) result_text="$(__bold "$result_text")" ;;
-		esac
-	}
-
-	__update_result_text 0 info
-
-	for service in "${__SERVICES_TO_ENABLE[@]}"; do
-		__reset_line
-		printf '%sEnabling service %s... %s' "$(__info)" "$service" "$result_text"
-
-		if systemctl enable "${service}.service" &>>"$__LOG_FILE"; then
-			__update_result_text 1 info
-		else
-			not_enabled_services+=("$service")
-			__update_result_text 0 warn
-		fi
-	done
-
-	__reset_line
-	if [ $enabled_count -eq $total_count ]; then
-		__update_result_text 0 success
-		printf '%s\t%s\n' "$(__success 'Services enabled successfully.')" "$result_text"
-	elif [ $enabled_count -gt 0 ]; then
-		__update_result_text 0 warn
-		printf '%s\t%s\n' "$(__warn 'Services enabled with some errors.')" "$result_text"
-	else
-		__update_result_text 0 error
-		printf '%s\t%s\n' "$(__error 'Error enabling services.')" "$result_text"
-	fi
-
-	if [ $enabled_count -ne $total_count ]; then
-		printf 'Services not enabled:\n'
-		for srv in "${not_enabled_services[@]}"; do
-			printf '  - %s\n' "$srv"
-		done
-		return 1
-	fi
-
-	return 0
-}
-
-function __add_user_groups() {
-	declare -i added_count=0
-	declare -i total_count=${#__USER_GROUPS[@]}
-
-	[ $total_count -eq 0 ] && return
-
-	declare result_text=""
-	declare -a not_added_groups=()
-
-	__title "Adding user to groups"
-
-	function __update_result_text() {
-		declare -i increment=$1
-		declare log_type="$2"
-
-		((added_count += increment))
-		result_text="(${added_count}/${total_count}) groups"
-
-		case "$log_type" in
-		title) result_text="$(__title_params "$result_text")" ;;
-		info) result_text="$(__info_params "$result_text")" ;;
-		success) result_text="$(__success_params "$result_text")" ;;
-		warn) result_text="$(__warn_params "$result_text")" ;;
-		error) result_text="$(__error_params "$result_text")" ;;
-		*) result_text="$(__bold "$result_text")" ;;
-		esac
-	}
-
-	__update_result_text 0 info
-
-	for group in "${__USER_GROUPS[@]}"; do
-		__reset_line
-		printf '%sAdding user to group %s... %s' "$(__info)" "$group" "$result_text"
-
-		if usermod -aG "$group" "$__USERNAME" &>>"$__LOG_FILE"; then
-			__update_result_text 1 info
-		else
-			not_added_groups+=("$group")
-			__update_result_text 0 warn
-		fi
-	done
-
-	__reset_line
-	if [ $added_count -eq $total_count ]; then
-		__update_result_text 0 success
-		printf '%s\t%s\n' "$(__success 'User added to groups successfully.')" "$result_text"
-	elif [ $added_count -gt 0 ]; then
-		__update_result_text 0 warn
-		printf '%s\t%s\n' "$(__warn 'User added to groups with some errors.')" "$result_text"
-	else
-		__update_result_text 0 error
-		printf '%s\t%s\n' "$(__error 'Error adding user to groups.')" "$result_text"
-	fi
-
-	if [ $added_count -ne $total_count ]; then
-		printf 'Groups not added:\n'
-		for grp in "${not_added_groups[@]}"; do
-			printf '  - %s\n' "$grp"
-		done
-		return 1
-	fi
-
-	return 0
-}
-
 # shellcheck disable=SC2120
 function action_setup_archlinux() {
 	for arg in "$@"; do
@@ -5335,7 +5349,9 @@ function action_setup_archlinux() {
 	__enable_services
 	__add_user_groups
 }
+# <<<<<<<<<<<<<<<<<<<<<<<< CLI Actions <<<<<<<<<<<<<<<<<<<<<<<<
 
+# >>>>>>>>>>>>>>>>>>>>>>>> Lifecycle & Entrypoint >>>>>>>>>>>>>>>>>>>>>>>>
 function __show_version() {
 	echo "ArchZen $(__bright_green "v${__VERSION}")"
 }
@@ -5456,3 +5472,4 @@ if __is_main_module; then
 	__cli_parser "$__ARCHZEN_CONFIG_FILE" "$@" || __EXIT_CODE=$?
 	exit $__EXIT_CODE
 fi
+# <<<<<<<<<<<<<<<<<<<<<<<< Lifecycle & Entrypoint <<<<<<<<<<<<<<<<<<<<<<<<
