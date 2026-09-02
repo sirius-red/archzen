@@ -2,5 +2,14 @@
 	"cSpell.ignorePaths": [".git", ".vscode", "*.sh"],
 	"files.associations": {
 		"*.ps1.template": "powershell"
-	}
+	},
+	"yaml.schemas": {
+		"resources/cli/cli.schema.json": ["archzen.yml", "archzen.yaml"]
+	},
+	"json.schemas": [
+		{
+			"fileMatch": ["archzen.json"],
+			"url": "./resources/cli/cli.schema.json"
+		}
+	]
 }

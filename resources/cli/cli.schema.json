@@ -1,0 +1,291 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$id": "https://raw.githubusercontent.com/sirius-red/archzen/main/resources/cli/cli.schema.json",
+	"title": "ArchZen CLI Help & Configuration Schema",
+	"description": "Strongly typed JSON Schema for CLI commands, subcommands, arguments, flags, and help objects with autocomplete support for YAML and JSON.",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string",
+			"description": "URL or relative path to the JSON Schema definition."
+		},
+		"name": {
+			"type": "string",
+			"description": "Name of the CLI binary or command-line tool (e.g., 'archzen')."
+		},
+		"version": {
+			"type": "string",
+			"description": "Semantic version string of the CLI application (e.g., '1.0.0')."
+		},
+		"description": {
+			"type": "string",
+			"description": "High-level summary or description of the CLI tool."
+		},
+		"usage": {
+			"type": "string",
+			"description": "Custom usage syntax string (e.g., 'archzen [flags] <command> [subcommand] [args...]')."
+		},
+		"author": {
+			"type": "string",
+			"description": "Author, team, or maintainer of the CLI."
+		},
+		"license": {
+			"type": "string",
+			"description": "License identifier (e.g., 'GPL-3.0', 'MIT')."
+		},
+		"global_flags": {
+			"type": "object",
+			"description": "Global flags available across all commands in the CLI (e.g., --dev, --force).",
+			"additionalProperties": {
+				"$ref": "#/definitions/Flag"
+			}
+		},
+		"commands": {
+			"type": "object",
+			"description": "Dictionary of CLI commands where each entry can be a Command or a collection of subcommands.",
+			"additionalProperties": {
+				"$ref": "#/definitions/CommandEntry"
+			}
+		}
+	},
+	"required": ["commands"],
+	"additionalProperties": false,
+	"definitions": {
+		"FlagType": {
+			"type": "string",
+			"description": "Accepted data type for flag values and command arguments.",
+			"enum": [
+				"String",
+				"Char",
+				"Int",
+				"Float",
+				"Boolean",
+				"Array<String>",
+				"Array<Char>",
+				"Array<Int>",
+				"Array<Float>",
+				"Array<Boolean>"
+			],
+			"enumDescriptions": [
+				"Text / string value (e.g., 'hello', 'dark-mode')",
+				"Single character value (e.g., 'y', 'n', 'a')",
+				"Integer numeric value (e.g., 42, -10, 0)",
+				"Floating-point numeric value (e.g., 3.14, 0.5)",
+				"Boolean flag switch (true or false, or presence of flag)",
+				"Array of strings (e.g., ['pkg1', 'pkg2'])",
+				"Array of single characters (e.g., ['x', 'y'])",
+				"Array of integers (e.g., [1, 2, 3])",
+				"Array of floating-point numbers (e.g., [1.5, 2.7])",
+				"Array of boolean values (e.g., [true, false])"
+			],
+			"markdownEnumDescriptions": [
+				"`String`: Text / string value (e.g. `'my-value'`).",
+				"`Char`: Single character value (e.g. `'y'`, `'n'`).",
+				"`Int`: Integer number value (e.g. `42`, `-10`).",
+				"`Float`: Floating-point number value (e.g. `3.14`, `0.5`).",
+				"`Boolean`: Boolean switch (`true` / `false`, or flag presence without value).",
+				"`Array<String>`: List of string values (e.g. `['foo', 'bar']`).",
+				"`Array<Char>`: List of single characters (e.g. `['a', 'b']`).",
+				"`Array<Int>`: List of integer numbers (e.g. `[1, 2, 3]`).",
+				"`Array<Float>`: List of floating-point numbers (e.g. `[1.5, 2.7]`).",
+				"`Array<Boolean>`: List of boolean values (e.g. `[true, false]`)."
+			]
+		},
+		"Argument": {
+			"type": "object",
+			"description": "Definition of a positional argument accepted by this command.",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Identifier name of the positional argument (e.g., 'bootloader', 'gen_scripts')."
+				},
+				"description": {
+					"type": "string",
+					"description": "Explanation of what this positional argument represents."
+				},
+				"type": {
+					"$ref": "#/definitions/FlagType",
+					"description": "Expected data type of the argument."
+				},
+				"options": {
+					"type": "array",
+					"description": "Allowed values (enum choices) for this argument.",
+					"items": {
+						"type": ["string", "number", "boolean"]
+					}
+				},
+				"default": {
+					"description": "Default value for this positional argument if omitted.",
+					"type": ["string", "number", "boolean", "array", "null"],
+					"items": {
+						"type": ["string", "number", "boolean"]
+					}
+				},
+				"required": {
+					"type": "boolean",
+					"description": "Whether this positional argument is mandatory.",
+					"default": true
+				},
+				"variadic": {
+					"type": "boolean",
+					"description": "Whether this argument captures multiple trailing arguments (e.g., args...).",
+					"default": false
+				}
+			},
+			"required": ["name"],
+			"additionalProperties": false
+		},
+		"Flag": {
+			"type": "object",
+			"description": "Configuration and help metadata for a CLI flag/option.",
+			"properties": {
+				"aliases": {
+					"type": "array",
+					"description": "List of alternative flag names or short aliases (e.g., ['-v', '--verbose'] or ['v']).",
+					"items": {
+						"type": "string"
+					},
+					"uniqueItems": true
+				},
+				"description": {
+					"type": "string",
+					"description": "Detailed explanation of what this flag does."
+				},
+				"type": {
+					"$ref": "#/definitions/FlagType"
+				},
+				"options": {
+					"type": "array",
+					"description": "Optional list of allowed values (enum choices) for this flag.",
+					"items": {
+						"type": ["string", "number", "boolean"]
+					}
+				},
+				"default": {
+					"description": "Default value for this flag if not supplied by the user.",
+					"type": ["string", "number", "boolean", "array", "null"],
+					"items": {
+						"type": ["string", "number", "boolean"]
+					}
+				},
+				"required": {
+					"type": "boolean",
+					"description": "Whether this flag is required when invoking the command.",
+					"default": false
+				},
+				"env": {
+					"type": "string",
+					"description": "Environment variable name that can provide the default value for this flag."
+				},
+				"hidden": {
+					"type": "boolean",
+					"description": "Whether to hide this flag from the help output.",
+					"default": false
+				}
+			},
+			"required": ["description", "type"],
+			"additionalProperties": false
+		},
+		"Command": {
+			"type": "object",
+			"description": "Configuration and help metadata for a CLI command or subcommand.",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Name of the command/subcommand (optional when defined as object key)."
+				},
+				"aliases": {
+					"type": "array",
+					"description": "List of alias names or short forms for this command (e.g., ['i', 'in'] for 'install').",
+					"items": {
+						"type": "string"
+					},
+					"uniqueItems": true
+				},
+				"description": {
+					"type": "string",
+					"description": "Detailed description of what this command does."
+				},
+				"action": {
+					"type": "string",
+					"description": "Name of the Bash function to invoke when this command is executed (e.g., 'install_archlinux', 'setup_bootloader')."
+				},
+				"args": {
+					"type": "array",
+					"description": "Positional arguments accepted by this command in order.",
+					"items": {
+						"$ref": "#/definitions/Argument"
+					}
+				},
+				"options": {
+					"type": "array",
+					"description": "Optional list of allowed values for positional arguments/choices of this command (for single-argument commands).",
+					"items": {
+						"type": ["string", "number", "boolean"]
+					}
+				},
+				"default": {
+					"description": "Default positional argument value if none is passed by the user.",
+					"type": ["string", "number", "boolean", "array", "null"],
+					"items": {
+						"type": ["string", "number", "boolean"]
+					}
+				},
+				"flags": {
+					"type": "object",
+					"description": "Flags specific to this command.",
+					"additionalProperties": {
+						"$ref": "#/definitions/Flag"
+					}
+				},
+				"dev": {
+					"type": "boolean",
+					"description": "Whether this command is restricted to development mode (requires global '--dev' flag).",
+					"default": false
+				},
+				"root_required": {
+					"type": "boolean",
+					"description": "Whether this command requires root/sudo privileges to run.",
+					"default": false
+				},
+				"reboot": {
+					"type": "boolean",
+					"description": "Whether this command requires a system reboot afterwards.",
+					"default": false
+				},
+				"usage": {
+					"type": "string",
+					"description": "Custom usage string for this specific command (e.g., 'archzen setup desktop-profile [profile]')."
+				},
+				"hidden": {
+					"type": "boolean",
+					"description": "Whether to hide this command from the general help menu.",
+					"default": false
+				}
+			},
+			"additionalProperties": false
+		},
+		"CommandEntry": {
+			"description": "A CLI command (Command) or a collection of subcommands (map or list of Command objects).",
+			"anyOf": [
+				{
+					"$ref": "#/definitions/Command"
+				},
+				{
+					"type": "object",
+					"description": "Map of subcommands keyed by subcommand name, where each value is a Command.",
+					"additionalProperties": {
+						"$ref": "#/definitions/Command"
+					}
+				},
+				{
+					"type": "array",
+					"description": "List of Command objects.",
+					"items": {
+						"$ref": "#/definitions/Command"
+					}
+				}
+			]
+		}
+	}
+}

@@ -163,6 +163,8 @@ __DEPENDENCIES=(
 	xz
 	expac
 	xdg-user-dirs
+	jq
+	yq
 )
 
 if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
@@ -878,7 +880,7 @@ function __set_global_variables() {
 #   confedit set myfile.conf key value --format conf --backup
 # ==============================================================================
 # shellcheck disable=SC2329
-function confedit() {
+function __confedit() {
 	# -- Internal format handlers ----------------------------------------------
 
 	# Sets format-specific variables: __ce_sep, __ce_comment_char, __ce_space_around_sep
@@ -1419,7 +1421,7 @@ function confedit() {
 	fi
 
 	# Create backup if requested
-	if [[ $CONFEDIT_ENABLE_BACKUP || $opt_backup ]] && [[ -f "$file_path" ]]; then
+	if { $CONFEDIT_ENABLE_BACKUP || $opt_backup; } && [[ -f "$file_path" ]]; then
 		cp -p "$file_path" "${file_path}.bak" || {
 			__confedit_err "failed to create backup of '$file_path'"
 			return 1
@@ -1520,6 +1522,682 @@ function confedit() {
 			return 1
 			;;
 	esac
+}
+
+# shellcheck disable=SC2120
+function action_exec_func() {
+	declare func_name=""
+	declare -a extra_args=()
+
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		elif [[ -z "$func_name" ]]; then
+			func_name="$arg"
+		else
+			extra_args+=("$arg")
+		fi
+	done
+
+	if [[ -z "$func_name" ]]; then
+		__error "Function name required"
+		return 1
+	fi
+
+	if ! __func_exists "$func_name"; then
+		__error "Function not exists: $(__error_params "$func_name")"
+		return 1
+	fi
+
+	"$func_name" "${extra_args[@]}"
+}
+
+# ==============================================================================
+# __cli_parser — Self-contained declarative CLI engine for YAML and JSON
+# ==============================================================================
+# Parses CLI arguments based on a declarative configuration file (.yml, .yaml, .json).
+# Supports commands, subcommands, aliases, typed positional arguments, enum validation,
+# global flags (--dev, --force, --help, --version), automated colorful help output,
+# and direct action dispatching.
+#
+# USAGE:
+#   __cli_parser <config_file> "$@"
+# ==============================================================================
+# shellcheck disable=SC2329
+function __cli_parser() {
+	declare __cli_config_file="$1"
+	shift 1
+
+	if [[ -z "$__cli_config_file" || ! -f "$__cli_config_file" ]]; then
+		printf 'cli_parser: configuration file not found: %s\n' "$__cli_config_file" >&2
+		return 1
+	fi
+
+	# -- Format detection and JSON AST loading ---------------------------------
+	declare __cli_format=""
+	case "$__cli_config_file" in
+		*.json) __cli_format="json" ;;
+		*.yaml|*.yml) __cli_format="yaml" ;;
+		*)
+			if grep -q '^[[:space:]]*{' "$__cli_config_file" 2>/dev/null; then
+				__cli_format="json"
+			else
+				__cli_format="yaml"
+			fi
+			;;
+	esac
+
+	# Parse config into JSON in memory for unified querying with jq
+	declare __cli_json=""
+	if [[ "$__cli_format" == "json" ]]; then
+		if ! command -v jq &>>"$__LOG_FILE"; then
+			printf 'cli_parser: jq is required to parse JSON config files\n' >&2
+			return 1
+		fi
+		__cli_json="$(cat "$__cli_config_file")"
+	else
+		if ! command -v yq &>>"$__LOG_FILE"; then
+			printf 'cli_parser: yq is required to parse YAML config files\n' >&2
+			return 1
+		fi
+		__cli_json="$(yq -o=json '.' "$__cli_config_file" 2>>"$__LOG_FILE")"
+		if [[ -z "$__cli_json" ]]; then
+			printf 'cli_parser: failed to parse YAML configuration with yq\n' >&2
+			return 1
+		fi
+	fi
+
+	# -- Internal query helper -------------------------------------------------
+	function __cli_get() {
+		declare filter="$1"
+		jq -r "$filter // empty" <<<"$__cli_json" 2>/dev/null
+	}
+
+	function __cli_get_json() {
+		declare filter="$1"
+		jq -c "$filter // empty" <<<"$__cli_json" 2>/dev/null
+	}
+
+	# -- Metadata extraction ---------------------------------------------------
+	declare __cli_name __cli_ver __cli_desc __cli_author __cli_lic __cli_usage_custom
+	__cli_name="$(__cli_get '.name')"
+	__cli_name="${__cli_name:-archzen}"
+	__cli_ver="$(__cli_get '.version')"
+	__cli_ver="${__cli_ver:-$__VERSION}"
+	__cli_desc="$(__cli_get '.description')"
+	__cli_author="$(__cli_get '.author')"
+	__cli_lic="$(__cli_get '.license')"
+	__cli_usage_custom="$(__cli_get '.usage')"
+
+	# -- Version Display -------------------------------------------------------
+	function __cli_show_version() {
+		echo "${__cli_name^} $(__bright_green "v${__cli_ver}")"
+	}
+
+	# -- Dynamic Usage Generator -----------------------------------------------
+	function __cli_generate_usage() {
+		declare cmd="$1"
+		declare subcmd="$2"
+		declare usage_out=""
+
+		if [[ -n "$cmd" && -n "$subcmd" ]]; then
+			usage_out="$(__purple "$__cli_name") $(__bright_blue "$cmd") $(__bright_blue "$subcmd")"
+			declare args_json
+			args_json="$(__cli_get_json ".commands[\"$cmd\"][\"$subcmd\"].args")"
+			if [[ "$args_json" != "empty" && "$args_json" != "null" && -n "$args_json" ]]; then
+				while IFS= read -r arg_item; do
+					[[ -z "$arg_item" ]] && continue
+					declare a_name a_req a_var
+					a_name="$(jq -r '.name' <<<"$arg_item")"
+					a_req="$(jq -r '.required // true' <<<"$arg_item")"
+					a_var="$(jq -r '.variadic // false' <<<"$arg_item")"
+
+					if [[ "$a_req" == "true" ]]; then
+						if [[ "$a_var" == "true" ]]; then
+							usage_out+=" $(__yellow "<${a_name}>...")"
+						else
+							usage_out+=" $(__yellow "<${a_name}>")"
+						fi
+					else
+						if [[ "$a_var" == "true" ]]; then
+							usage_out+=" $(__yellow "[${a_name}...]")"
+						else
+							usage_out+=" $(__yellow "[${a_name}]")"
+						fi
+					fi
+				done < <(jq -c '.[]' <<<"$args_json" 2>/dev/null)
+			fi
+		elif [[ -n "$cmd" ]]; then
+			declare is_group
+			is_group="$(__cli_get ".commands[\"$cmd\"] | type")"
+			declare has_action
+			has_action="$(__cli_get ".commands[\"$cmd\"].action")"
+			if [[ "$is_group" == "object" && -z "$has_action" ]]; then
+				usage_out="$(__purple "$__cli_name") $(__bright_blue "$cmd") $(__bright_blue "<subcommand>") $(__yellow "[<args>...]")"
+			else
+				usage_out="$(__purple "$__cli_name") $(__bright_blue "$cmd")"
+				declare args_json
+				args_json="$(__cli_get_json ".commands[\"$cmd\"].args")"
+				if [[ "$args_json" != "empty" && "$args_json" != "null" && -n "$args_json" ]]; then
+					while IFS= read -r arg_item; do
+						[[ -z "$arg_item" ]] && continue
+						declare a_name a_req a_var
+						a_name="$(jq -r '.name' <<<"$arg_item")"
+						a_req="$(jq -r '.required // true' <<<"$arg_item")"
+						a_var="$(jq -r '.variadic // false' <<<"$arg_item")"
+
+						if [[ "$a_req" == "true" ]]; then
+							usage_out+=" $(__yellow "<${a_name}>")"
+						else
+							usage_out+=" $(__yellow "[${a_name}]")"
+						fi
+					done < <(jq -c '.[]' <<<"$args_json" 2>/dev/null)
+				fi
+			fi
+		else
+			usage_out="$(__purple "$__cli_name") $(__yellow "[flags]") $(__bright_blue "<command>") $(__yellow "[<args>...]")"
+		fi
+
+		echo -e "$usage_out"
+	}
+
+	# -- Help Formatting (Compact Style with ArchZen theme) -------------------
+	function __cli_show_help() {
+		declare target_cmd="$1"
+		declare target_subcmd="$2"
+
+		# Level 2/3: Help for specific subcommand OR direct command
+		declare leaf_obj=""
+		declare leaf_is_subcmd=false
+		if [[ -n "$target_cmd" && -n "$target_subcmd" ]]; then
+			leaf_obj="$(__cli_get_json ".commands[\"$target_cmd\"][\"$target_subcmd\"]")"
+			leaf_is_subcmd=true
+			if [[ -z "$leaf_obj" || "$leaf_obj" == "null" ]]; then
+				__error "Unknown subcommand: $(__error_params "$target_cmd $target_subcmd")"
+				return 1
+			fi
+		elif [[ -n "$target_cmd" ]]; then
+			declare cmd_test_obj
+			cmd_test_obj="$(__cli_get_json ".commands[\"$target_cmd\"]")"
+			if [[ -z "$cmd_test_obj" || "$cmd_test_obj" == "null" ]]; then
+				__error "Unknown command: $(__error_params "$target_cmd")"
+				return 1
+			fi
+			declare has_action
+			has_action="$(jq -r '.action // empty' <<<"$cmd_test_obj")"
+			if [[ -n "$has_action" ]]; then
+				leaf_obj="$cmd_test_obj"
+			fi
+		fi
+
+		if [[ -n "$leaf_obj" && "$leaf_obj" != "null" ]]; then
+			declare desc custom_usage
+			desc="$(jq -r '.description // empty' <<<"$leaf_obj")"
+			custom_usage="$(jq -r '.usage // empty' <<<"$leaf_obj")"
+
+			__cli_show_version
+			echo
+			echo -e "$(__bold_underline "USAGE:")"
+			if [[ -n "$custom_usage" ]]; then
+				echo -e "$(__tab 1)$(eval echo "$custom_usage" 2>/dev/null || echo "$custom_usage")"
+			elif $leaf_is_subcmd; then
+				echo -e "$(__tab 1)$(__cli_generate_usage "$target_cmd" "$target_subcmd")"
+			else
+				echo -e "$(__tab 1)$(__cli_generate_usage "$target_cmd")"
+			fi
+
+			if [[ -n "$desc" ]]; then
+				echo
+				echo -e "$(__bold_underline "DESCRIPTION:")"
+				echo -e "$(__tab 1)$desc"
+			fi
+
+			# Positional arguments
+			declare args_json
+			args_json="$(jq -c '.args // empty' <<<"$leaf_obj" 2>/dev/null)"
+			if [[ "$args_json" != "empty" && "$args_json" != "null" && -n "$args_json" ]]; then
+				echo
+				echo -e "$(__bold_underline "ARGUMENTS:")"
+				while IFS= read -r arg_item; do
+					[[ -z "$arg_item" ]] && continue
+					declare a_name a_type a_desc a_def a_opts
+					a_name="$(jq -r '.name' <<<"$arg_item")"
+					a_type="$(jq -r '.type // "String"' <<<"$arg_item")"
+					a_desc="$(jq -r '.description // empty' <<<"$arg_item")"
+					a_def="$(jq -r '.default // empty' <<<"$arg_item")"
+					a_opts="$(jq -r '.options | if type=="array" then join(", ") else empty end' <<<"$arg_item" 2>/dev/null)"
+
+					printf "%b  %b %b\n" "$(__tab 1)" "$(__yellow "<${a_name}>")" "$(__white "(${a_type})")"
+					[[ -n "$a_desc" ]] && printf "%b    %s\n" "$(__tab 1)" "$a_desc"
+					[[ -n "$a_opts" ]] && printf "%b    %b: %b\n" "$(__tab 1)" "$(__white "Options")" "$(__bright_blue "$a_opts")"
+					[[ -n "$a_def" ]] && printf "%b    %b: %b\n" "$(__tab 1)" "$(__white "Default")" "$(__bright_green "$a_def")"
+				done < <(jq -c '.[]' <<<"$args_json" 2>/dev/null)
+			fi
+
+			# Flags for leaf command
+			declare flags_json
+			flags_json="$(jq -c '.flags // empty' <<<"$leaf_obj" 2>/dev/null)"
+			if [[ "$flags_json" != "empty" && "$flags_json" != "null" && -n "$flags_json" ]]; then
+				echo
+				echo -e "$(__bold_underline "FLAGS:")"
+				while IFS= read -r flag_key; do
+					[[ -z "$flag_key" ]] && continue
+					declare f_obj f_desc f_aliases
+					f_obj="$(jq -c ".flags[\"$flag_key\"]" <<<"$leaf_obj")"
+					f_desc="$(jq -r '.description // empty' <<<"$f_obj")"
+					f_aliases="$(jq -r '.aliases | if type=="array" then join(", ") else empty end' <<<"$f_obj" 2>/dev/null)"
+					declare flag_label="--$flag_key"
+					[[ -n "$f_aliases" ]] && flag_label="$f_aliases, --$flag_key"
+
+					printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "$flag_label")" "$f_desc"
+				done < <(jq -r '.flags | keys[]' <<<"$leaf_obj" 2>/dev/null)
+			fi
+
+			echo
+			return 0
+		fi
+
+		# Level 2: Help for command group
+		if [[ -n "$target_cmd" ]]; then
+			declare cmd_obj
+			cmd_obj="$(__cli_get_json ".commands[\"$target_cmd\"]")"
+			if [[ -z "$cmd_obj" || "$cmd_obj" == "null" ]]; then
+				__error "Unknown command: $(__error_params "$target_cmd")"
+				return 1
+			fi
+
+			declare is_group
+			is_group="$(__cli_get ".commands[\"$target_cmd\"] | type")"
+			declare has_action
+			has_action="$(__cli_get ".commands[\"$target_cmd\"].action")"
+
+			if [[ "$is_group" == "object" && -z "$has_action" ]]; then
+				__cli_show_version
+				echo
+				echo -e "$(__bold_underline "USAGE:")"
+				echo -e "$(__tab 1)$(__cli_generate_usage "$target_cmd")"
+				echo
+				echo -e "$(__bold_underline "SUBCOMMANDS:")"
+
+				while IFS= read -r sub_key; do
+					[[ -z "$sub_key" ]] && continue
+					declare s_obj s_desc s_aliases s_dev
+					s_obj="$(jq -c ".[\"$sub_key\"]" <<<"$cmd_obj")"
+					s_dev="$(jq -r '.dev // false' <<<"$s_obj")"
+					if [[ "$s_dev" == "true" && "$opt_dev" != "true" ]]; then
+						continue
+					fi
+					s_desc="$(jq -r '.description // empty' <<<"$s_obj")"
+					s_aliases="$(jq -r '.aliases | if type=="array" then join(", ") else empty end' <<<"$s_obj" 2>/dev/null)"
+					declare sub_label="$sub_key"
+					[[ -n "$s_aliases" ]] && sub_label="$sub_key, $s_aliases"
+
+					printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "$sub_label")" "$s_desc"
+				done < <(jq -r 'keys[]' <<<"$cmd_obj" 2>/dev/null)
+
+				echo
+				echo -e "$(__white "Run '$(__purple "$__cli_name") $(__bright_blue "help $target_cmd <subcommand>")' for detailed options.")"
+				echo
+				return 0
+			fi
+		fi
+
+		# Level 1: Root General Help
+		__cli_show_version
+		echo
+		echo -e "$(__bold_underline "USAGE:")"
+		if [[ -n "$__cli_usage_custom" ]]; then
+			echo -e "$(__tab 1)$__cli_usage_custom"
+		else
+			echo -e "$(__tab 1)$(__cli_generate_usage)"
+		fi
+
+		echo
+		echo -e "$(__bold_underline "GLOBAL FLAGS:")"
+		printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "-h, --help")" "Show this help message"
+		printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "-v, --version")" "Show the script version"
+		while IFS= read -r gf_key; do
+			[[ -z "$gf_key" ]] && continue
+			declare gf_obj gf_desc gf_aliases
+			gf_obj="$(__cli_get_json ".global_flags[\"$gf_key\"]")"
+			gf_desc="$(jq -r '.description // empty' <<<"$gf_obj")"
+			gf_aliases="$(jq -r '.aliases | if type=="array" then join(", ") else empty end' <<<"$gf_obj" 2>/dev/null)"
+			declare gf_label="--$gf_key"
+			[[ -n "$gf_aliases" ]] && gf_label="$gf_aliases, --$gf_key"
+
+			printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "$gf_label")" "$gf_desc"
+		done < <(__cli_get '.global_flags | keys[]' 2>/dev/null)
+
+		echo
+		echo -e "$(__bold_underline "COMMANDS:")"
+		while IFS= read -r cmd_key; do
+			[[ -z "$cmd_key" ]] && continue
+			declare c_obj c_desc c_aliases c_dev c_is_group
+			c_obj="$(__cli_get_json ".commands[\"$cmd_key\"]")"
+			c_dev="$(jq -r '.dev // false' <<<"$c_obj")"
+			if [[ "$c_dev" == "true" && "$opt_dev" != "true" ]]; then
+				continue
+			fi
+			c_desc="$(jq -r '.description // empty' <<<"$c_obj")"
+			c_aliases="$(jq -r '.aliases | if type=="array" then join(", ") else empty end' <<<"$c_obj" 2>/dev/null)"
+			c_is_group="$(jq -r 'type' <<<"$c_obj")"
+			declare c_has_action
+			c_has_action="$(jq -r '.action // empty' <<<"$c_obj")"
+
+			if [[ -z "$c_aliases" ]]; then
+				case "$cmd_key" in
+					install) c_aliases="i" ;;
+					setup) c_aliases="s" ;;
+				esac
+			fi
+
+			declare cmd_label="$cmd_key"
+			[[ -n "$c_aliases" ]] && cmd_label="$cmd_key, $c_aliases"
+
+			if [[ "$c_is_group" == "object" && -z "$c_has_action" ]]; then
+				if [[ -z "$c_desc" ]]; then
+					case "$cmd_key" in
+						install) c_desc="Installation commands (arch, self, desktop-profile)" ;;
+						setup) c_desc="System setup and customization commands" ;;
+						*)
+							declare sub_count
+							sub_count="$(jq -r 'keys | length' <<<"$c_obj")"
+							c_desc="Group with $sub_count subcommands"
+							;;
+					esac
+				fi
+			fi
+
+			printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "$cmd_label")" "$c_desc"
+		done < <(__cli_get '.commands | keys[]' 2>/dev/null)
+
+		echo
+		echo -e "$(__white "Run '$(__purple "$__cli_name") $(__bright_blue "help <command>")' for more information on a command.")"
+		echo
+		echo -e "Made with $(__bright_red "<3"), headache, coffee and $(__bright_green weed) by $(__red Sirius Red)\n"
+	}
+
+	# -- Flag and Argument Parsing ---------------------------------------------
+	declare opt_dev=false opt_force=false opt_help=false opt_version=false
+	declare -a raw_args=()
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+			--dev|-d)
+				opt_dev=true
+				shift 1
+				;;
+			--force|-f)
+				opt_force=true
+				export FORCE=true
+				declare -gx __FORCE=true
+				shift 1
+				;;
+			--version|-v)
+				opt_version=true
+				shift 1
+				;;
+			--help|-h)
+				opt_help=true
+				shift 1
+				;;
+			*)
+				raw_args+=("$1")
+				shift 1
+				;;
+		esac
+	done
+
+	# Handle early --version
+	if $opt_version; then
+		__cli_show_version
+		return 0
+	fi
+
+	# Handle early help or no args
+	if [[ ${#raw_args[@]} -eq 0 ]]; then
+		__cli_show_help
+		return 0
+	fi
+
+	# -- Command / Subcommand Resolution helpers -------------------------------
+	function __cli_resolve_cmd_name() {
+		declare input="$1"
+		if [[ -n "$(__cli_get ".commands[\"$input\"]")" ]]; then
+			echo "$input"
+			return 0
+		fi
+		declare resolved=""
+		while IFS= read -r key; do
+			[[ -z "$key" ]] && continue
+			declare has_alias
+			has_alias="$(__cli_get ".commands[\"$key\"].aliases // [] | index(\"$input\")")"
+			if [[ "$has_alias" != "null" && -n "$has_alias" ]]; then
+				resolved="$key"
+				break
+			fi
+		done < <(__cli_get '.commands | keys[]' 2>/dev/null)
+
+		if [[ -n "$resolved" ]]; then
+			echo "$resolved"
+			return 0
+		fi
+
+		case "$input" in
+			i) echo "install" ;;
+			s) echo "setup" ;;
+			f) echo "func" ;;
+			*) echo "$input" ;;
+		esac
+	}
+
+	function __cli_resolve_subcmd_name() {
+		declare parent_cmd="$1"
+		declare input="$2"
+		if [[ -n "$(__cli_get ".commands[\"$parent_cmd\"][\"$input\"]")" ]]; then
+			echo "$input"
+			return 0
+		fi
+		declare resolved=""
+		while IFS= read -r subkey; do
+			[[ -z "$subkey" ]] && continue
+			declare has_alias
+			has_alias="$(__cli_get ".commands[\"$parent_cmd\"][\"$subkey\"].aliases // [] | index(\"$input\")")"
+			if [[ "$has_alias" != "null" && -n "$has_alias" ]]; then
+				resolved="$subkey"
+				break
+			fi
+		done < <(__cli_get ".commands[\"$parent_cmd\"] | keys[]" 2>/dev/null)
+
+		echo "${resolved:-$input}"
+	}
+
+	# Handle "help" command keyword
+	if [[ "${raw_args[0]}" =~ ^help$|^h$ ]]; then
+		declare help_cmd="${raw_args[1]}"
+		declare help_subcmd="${raw_args[2]}"
+
+		if [[ -n "$help_cmd" ]]; then
+			help_cmd="$(__cli_resolve_cmd_name "$help_cmd")"
+			if [[ -n "$help_subcmd" ]]; then
+				help_subcmd="$(__cli_resolve_subcmd_name "$help_cmd" "$help_subcmd")"
+			fi
+		fi
+
+		__cli_show_help "$help_cmd" "$help_subcmd"
+		return 0
+	fi
+
+	# If --help flag was passed alongside a command
+	if $opt_help; then
+		declare help_cmd="${raw_args[0]}"
+		declare help_subcmd="${raw_args[1]}"
+		help_cmd="$(__cli_resolve_cmd_name "$help_cmd")"
+		if [[ -n "$help_subcmd" ]]; then
+			help_subcmd="$(__cli_resolve_subcmd_name "$help_cmd" "$help_subcmd")"
+		fi
+		__cli_show_help "$help_cmd" "$help_subcmd"
+		return 0
+	fi
+
+	declare parsed_cmd="${raw_args[0]}"
+	declare resolved_cmd
+	resolved_cmd="$(__cli_resolve_cmd_name "$parsed_cmd")"
+
+	declare cmd_target_obj
+	cmd_target_obj="$(__cli_get_json ".commands[\"$resolved_cmd\"]")"
+	if [[ -z "$cmd_target_obj" || "$cmd_target_obj" == "null" ]]; then
+		__error "Unknown command: $(__error_params "$parsed_cmd")"
+		echo
+		__cli_show_help
+		return 1
+	fi
+
+	declare is_group
+	is_group="$(__cli_get ".commands[\"$resolved_cmd\"] | type")"
+	declare has_direct_action
+	has_direct_action="$(__cli_get ".commands[\"$resolved_cmd\"].action")"
+
+	declare target_action=""
+	declare -a target_args_schema=()
+	declare target_is_dev=false
+	declare target_is_root=false
+	declare target_is_reboot=false
+	declare -a remaining_cli_args=()
+	declare target_full_name=""
+
+	if [[ "$is_group" == "object" && -z "$has_direct_action" ]]; then
+		if [[ ${#raw_args[@]} -lt 2 ]]; then
+			__cli_show_help "$resolved_cmd"
+			return 0
+		fi
+
+		declare parsed_subcmd="${raw_args[1]}"
+		declare resolved_subcmd
+		resolved_subcmd="$(__cli_resolve_subcmd_name "$resolved_cmd" "$parsed_subcmd")"
+
+		declare subcmd_target_obj
+		subcmd_target_obj="$(__cli_get_json ".commands[\"$resolved_cmd\"][\"$resolved_subcmd\"]")"
+		if [[ -z "$subcmd_target_obj" || "$subcmd_target_obj" == "null" ]]; then
+			__error "Unknown subcommand: $(__error_params "$parsed_cmd $parsed_subcmd")"
+			echo
+			__cli_show_help "$resolved_cmd"
+			return 1
+		fi
+
+		target_full_name="$resolved_cmd $resolved_subcmd"
+		target_action="$(jq -r '.action // empty' <<<"$subcmd_target_obj")"
+		target_is_dev="$(jq -r '.dev // false' <<<"$subcmd_target_obj")"
+		target_is_root="$(jq -r '.root_required // false' <<<"$subcmd_target_obj")"
+		target_is_reboot="$(jq -r '.reboot // false' <<<"$subcmd_target_obj")"
+		mapfile -t target_args_schema < <(jq -c '.args[]? // empty' <<<"$subcmd_target_obj" 2>/dev/null)
+		remaining_cli_args=("${raw_args[@]:2}")
+	else
+		target_full_name="$resolved_cmd"
+		target_action="$(jq -r '.action // empty' <<<"$cmd_target_obj")"
+		target_is_dev="$(jq -r '.dev // false' <<<"$cmd_target_obj")"
+		target_is_root="$(jq -r '.root_required // false' <<<"$cmd_target_obj")"
+		target_is_reboot="$(jq -r '.reboot // false' <<<"$cmd_target_obj")"
+		mapfile -t target_args_schema < <(jq -c '.args[]? // empty' <<<"$cmd_target_obj" 2>/dev/null)
+		remaining_cli_args=("${raw_args[@]:1}")
+	fi
+
+	# Dev check
+	if [[ "$target_is_dev" == "true" && "$opt_dev" != "true" ]]; then
+		__error "The command \`$(__error_params "$target_full_name")\` is only available in development mode"
+		__info "Runs \`$(__info_params "archzen --dev $target_full_name")\`"
+		return 1
+	fi
+
+	# Root privilege check based on schema
+	if [[ "$target_is_root" == "true" && $EUID -ne 0 ]]; then
+		__error "The command \`$(__error_params "$target_full_name")\` must be run as root"
+		return 1
+	fi
+
+	# Validate positional arguments
+	declare -a validated_args=()
+	declare -i schema_idx=0
+	declare -i schema_count=${#target_args_schema[@]}
+
+	for ((schema_idx = 0; schema_idx < schema_count; schema_idx++)); do
+		declare arg_def="${target_args_schema[$schema_idx]}"
+		[[ -z "$arg_def" ]] && continue
+
+		declare a_name a_req a_def a_var
+		a_name="$(jq -r '.name' <<<"$arg_def")"
+		a_req="$(jq -r '.required // true' <<<"$arg_def")"
+		a_def="$(jq -r '.default // empty' <<<"$arg_def")"
+		a_var="$(jq -r '.variadic // false' <<<"$arg_def")"
+
+		declare user_val="${remaining_cli_args[$schema_idx]}"
+
+		if [[ "$a_var" == "true" ]]; then
+			declare -a rest_vals=("${remaining_cli_args[@]:$schema_idx}")
+			if [[ ${#rest_vals[@]} -eq 0 && "$a_req" == "true" ]]; then
+				__error "Missing required argument for $(__error_params "\`$target_full_name\`"): $(__error_params "<$a_name>")"
+				return 1
+			fi
+			validated_args+=("${rest_vals[@]}")
+			break
+		fi
+
+		if [[ -z "$user_val" ]]; then
+			if [[ "$a_req" == "true" ]]; then
+				__error "Missing required argument for $(__error_params "\`$target_full_name\`"): $(__error_params "<$a_name>")"
+				return 1
+			elif [[ -n "$a_def" ]]; then
+				user_val="$a_def"
+			fi
+		fi
+
+		if [[ -n "$user_val" ]]; then
+			declare has_opts
+			has_opts="$(jq -r '.options | if type=="array" then "true" else "false" end' <<<"$arg_def" 2>/dev/null)"
+			if [[ "$has_opts" == "true" ]]; then
+				declare is_valid_opt
+				is_valid_opt="$(jq -r --arg val "$user_val" '.options | index($val) // empty' <<<"$arg_def" 2>/dev/null)"
+				if [[ -z "$is_valid_opt" ]]; then
+					declare allowed_opts
+					allowed_opts="$(jq -r '.options | join(" | ")' <<<"$arg_def" 2>/dev/null)"
+					__error "Invalid value for $(__error_params "<$a_name>"): $(__error_params "$user_val")"
+					__info "Allowed choices: $(__info_params "$allowed_opts")"
+					return 1
+				fi
+			fi
+
+			validated_args+=("$user_val")
+		fi
+	done
+
+	if [[ -z "$target_action" ]]; then
+		__error "No action defined for command: $(__error_params "$target_full_name")"
+		return 1
+	fi
+
+	if ! __func_exists "$target_action"; then
+		__error "Target action function not found: $(__error_params "$target_action")"
+		return 1
+	fi
+
+	# Execution Dispatch
+	__COMMAND_ARG="$target_full_name"
+	[[ "$target_is_reboot" == "true" ]] && __REBOOT_SYSTEM=true
+
+	# Prepare call arguments including --force if set
+	declare -a action_call_args=("${validated_args[@]}")
+	if $opt_force; then
+		action_call_args+=("--force")
+		export FORCE=true
+		declare -gx __FORCE=true
+	fi
+
+	__init || return $?
+	"$target_action" "${action_call_args[@]}"
+	declare -i action_status=$?
+	__finish
+	return $action_status
 }
 
 __is_valid_semver() {
@@ -3014,7 +3692,15 @@ function __show_log_msglist() {
 	done
 }
 
-function install_archzen() {
+# shellcheck disable=SC2120
+function action_install_archzen() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
 	declare success=false
 	declare script_name
 	script_name="$(basename "$__MAIN_SCRIPT_PATH")"
@@ -3029,7 +3715,7 @@ function install_archzen() {
 		''
 		'export ARCHZEN_IS_RUNNING_FROM_BINARY=true'
 		''
-		'if [[ "$1" =~ ^version$|^v$|^help$|^h$ || -z "$1" ]]; then'
+		'if [[ "$1" =~ ^version$|^v$|^--version$|^-v$|^help$|^h$|^--help$|^-h$ || -z "$1" || ( "$1" =~ ^install$|^i$ && "$2" =~ ^self$|^s$ ) ]]; then'
 		"	$__MAIN_SCRIPT_BASE_PATH \"\$@\""
 		'else'
 		"	sudo -E $__MAIN_SCRIPT_BASE_PATH \"\$@\""
@@ -3057,6 +3743,8 @@ function install_archzen() {
 			__save_script "$script_name" true "${bin_file_lines[@]}" &&
 			cp -rf "$__PWD_RESOURCES_DIR" "$__ARCHZEN_RESOURCES_DIR" &&
 			cp -f "${__PWD}/LICENSE" "$__ARCHZEN_DIR" &&
+			{ [[ -f "${__PWD}/archzen.yml" ]] && cp -f "${__PWD}/archzen.yml" "$__ARCHZEN_DIR"; true; } &&
+			{ [[ -f "${__PWD}/archzen.json" ]] && cp -f "${__PWD}/archzen.json" "$__ARCHZEN_DIR"; true; } &&
 			touch "$__VAR_ARCHZEN_INSTALLED" &&
 			success=true
 	} &>>"$__LOG_FILE"
@@ -3070,7 +3758,15 @@ function install_archzen() {
 	return $?
 }
 
-function install_archlinux() {
+# shellcheck disable=SC2120
+function action_install_archlinux() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
 	if ! command -v archinstall &>>"$__LOG_FILE"; then
 		__error "Executable not found in PATH: $(__error_params "archinstall")"
 		return $?
@@ -3100,20 +3796,20 @@ EOL
 	__confirm "Proceed?" || exit 0
 	__log "" ""
 
-	setup_pacman || return 1
+	__setup_pacman || return 1
 	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
 
 	declare current_root="$__ROOT"
 	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
 
-	install_archzen &&
+	action_install_archzen &&
 		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
-		setup_sudoers
+		__setup_sudoers
 
 	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
 }
 
-function setup_sudoers() {
+function __setup_sudoers() {
 	function __apply_options() {
 		declare sudoers="${__ROOT}/etc/sudoers"
 		declare -a sudoers_options=(
@@ -3181,7 +3877,15 @@ function setup_sudoers() {
 	return $?
 }
 
-function setup_zram() {
+# shellcheck disable=SC2120
+function action_setup_zram() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
 	$SETUP_ZRAM || return 0
 	zramctl &>>"$__LOG_FILE" || return 0
 
@@ -3275,7 +3979,7 @@ function setup_zram() {
 	return $?
 }
 
-function setup_pacman() {
+function __setup_pacman() {
 	declare pacman_conf="${__ROOT}/etc/pacman.conf"
 	declare -i return_code=0
 
@@ -3300,7 +4004,7 @@ function setup_pacman() {
 			__error "Error changing pacman option: $(__error_params "$step")"
 			;;
 		*)
-			__error "$(__error_params "setup_pacman()"): Unknown log status: $(__error_params "$status")"
+			__error "$(__error_params "__setup_pacman()"): Unknown log status: $(__error_params "$status")"
 			;;
 		esac
 
@@ -3312,10 +4016,10 @@ function setup_pacman() {
 
 		__show_title "Enable colors"
 
-		if confedit exists "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE"; then
+		if __confedit exists "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif confedit uncomment "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE" ||
-			confedit set "$pacman_conf" "Color" "" "options" --separator "" &>>"$__LOG_FILE"; then
+		elif __confedit uncomment "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE" ||
+			__confedit set "$pacman_conf" "Color" "" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3330,10 +4034,10 @@ function setup_pacman() {
 
 		__show_title "Enable pacman's most important option"
 
-		if confedit exists "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE"; then
+		if __confedit exists "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif confedit uncomment "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE" ||
-			confedit set "$pacman_conf" "ILoveCandy" "" "options" --separator "" &>>"$__LOG_FILE"; then
+		elif __confedit uncomment "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE" ||
+			__confedit set "$pacman_conf" "ILoveCandy" "" "options" --separator "" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3349,9 +4053,9 @@ function setup_pacman() {
 
 		__show_title "Set value of parallel downloads"
 
-		if [[ "$(confedit get "$pacman_conf" "ParallelDownloads" "options" 2>>"$__LOG_FILE")" == "$value" ]]; then
+		if [[ "$(__confedit get "$pacman_conf" "ParallelDownloads" "options" 2>>"$__LOG_FILE")" == "$value" ]]; then
 			status="keep"
-		elif confedit set "$pacman_conf" "ParallelDownloads" "$value" "options" &>>"$__LOG_FILE"; then
+		elif __confedit set "$pacman_conf" "ParallelDownloads" "$value" "options" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3366,9 +4070,9 @@ function setup_pacman() {
 
 		__show_title "Enable multilib repository"
 
-		if confedit exists "$pacman_conf" "Include" "multilib" &>>"$__LOG_FILE"; then
+		if __confedit exists "$pacman_conf" "Include" "multilib" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif confedit set "$pacman_conf" "Include" "/etc/pacman.d/mirrorlist" "multilib" &>>"$__LOG_FILE"; then
+		elif __confedit set "$pacman_conf" "Include" "/etc/pacman.d/mirrorlist" "multilib" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -3414,7 +4118,7 @@ function setup_pacman() {
 	return $return_code
 }
 
-function rate_mirrors() {
+function __rate_mirrors() {
 	if ! __is_installed reflector; then
 		__error "Executable not found in PATH: $(__error_params "reflector")"
 		return $?
@@ -3444,7 +4148,7 @@ function rate_mirrors() {
 	return $?
 }
 
-function setup_locale() {
+function __setup_locale() {
 	declare curr_locale
 	declare locale_gen="${__ROOT}/etc/locale.gen"
 	declare success=false
@@ -3458,7 +4162,7 @@ function setup_locale() {
 		return 0
 	fi
 
-	confedit uncomment "$locale_gen" "$LOCALE" --format conf --separator ' ' &>>"$__LOG_FILE"
+	__confedit uncomment "$locale_gen" "$LOCALE" --format conf --separator ' ' &>>"$__LOG_FILE"
 
 	if locale-gen &>>"$__LOG_FILE" &&
 		localectl set-locale LANG="$LOCALE" &>>"$__LOG_FILE"; then
@@ -3474,7 +4178,7 @@ function setup_locale() {
 	fi
 }
 
-function setup_user_dirs() {
+function __setup_user_dirs() {
 	if ! __is_installed xdg-user-dirs; then
 		__warn "The package \"xdg-user-dirs\" is not installed\n    Installs  with \`pacman -S xdg-user-dirs\`"
 		return 0
@@ -3561,7 +4265,7 @@ function setup_user_dirs() {
 	return $exit_code
 }
 
-function install_aurbuilder() {
+function __install_aurbuilder() {
 	__title "Installing aurbuilder"
 
 	if command -v aurbuilder &>>"$__LOG_FILE"; then
@@ -3575,7 +4279,7 @@ function install_aurbuilder() {
 	return $?
 }
 
-function install_aur_helper() {
+function __install_aur_helper() {
 	[ -n "$AUR_HELPER" ] || return 0
 
 	__title "Installing AUR helper: $(__title_params "$AUR_HELPER")"
@@ -3593,7 +4297,7 @@ function install_aur_helper() {
 	return $?
 }
 
-function install_base_packages() {
+function __install_base_packages() {
 	declare proceed=true
 	declare -a base_pkglist=(
 		"${__KERNEL_PKGLIST[@]}"
@@ -3642,7 +4346,7 @@ function install_base_packages() {
 	return $?
 }
 
-function enable_cachyos_kit() {
+function __enable_cachyos_kit() {
 	[[ "$ENABLE_CACHYOS_KIT" == true ]] || return 0
 
 	declare success=false
@@ -3664,18 +4368,19 @@ function enable_cachyos_kit() {
 	return $?
 }
 
-function update_system() {
-	[[ "$__SYSTEM_ALREADY_UPDATED" == true ]] && return
-
-	__update_system
-	return $?
-}
-
-function setup_bootloader() {
+# shellcheck disable=SC2120
+function action_setup_bootloader() {
 	$__IS_WSL && return
 
-	declare bootloader="$1"
-	declare gen_scripts="${2}"
+	declare bootloader="${1:-auto}"
+	declare gen_scripts="${2:-true}"
+
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
 
 	__check_type_alias BOOTLOADER "$bootloader"
 	__check_type_alias BOOLEAN "$gen_scripts"
@@ -3730,7 +4435,15 @@ function setup_bootloader() {
 	return $?
 }
 
-function setup_wsl() {
+# shellcheck disable=SC2120
+function action_setup_wsl() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
 	$__IS_WSL || return 0
 
 	declare -i return_code=0
@@ -3742,7 +4455,7 @@ function setup_wsl() {
 
 		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
 
-		if confedit set "$__WSL_CONF" default "$__USERNAME" user --create &>>"$__LOG_FILE"; then
+		if __confedit set "$__WSL_CONF" default "$__USERNAME" user --create &>>"$__LOG_FILE"; then
 			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
 			return 0
 		else
@@ -3765,7 +4478,7 @@ function setup_wsl() {
 		fi
 
 		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
-			if confedit set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
+			if __confedit set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
 				__success "Environment variable configured successfully: $(__success_params "${k}=${v}")"
 			else
 				__error "Error setting environment variable: $(__error_params "${k}=${v}")"
@@ -3779,7 +4492,7 @@ function setup_wsl() {
 	function __setup_wsl_interop() {
 		__title "Configuring WSL interop"
 
-		if confedit set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop --create &>>"$__LOG_FILE"; then
+		if __confedit set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop --create &>>"$__LOG_FILE"; then
 			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
 			return 0
 		else
@@ -3795,7 +4508,7 @@ function setup_wsl() {
 	return $return_code
 }
 
-function setup_os() {
+function __setup_os() {
 	declare -i return_code=0
 
 	function __set_os_specifications() {
@@ -3879,7 +4592,7 @@ function setup_os() {
 	return $return_code
 }
 
-function install_other_packages() {
+function __install_other_packages() {
 	declare -a pkglist=(
 		"${__FILESYSTEM_PKGLIST[@]}"
 		"${__NETWORK_PKGLIST[@]}"
@@ -3904,7 +4617,7 @@ function install_other_packages() {
 	return $?
 }
 
-function install_gpu_drivers() {
+function __install_gpu_drivers() {
 	$__IS_WSL && return 0
 	[ -n "$GPU" ] || return
 
@@ -3947,7 +4660,17 @@ function install_gpu_drivers() {
 	return $?
 }
 
-function install_desktop_profile() {
+# shellcheck disable=SC2120
+function action_install_desktop_profile() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		elif [[ -n "$arg" && "$arg" != -* ]]; then
+			export DESKTOP_PROFILE="$arg"
+		fi
+	done
+
 	declare displaymgr
 	declare -a pkglist=()
 	declare success=false
@@ -3983,7 +4706,10 @@ function install_desktop_profile() {
 		;;
 	hyprland)
 		pkglist+=("${__HYPRLAND_PKGLIST[@]}")
-		__WARN_MESSAGES+=("Hyperland automatic setup has not yet been implemented. Run $(__warn_params '`archzen hypr`') $(__error_params '>>>BEFORE<<<') the system reboot")
+
+		function __setup_desktop_profile() {
+			__setup_hyprland setup
+		}
 		;;
 	*)
 		proceed=false
@@ -4036,8 +4762,19 @@ function install_desktop_profile() {
 	return $exit_code
 }
 
-function setup_hyprland() {
-	declare action="$1"
+# shellcheck disable=SC2120
+function __setup_hyprland() {
+	declare action="${1:-setup}"
+
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		elif [[ -n "$arg" && "$arg" != -* ]]; then
+			action="$arg"
+		fi
+	done
+
 	declare hyde_dir="${__ROOT}/tmp/archzen/hyde"
 	declare -i return_code=1
 
@@ -4059,7 +4796,7 @@ function setup_hyprland() {
 		declare type="$1"
 		shift
 		declare -a blacklist=("$@")
-		declare file
+		declare file file_name
 
 		case "$type" in
 		package)
@@ -4074,14 +4811,11 @@ function setup_hyprland() {
 			;;
 		esac
 
+		file_name="$(basename "$file")"
+
 		for item in "${blacklist[@]}"; do
 			declare -i line=0
-			declare file_name
-
-			line=$(__get_line "^${item}\s.*" "$file" 2>>"$__LOG_FILE")
-			[ $line -eq 0 ] && line=$(__get_line "^${item}$" "$file" 2>>"$__LOG_FILE")
-			file_name="$(basename "$file" 2>>"$__LOG_FILE")"
-
+			[ -f "$file" ] && line=$(__get_line "^${item}$" "$file")
 			__print "$(__info "Trying to remove the ${type} $(__info_params "$item") from $(__info_params "$file_name")")..."
 
 			if [ ! -f "$file" ]; then
@@ -4239,15 +4973,23 @@ function setup_hyprland() {
 			return_code=0
 		;;
 	*)
-		__error "$(__error_params 'setup_hyprland()'): Invalid action: $(__error_params "$action")"
+		__error "$(__error_params '__setup_hyprland()'): Invalid action: $(__error_params "$action")"
 		;;
 	esac
 
 	return $return_code
 }
 
-function setup_dotfiles() {
-	__is_installed_archzen || install_archzen || return 1
+# shellcheck disable=SC2120
+function action_setup_dotfiles() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	__is_installed_archzen || action_install_archzen || return 1
 
 	declare -i installed_count=0
 	declare -i total_count=0
@@ -4306,8 +5048,16 @@ function setup_dotfiles() {
 	return $exit_code
 }
 
-function setup_vscode() {
-	__is_installed_archzen || install_archzen || return 1
+# shellcheck disable=SC2120
+function action_setup_vscode() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
+	__is_installed_archzen || action_install_archzen || return 1
 
 	declare code_folder
 	if __is_installed visual-studio-code-bin; then
@@ -4420,7 +5170,7 @@ function setup_vscode() {
 	return $exit_code
 }
 
-function enable_services() {
+function __enable_services() {
 	declare -i enabled_count=0
 	declare -i total_count=${#__SERVICES_TO_ENABLE[@]}
 
@@ -4454,7 +5204,7 @@ function enable_services() {
 		__reset_line
 		printf '%sEnabling service %s... %s' "$(__info)" "$service" "$result_text"
 
-		if systemctl enable "$service" &>>"$__LOG_FILE"; then
+		if systemctl enable "${service}.service" &>>"$__LOG_FILE"; then
 			__update_result_text 1 info
 		else
 			not_enabled_services+=("$service")
@@ -4475,13 +5225,17 @@ function enable_services() {
 	fi
 
 	if [ $enabled_count -ne $total_count ]; then
-		printf 'Services not enabled:\n%s%s' '  - ' "${not_enabled_services[@]}"
+		printf 'Services not enabled:\n'
+		for srv in "${not_enabled_services[@]}"; do
+			printf '  - %s\n' "$srv"
+		done
+		return 1
 	fi
 
-	return $?
+	return 0
 }
 
-function add_user_groups() {
+function __add_user_groups() {
 	declare -i added_count=0
 	declare -i total_count=${#__USER_GROUPS[@]}
 
@@ -4536,87 +5290,57 @@ function add_user_groups() {
 	fi
 
 	if [ $added_count -ne $total_count ]; then
-		printf 'Groups not added:\n%s%s' '  - ' "${not_added_groups[@]}"
+		printf 'Groups not added:\n'
+		for grp in "${not_added_groups[@]}"; do
+			printf '  - %s\n' "$grp"
+		done
+		return 1
 	fi
 
-	return $?
+	return 0
 }
 
-function setup_archlinux() {
+# shellcheck disable=SC2120
+function action_setup_archlinux() {
+	for arg in "$@"; do
+		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+			export FORCE=true
+			declare -gx __FORCE=true
+		fi
+	done
+
 	if ! __is_installed_initial_os_setup; then
-		setup_sudoers || return $?
-		setup_zram || return $?
-		setup_pacman || return $?
-		rate_mirrors || return $?
-		setup_locale
-		setup_user_dirs
+		__setup_sudoers || return $?
+		action_setup_zram || return $?
+		__setup_pacman || return $?
+		__rate_mirrors || return $?
+		__setup_locale
+		__setup_user_dirs
 		touch "$__VAR_INITIAL_OS_SETUP_INSTALLED" || return $?
 	fi
 
-	install_aurbuilder || return $?
-	install_aur_helper || return $?
-	install_base_packages || return $?
-	enable_cachyos_kit || return $?
-	update_system || return $?
-	setup_bootloader auto true
-	setup_wsl
-	setup_os
-	install_other_packages
-	install_gpu_drivers
-	install_desktop_profile
-	setup_dotfiles
-	setup_vscode
-	enable_services
-	add_user_groups
+	__install_aurbuilder || return $?
+	__install_aur_helper || return $?
+	__install_base_packages || return $?
+	__enable_cachyos_kit || return $?
+	__update_system || return $?
+	action_setup_bootloader auto true
+	action_setup_wsl
+	__setup_os
+	__install_other_packages
+	__install_gpu_drivers
+	action_install_desktop_profile
+	action_setup_dotfiles
+	action_setup_vscode
+	__enable_services
+	__add_user_groups
 }
 
-function show_help() {
-	echo -e "$(
-		cat <<EOL
-$(show_version)
-
-$(__bold_underline USAGE:)
-$(__tab 1) $(__purple archzen) $(__bright_blue '<command>') $(__yellow '[<args> ...]')
-
-$(__bold_underline INSTALLATION COMMANDS:)
-$(__tab 1)$(__bright_blue install), $(__bright_blue i)$(__tab 2)Starts the archinstall script with a minimal preset.
-$(__tab 4)$(__white '(It also installs archzen and runs all setup commands on first login)')
-$(__tab 1)$(__bright_blue self-install), $(__bright_blue si)$(__tab 1)Installs Archzen on the system.
-$(__tab 4)$(__white '(Some setup commands will not work if archzen is not installed)')
-
-$(__bold_underline SETUP COMMANDS:)
-$(__tab 1)$(__bright_blue arch), $(__bright_blue a)$(__tab 3)Setup an already installed Arch Linux with Archzen's customizations.
-$(__tab 1)$(__bright_blue zram), $(__bright_blue z)$(__tab 3)Setup zram no system.
-$(__tab 1)$(__bright_blue bootloader), $(__bright_blue b)$(__tab 2)Setup the "systemd-boot" bootloader, including hooks and scripts for update.
-$(__tab 4)$(__white "(Usage: $(__purple archzen) $(__bright_blue b) $(__yellow '<bootloader>') $(__yellow '<gen_scripts>'))")
-$(__tab 4)$(__white "(Bootloaders: $(__yellow "${__TYPE_ALIASES[BOOTLOADER]}"))")
-$(__tab 4)$(__white "(Generate update scripts: $(__yellow "${__TYPE_ALIASES[BOOLEAN]}"))")
-$(__tab 1)$(__bright_blue desktop-profile), $(__bright_blue dp)$(__tab 1)Installs the defined desktop profile.
-$(__tab 4)$(__white "(Usage: $(__purple archzen) $(__bright_blue dp) $(__yellow '[desktop_profile]'))")
-$(__tab 4)$(__white "(Desktop profiles: $(__yellow "${__TYPE_ALIASES[DESKTOP_PROFILE]}"))")
-$(__tab 4)$(__white "(Default: $(__yellow "$DESKTOP_PROFILE"))")
-$(__tab 1)$(__bright_blue hyprland), $(__bright_blue hypr)$(__tab 2)Setup Hyprland.
-$(__tab 1)$(__bright_blue dotfiles), $(__bright_blue d)$(__tab 2)Copies Archzen's dotfiles to ~/.config.
-$(__tab 1)$(__bright_blue vscode), $(__bright_blue vsc)$(__tab 2)Setup VS Code settings, keymaps and extensions.
-$(__tab 1)$(__bright_blue wsl), $(__bright_blue w)$(__tab 3)Setup WSL configurations.
-
-$(__bold_underline UTILITIES COMMANDS:)
-$(__tab 1)$(__bright_blue version), $(__bright_blue v)$(__tab 2)Show the script version.
-$(__tab 1)$(__bright_blue help), $(__bright_blue h)$(__tab 3)Show this help message.
-
-$(__bold_underline DEV COMMANDS:) $(__white '(This command is only for development!)')
-$(__tab 1)$(__bright_blue func), $(__bright_blue f)$(__tab 3)Runs any existing function in the script
-
-Made with $(__bright_red "<3"), headache, coffee and $(__bright_green weed) by $(__red Sirius Red)\n
-EOL
-	)"
-}
-
-function show_version() {
+function __show_version() {
 	echo "ArchZen $(__bright_green "v${__VERSION}")"
 }
 
-function init() {
+function __init() {
 	declare -a banner_args=(
 		"bright-cyan"
 		"purple"
@@ -4634,97 +5358,7 @@ function init() {
 	__ensure_deps
 }
 
-function run() {
-	declare command="$1"
-	shift 1
-	declare -a args=("$@")
-
-	__COMMAND_ARG="$command"
-
-	case $command in
-	install | i)
-		install_archlinux &&
-			__REBOOT_SYSTEM=true
-		;;
-	self-install | si)
-		install_archzen
-		;;
-	arch | a)
-		if setup_archlinux && [[ "$DESKTOP_PROFILE" != hyprland ]]; then
-			__REBOOT_SYSTEM=true
-		else
-			__REBOOT_SYSTEM=false
-		fi
-		;;
-	bootloader | b)
-		declare bootloader="${args[0]}"
-		declare gen_scripts="${args[1]}"
-
-		setup_bootloader "$bootloader" "$gen_scripts" &&
-			__REBOOT_SYSTEM=true
-		;;
-	zram | z)
-		SETUP_ZRAM=true
-
-		setup_zram &&
-			__REBOOT_SYSTEM=true
-		;;
-	desktop-profile | dp)
-		declare desktop_profile="${args[0]}"
-
-		if [ -n "$desktop_profile" ] && __check_type_alias -s DESKTOP_PROFILE "$desktop_profile"; then
-			export DESKTOP_PROFILE
-			DESKTOP_PROFILE="$desktop_profile"
-		elif [ -n "$desktop_profile" ]; then
-			__error "Invalid argument for $(__error_params "\`${command}\`"): $(__error_params "$desktop_profile")"
-			return 1
-		fi
-
-		if install_desktop_profile && [[ "$DESKTOP_PROFILE" != hyprland ]]; then
-			__REBOOT_SYSTEM=true
-		else
-			__REBOOT_SYSTEM=false
-		fi
-		;;
-	hyprland | hypr)
-		declare action="${args[0]:-setup}"
-
-		setup_hyprland "$action" &&
-			[[ "$action" == setup ]] &&
-			__FORCE_REBOOT_SYSTEM=true
-		;;
-	dotfiles | d)
-		setup_dotfiles
-		;;
-	vscode | vsc)
-		setup_vscode
-		;;
-	wsl | w)
-		setup_wsl
-		;;
-	func | f)
-		if ! __func_exists "${args[0]}"; then
-			__error "Function not exists: $(__error_params "${args[0]}")"
-			exit 1
-		fi
-
-		"${args[@]}"
-		;;
-	version | v)
-		show_version
-		;;
-	help | h)
-		show_help
-		;;
-	*)
-		__error "Unknown command: $(__error_params "$command")"
-		show_help
-		exit 1
-		;;
-	esac
-}
-
-function finish() {
+function __finish() {
 	declare quiet=$__QUIET
 
 	__QUIET=true
@@ -4744,7 +5378,7 @@ function finish() {
 	__show_log_msglist warn "${__WARN_MESSAGES[@]}"
 	__log "" ""
 
-	if __variable_file_exists __VAR_FIRST_LOGIN_RUN; then
+	if __variable_file_exists "$__VAR_FIRST_LOGIN_RUN"; then
 		rm -rf "$(realpath "$__FIRST_LOGIN_SCRIPT" 2>>"${__LOG_FILE}")" &>>"${__LOG_FILE}"
 	fi
 
@@ -4774,17 +5408,38 @@ if ! __is_valid_semver "$__VERSION"; then
 	exit 1
 fi
 
+declare -x __ARCHZEN_CONFIG_FILE=""
+declare __script_dir=""
+__script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+
+if [[ -n "$__script_dir" && -f "${__script_dir}/archzen.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__script_dir}/archzen.yml"
+elif [[ -n "$__script_dir" && -f "${__script_dir}/archzen.json" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__script_dir}/archzen.json"
+elif [[ -f "${__PWD}/archzen.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__PWD}/archzen.yml"
+elif [[ -f "${__PWD}/archzen.json" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__PWD}/archzen.json"
+elif [[ -f "${__ARCHZEN_DIR}/archzen.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_DIR}/archzen.yml"
+elif [[ -f "${__ARCHZEN_DIR}/archzen.json" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_DIR}/archzen.json"
+elif [[ -f "${__ARCHZEN_RESOURCES_DIR}/archzen.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_RESOURCES_DIR}/archzen.yml"
+fi
+
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
-	run "$@"
+	__cli_parser "$__ARCHZEN_CONFIG_FILE" "$@"
 	exit $?
 fi
 
 if __is_main_module; then
-	if [[ ! "$1" =~ ^install$|^i$|^self-install$|^si$|^help$|^h$|^version$|^v$ ]]; then
+	# Installed check (for commands other than install or help/version)
+	if [[ ! "$1" =~ ^install$|^i$|^help$|^h$|^--help$|^-h$|^version$|^v$|^--version$|^-v$ || -z "$1" ]]; then
 		if ! command -v archzen &>>"$__LOG_FILE"; then
 			echo
 			__error "The \`$(__error_params "$1")\` command is only available after the installation of ArchZen"
-			__info "Runs \`$(__info_params "sudo ${__THIS_SCRIPT} self-install")\` first"
+			__info "Runs \`$(__info_params "sudo ${__THIS_SCRIPT} install self")\` first"
 			echo
 			exit 1
 		fi
@@ -4798,18 +5453,6 @@ if __is_main_module; then
 		fi
 	fi
 
-	if [[ "$1" =~ ^version$|^v$|^help$|^h$ || -z "$1" ]]; then
-		run "$@" || __EXIT_CODE=$?
-		exit $__EXIT_CODE
-	fi
-
-	if [[ $EUID -ne 0 ]]; then
-		__error "$(__error_params ArchZen) must be run as root"
-		exit 1
-	fi
-
-	init || __EXIT_CODE=$?
-	run "$@" || __EXIT_CODE=$?
-	finish
+	__cli_parser "$__ARCHZEN_CONFIG_FILE" "$@" || __EXIT_CODE=$?
 	exit $__EXIT_CODE
 fi
