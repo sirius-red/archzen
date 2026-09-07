@@ -165,7 +165,7 @@ __DEPENDENCIES=(
 	expac
 	xdg-user-dirs
 	jq
-	yq
+	go-yq
 )
 
 if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
@@ -3051,12 +3051,24 @@ function __install_pkglist() {
 	return $exit_code
 }
 
+# shellcheck disable=SC2120
 function __ensure_deps() {
 	__is_installed_dependencies && return
+
+	declare quiet=$__QUIET
+
+	while $# -gt 0; do
+		case "$1" in
+			-q|--quiet) __QUIET=true ;;
+		esac
+		shift
+	done
 
 	__title "Ensuring dependencies are installed."
 	__install_pkglist "${__DEPENDENCIES[@]}" &&
 		touch "$__VAR_DEPENDENCIES_INSTALED"
+
+	__QUIET=$quiet
 }
 
 function __get_line() {
@@ -5450,6 +5462,8 @@ if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
 fi
 
 if __is_main_module; then
+	__ensure_deps --quiet
+
 	# Installed check (for commands other than install or help/version)
 	if [[ ! "$1" =~ ^install$|^i$|^help$|^h$|^--help$|^-h$|^version$|^v$|^--version$|^-v$ || -z "$1" ]]; then
 		if ! command -v archzen &>>"$__LOG_FILE"; then
