@@ -31,7 +31,6 @@ ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS reposito
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 WSL_ENABLE_GUI=true     # Enables GUI in WSL
 WSL_ENABLE_INTEROP=true # Enables interoperability between WSL and Windows, and GUI support in WSL
-WSL_PKGLIST=()          # Packages to install on WSL
 # <<<<<<<<<<<<<<<<<<<<<<<< WSL Settings <<<<<<<<<<<<<<<<<<<<<<<<
 
 

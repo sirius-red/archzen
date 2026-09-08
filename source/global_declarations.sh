@@ -124,6 +124,7 @@ __DEPENDENCIES=(
 	pacman-contrib
 	git
 	curl
+	vi
 	vim
 	sed
 	xz
@@ -715,10 +716,6 @@ function __set_global_variables() {
 
 	if $PACMAN_ENABLE_MULTILIB; then
 		__WSL_GUI_PKGLIST+=(lib32-vulkan-icd-loader)
-	fi
-
-	if [ ${#WSL_PKGLIST[@]} -gt 0 ]; then
-		__WSL_PKGLIST+=("${WSL_PKGLIST[@]}")
 	fi
 
 	__GNOME_EXTENSIONS=(
