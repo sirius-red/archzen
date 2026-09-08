@@ -104,7 +104,6 @@ declare -xA \
 	__DEFAULT_EXPLORERS \
 	__DEFAULT_EDITORS \
 	__DEFAULT_BROWSERS \
-	__DEFAULT_NOTES \
 	__CUSTOM_GNOME_EXTENSIONS_SCHEMA_XML \
 	__HYPR_TEMPLATE_VALUES \
 	__VSCODE_TEMPLATE_VALUES
@@ -231,14 +230,6 @@ __DEFAULT_BROWSERS=(
 	[hyprland]='firefox'
 )
 
-__DEFAULT_NOTES=(
-	[xorg]='vim'
-	[xorg_minimal]='vim'
-	[gnome]='obsidian'
-	[plasma]='obsidian'
-	[hyprland]='obsidian'
-)
-
 function __set_global_variables() {
 	declare root="$1"
 	declare force="$2"
@@ -268,12 +259,6 @@ function __set_global_variables() {
 		BROWSER="${__DEFAULT_BROWSERS[${DESKTOP_PROFILE//-/_}]}"
 	elif [ -z "$BROWSER" ]; then
 		BROWSER=
-	fi
-
-	if [[ -z "$NOTE" && -n "$DESKTOP_PROFILE" ]]; then
-		NOTE="${__DEFAULT_NOTES[${DESKTOP_PROFILE//-/_}]}"
-	elif [ -z "$NOTE" ]; then
-		NOTE=
 	fi
 
 	__ROOT="$root"
@@ -330,7 +315,6 @@ function __set_global_variables() {
 		[EDITOR]="$EDITOR"
 		[EXPLORER]="$EXPLORER"
 		[BROWSER]="$BROWSER"
-		[NOTE]="$NOTE"
 	)
 
 	__KERNEL_PARAMETERS=(
@@ -718,7 +702,6 @@ function __set_global_variables() {
 		"$EDITOR"
 		"$BROWSER"
 		"$EXPLORER"
-		"$NOTE"
 	)
 
 	__HYDE_PACKAGE_BLACKLIST=(
