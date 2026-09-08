@@ -8,7 +8,7 @@ __source_dir="$(dirname "${BASH_SOURCE[0]}")/source"
 # shellcheck source=source/lib/confedit.sh
 source "${__source_dir}/lib/confedit.sh"
 
-# shellcheck source=source/configuration.sh
+# shellcheck source=source/core/settings.sh
 source "${__source_dir}/configuration.sh"
 
 # shellcheck source=source/global_declarations.sh
