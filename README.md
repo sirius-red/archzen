@@ -23,4 +23,4 @@ vim archzen.sh # optional for edit default settings
 
 ## CLI
 
-![ArchZen "help" command](assets/help_command.png)
+![ArchZen "help" command](resources/assets/help-command.png)

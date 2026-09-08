@@ -11,8 +11,8 @@ declare -x OS='windows'
 
 source archzen.sh
 
-declare srcfile='resources/windows/setup-vscode.ps1.template'
-declare outfile='scripts/windows/setup-vscode.ps1'
+declare srcfile='resources/templates/setup-vscode.ps1.template'
+declare outfile='scripts/powershell/setup-vscode.ps1'
 declare template_key='{{ARCHZEN_EXTENSION_IDS}}'
 declare template_value=''
 declare content=''
