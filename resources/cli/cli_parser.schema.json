@@ -1,6 +1,6 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
-	"$id": "https://raw.githubusercontent.com/sirius-red/archzen/main/resources/cli/cli.schema.json",
+	"$id": "https://raw.githubusercontent.com/sirius-red/archzen/main/resources/cli/cli_parser.schema.json",
 	"title": "ArchZen CLI Help & Configuration Schema",
 	"description": "Strongly typed JSON Schema for CLI commands, subcommands, arguments, flags, and help objects with autocomplete support for YAML and JSON.",
 	"type": "object",
