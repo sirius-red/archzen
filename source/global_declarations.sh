@@ -138,6 +138,34 @@ if grep -qi microsoft /proc/version || [ -f /etc/wsl.conf ]; then
 	__IS_WSL=true
 fi
 
+if [ -z "$CPU" ]; then
+	if grep -qiE "AuthenticAMD|HygonGenuine" /proc/cpuinfo 2>/dev/null; then
+		CPU="amd"
+	elif grep -qi "GenuineIntel" /proc/cpuinfo 2>/dev/null; then
+		CPU="intel"
+	fi
+fi
+
+if [ -z "$GPU" ] && command -v lspci &>/dev/null; then
+	__gpu_info="$(lspci | grep -iE 'vga|3d|display')"
+	if echo "$__gpu_info" | grep -qi nvidia; then
+		if echo "$__gpu_info" | grep -qiE '(GK10|GK11|GK20|GK21|GeForce GTX 6|GeForce GTX 7[0-4]|GeForce GT 6|GeForce GT 7|Quadro K|NVE)'; then
+			GPU="nvidia-470xx"
+		elif echo "$__gpu_info" | grep -qiE '(GF10|GF11|GeForce GTX 4|GeForce GTX 5|GeForce GT 4|GeForce GT 5|Quadro 2000|Quadro 600|NVC)'; then
+			GPU="nvidia-390xx"
+		elif echo "$__gpu_info" | grep -qiE '(GT2|G8|G9|GeForce 8|GeForce 9|GeForce 100|GeForce 200|GeForce 300)'; then
+			GPU="nouveau"
+		else
+			GPU="nvidia"
+			$USE_NVIDIA_OSS_DRIVERS && GPU+="-open"
+		fi
+	elif echo "$__gpu_info" | grep -qi amd; then
+		GPU="amd"
+	elif echo "$__gpu_info" | grep -qi intel; then
+		GPU="intel"
+	fi
+fi
+
 if [ -z "$__LOG_FILE" ]; then
 	declare -x __LOG_FILE
 	__LOG_FILE="${__ROOT}/tmp/archzen__$(date +%Y-%m-%d_%H-%M-%S).log"
