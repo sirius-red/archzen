@@ -120,7 +120,7 @@ function action_install_archlinux() {
     Choose another profile may not interfere with the installation and the rest of the setup,
     but things can be strange in the end, since ArchZen installs the desktop environment on its own
     (if you want a diffrent profile from plasma, which is defined by default in ArchZen, set it
-    in the "DESKTOP_PROFILE" variable in the "archzen.sh" file)
+    in the "GENERAL_DESKTOP_PROFILE" variable in the "archzen.sh" file)
 EOL
 	)"
 
@@ -157,7 +157,7 @@ function action_setup_zram() {
 		fi
 	done
 
-	$SETUP_ZRAM || return 0
+	$GENERAL_SETUP_ZRAM || return 0
 	zramctl &>>"$__LOG_FILE" || return 0
 
 	function __setup_zram() {
@@ -240,7 +240,7 @@ function action_setup_zram() {
 	if __setup_zram &>>"$__LOG_FILE"; then
 		__success "Zram configured successfully"
 
-		if [[ $USE_SWAPFILE ]]; then
+		if [[ $GENERAL_USE_SWAPFILE ]]; then
 			__setup_swapfile &>>"$__LOG_FILE" || __warn "Swapfile was not configured correctly"
 		fi
 	else
@@ -397,7 +397,7 @@ function action_install_desktop_profile() {
 			export FORCE=true
 			declare -gx __FORCE=true
 		elif [[ -n "$arg" && "$arg" != -* ]]; then
-			export DESKTOP_PROFILE="$arg"
+			export GENERAL_DESKTOP_PROFILE="$arg"
 		fi
 	done
 
@@ -408,7 +408,7 @@ function action_install_desktop_profile() {
 	declare proceed=true
 	declare -i exit_code=0
 
-	case $DESKTOP_PROFILE in
+	case $GENERAL_DESKTOP_PROFILE in
 	xorg)
 		pkglist=("${__XORG_PKGLIST[@]}")
 		;;
@@ -443,13 +443,13 @@ function action_install_desktop_profile() {
 		;;
 	*)
 		proceed=false
-		__error "Invalid DESKTOP_PROFILE value: $(__error_params "$DESKTOP_PROFILE")"
+		__error "Invalid DESKTOP_PROFILE value: $(__error_params "$GENERAL_DESKTOP_PROFILE")"
 		;;
 	esac
 
 	if $proceed; then
 		pkglist+=("${__DE_COMMON_PKGLIST[@]}")
-		__title "Installing Desktop Profile: $(__title_params "$DESKTOP_PROFILE")"
+		__title "Installing Desktop Profile: $(__title_params "$GENERAL_DESKTOP_PROFILE")"
 
 		{
 			if [ "${#pkglist[@]}" -gt 0 ]; then
@@ -509,7 +509,7 @@ function action_setup_dotfiles() {
 	declare -a not_installed_items=()
 
 	{
-		if [[ "$DESKTOP_PROFILE" == hyprland ]]; then
+		if [[ "$GENERAL_DESKTOP_PROFILE" == hyprland ]]; then
 			mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/fastfetch" "${__ARCHZEN_DOTFILES_DIR}/!.config/fastfetch"
 			mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/kitty" "${__ARCHZEN_DOTFILES_DIR}/!.config/kitty"
 			mv -f "${__ARCHZEN_DOTFILES_DIR}/.config/fish" "${__ARCHZEN_DOTFILES_DIR}/!.config/fish"
@@ -620,7 +620,7 @@ function action_setup_vscode() {
 		declare result_message=""
 
 		{
-			if [[ "$DESKTOP_PROFILE" != hyprland ]]; then
+			if [[ "$GENERAL_DESKTOP_PROFILE" != hyprland ]]; then
 				[ -d "$nsmvsc_tmp_dir" ] && rm -rf "$nsmvsc_tmp_dir"
 				[ -d "$nsmvsc_dir" ] && rm -rf "$nsmvsc_dir"
 				git clone https://github.com/sirius-red/not-so-minimal-vscode.git "$nsmvsc_tmp_dir"

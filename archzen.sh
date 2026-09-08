@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 
 # >>>>>>>>>>>>>>>>>>>>>>>> Default Settings >>>>>>>>>>>>>>>>>>>>>>>>
-LOCALE="en_US.UTF-8"
-KB_LAYOUT="us"
-KB_VARIANT="intl,altgr-intl"
-TIMESTAMP_TIMEOUT=-1
-REFLECTOR_MIRROR_COUNTRIES="US"
-REFLECTOR_MIRROR_LIMIT=10
-PACMAN_PARALLEL_DOWNLOADS=10
-PACMAN_ENABLE_MULTILIB=true
-SETUP_ZRAM=true
-USE_SWAPFILE=true
-USE_NVIDIA_OSS_DRIVERS=false
-ENABLE_CACHYOS_KIT=false
+GENERAL_LOCALE="en_US.UTF-8"
+GENERAL_KB_LAYOUT="us"
+GENERAL_KB_VARIANT="intl,altgr-intl"
+GENERAL_TIMESTAMP_TIMEOUT=-1
+GENERAL_REFLECTOR_MIRROR_COUNTRIES="US"
+GENERAL_REFLECTOR_MIRROR_LIMIT=10
+GENERAL_PACMAN_PARALLEL_DOWNLOADS=10
+GENERAL_PACMAN_ENABLE_MULTILIB=true
+GENERAL_SETUP_ZRAM=true
+GENERAL_USE_SWAPFILE=true
+GENERAL_USE_NVIDIA_OSS_DRIVERS=false
+GENERAL_ENABLE_CACHYOS_KIT=false
 WSL_ENABLE_GUI=true
 WSL_ENABLE_INTEROP=true
 # <<<<<<<<<<<<<<<<<<<<<<<< Default Settings <<<<<<<<<<<<<<<<<<<<<<<<
@@ -67,26 +67,26 @@ function __load_config_val() {
 }
 
 if [[ -f "$__config_file" ]]; then
-	__load_config_val "LOCALE" "General"
-	__load_config_val "KB_LAYOUT" "General"
-	__load_config_val "KB_VARIANT" "General"
-	__load_config_val "TIMESTAMP_TIMEOUT" "General"
-	__load_config_val "REFLECTOR_MIRROR_COUNTRIES" "General"
-	__load_config_val "REFLECTOR_MIRROR_LIMIT" "General"
-	__load_config_val "PACMAN_PARALLEL_DOWNLOADS" "General"
-	__load_config_val "PACMAN_ENABLE_MULTILIB" "General"
-	__load_config_val "SETUP_ZRAM" "General"
-	__load_config_val "USE_SWAPFILE" "General"
-	__load_config_val "USE_NVIDIA_OSS_DRIVERS" "General"
-	__load_config_val "ENABLE_CACHYOS_KIT" "General"
-	__load_config_val "KERNEL" "General"
-	__load_config_val "USER_SHELL" "General"
-	__load_config_val "AUR_HELPER" "General"
-	__load_config_val "EDITOR" "General"
-	__load_config_val "DESKTOP_PROFILE" "General"
-	__load_config_val "TERMINAL" "General"
-	__load_config_val "EXPLORER" "General"
-	__load_config_val "BROWSER" "General"
+	__load_config_val "LOCALE" "General" "GENERAL_LOCALE"
+	__load_config_val "KB_LAYOUT" "General" "GENERAL_KB_LAYOUT"
+	__load_config_val "KB_VARIANT" "General" "GENERAL_KB_VARIANT"
+	__load_config_val "TIMESTAMP_TIMEOUT" "General" "GENERAL_TIMESTAMP_TIMEOUT"
+	__load_config_val "REFLECTOR_MIRROR_COUNTRIES" "General" "GENERAL_REFLECTOR_MIRROR_COUNTRIES"
+	__load_config_val "REFLECTOR_MIRROR_LIMIT" "General" "GENERAL_REFLECTOR_MIRROR_LIMIT"
+	__load_config_val "PACMAN_PARALLEL_DOWNLOADS" "General" "GENERAL_PACMAN_PARALLEL_DOWNLOADS"
+	__load_config_val "PACMAN_ENABLE_MULTILIB" "General" "GENERAL_PACMAN_ENABLE_MULTILIB"
+	__load_config_val "SETUP_ZRAM" "General" "GENERAL_SETUP_ZRAM"
+	__load_config_val "USE_SWAPFILE" "General" "GENERAL_USE_SWAPFILE"
+	__load_config_val "USE_NVIDIA_OSS_DRIVERS" "General" "GENERAL_USE_NVIDIA_OSS_DRIVERS"
+	__load_config_val "ENABLE_CACHYOS_KIT" "General" "GENERAL_ENABLE_CACHYOS_KIT"
+	__load_config_val "KERNEL" "General" "GENERAL_KERNEL"
+	__load_config_val "USER_SHELL" "General" "GENERAL_USER_SHELL"
+	__load_config_val "AUR_HELPER" "General" "GENERAL_AUR_HELPER"
+	__load_config_val "EDITOR" "General" "GENERAL_EDITOR"
+	__load_config_val "DESKTOP_PROFILE" "General" "GENERAL_DESKTOP_PROFILE"
+	__load_config_val "TERMINAL" "General" "GENERAL_TERMINAL"
+	__load_config_val "EXPLORER" "General" "GENERAL_EXPLORER"
+	__load_config_val "BROWSER" "General" "GENERAL_BROWSER"
 
 	__load_config_val "ENABLE_GUI" "WSL" "WSL_ENABLE_GUI"
 	__load_config_val "ENABLE_INTEROP" "WSL" "WSL_ENABLE_INTEROP"
@@ -129,7 +129,7 @@ if ! __is_valid_semver "$__VERSION"; then
 	exit 1
 fi
 
-declare __script_dir, __cli_config_file
+declare __script_dir __cli_config_file
 __script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 __cli_config_file="${__script_dir}/source/cli/config.yml"
 

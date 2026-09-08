@@ -516,21 +516,21 @@ function __gen_bootloader_update_script() {
 function __setup_sdboot() {
 	function __gen_entry() {
 		declare entry_dir="${__ESP}/loader/entries"
-		declare entry_file="${entry_dir}/${KERNEL}.conf"
+		declare entry_file="${entry_dir}/${GENERAL_KERNEL}.conf"
 		declare -a entry_file_lines=(
 			'# Created by: ArchZen'
-			"title		Arch Linux (${KERNEL})"
-			"linux		/vmlinuz-${KERNEL}"
+			"title		Arch Linux (${GENERAL_KERNEL})"
+			"linux		/vmlinuz-${GENERAL_KERNEL}"
 			"initrd		/${CPU}-ucode.img"
-			"initrd		/initramfs-${KERNEL}.img"
+			"initrd		/initramfs-${GENERAL_KERNEL}.img"
 			"options	root=PARTUUID=${__ROOT_PARTUUID} ${__KERNEL_PARAMETERS[*]}"
 		)
-		declare entry_file_fallback="${entry_dir}/${KERNEL}-fallback.conf"
+		declare entry_file_fallback="${entry_dir}/${GENERAL_KERNEL}-fallback.conf"
 		declare -a entry_file_fallback_lines=(
 			'# Created by: ArchZen'
-			"title		Arch Linux (${KERNEL}-fallback)"
-			"linux		/vmlinuz-${KERNEL}"
-			"initrd		/initramfs-${KERNEL}-fallback.img"
+			"title		Arch Linux (${GENERAL_KERNEL}-fallback)"
+			"linux		/vmlinuz-${GENERAL_KERNEL}"
+			"initrd		/initramfs-${GENERAL_KERNEL}-fallback.img"
 			"options	root=PARTUUID=${__ROOT_PARTUUID} ${__KERNEL_FALLBACK_PARAMETERS[*]}"
 		)
 
@@ -544,7 +544,7 @@ function __setup_sdboot() {
 
 	function __edit_loader() {
 		declare esp_loader_conf="${__ESP}/loader/loader.conf"
-		declare sd_default="$KERNEL"
+		declare sd_default="$GENERAL_KERNEL"
 		declare -i sd_timeout=0
 		declare sd_console_mode="max" # auto | max | keep
 		declare sd_editor="no"        # yes | no

@@ -156,7 +156,7 @@ if [ -z "$GPU" ] && command -v lspci &>/dev/null; then
 			GPU="nouveau"
 		else
 			GPU="nvidia"
-			$USE_NVIDIA_OSS_DRIVERS && GPU+="-open"
+			$GENERAL_USE_NVIDIA_OSS_DRIVERS && GPU+="-open"
 		fi
 	elif echo "$__gpu_info" | grep -qi amd; then
 		GPU="amd"
@@ -235,30 +235,30 @@ function __set_global_variables() {
 	declare force="$2"
 	declare archzen_is_running_from_binary="$3"
 
-	__check_type_alias DESKTOP_PROFILE "$DESKTOP_PROFILE"
+	__check_type_alias DESKTOP_PROFILE "$GENERAL_DESKTOP_PROFILE"
 
-	if [[ -z "$TERMINAL" && -n "$DESKTOP_PROFILE" ]]; then
-		TERMINAL="${__DEFAULT_TERMINALS[${DESKTOP_PROFILE//-/_}]}"
-	elif [ -z "$TERMINAL" ]; then
-		TERMINAL=
+	if [[ -z "$GENERAL_TERMINAL" && -n "$GENERAL_DESKTOP_PROFILE" ]]; then
+		GENERAL_TERMINAL="${__DEFAULT_TERMINALS[${GENERAL_DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$GENERAL_TERMINAL" ]; then
+		GENERAL_TERMINAL=
 	fi
 
-	if [[ -z "$EXPLORER" && -n "$DESKTOP_PROFILE" ]]; then
-		EXPLORER="${__DEFAULT_EXPLORERS[${DESKTOP_PROFILE//-/_}]}"
-	elif [ -z "$EXPLORER" ]; then
-		EXPLORER=
+	if [[ -z "$GENERAL_EXPLORER" && -n "$GENERAL_DESKTOP_PROFILE" ]]; then
+		GENERAL_EXPLORER="${__DEFAULT_EXPLORERS[${GENERAL_DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$GENERAL_EXPLORER" ]; then
+		GENERAL_EXPLORER=
 	fi
 
-	if [[ -z "$EDITOR" && -n "$DESKTOP_PROFILE" ]]; then
-		EDITOR="${__DEFAULT_EDITORS[${DESKTOP_PROFILE//-/_}]}"
-	elif [ -z "$EDITOR" ]; then
-		EDITOR=
+	if [[ -z "$GENERAL_EDITOR" && -n "$GENERAL_DESKTOP_PROFILE" ]]; then
+		GENERAL_EDITOR="${__DEFAULT_EDITORS[${GENERAL_DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$GENERAL_EDITOR" ]; then
+		GENERAL_EDITOR=
 	fi
 
-	if [[ -z "$BROWSER" && -n "$DESKTOP_PROFILE" ]]; then
-		BROWSER="${__DEFAULT_BROWSERS[${DESKTOP_PROFILE//-/_}]}"
-	elif [ -z "$BROWSER" ]; then
-		BROWSER=
+	if [[ -z "$GENERAL_BROWSER" && -n "$GENERAL_DESKTOP_PROFILE" ]]; then
+		GENERAL_BROWSER="${__DEFAULT_BROWSERS[${GENERAL_DESKTOP_PROFILE//-/_}]}"
+	elif [ -z "$GENERAL_BROWSER" ]; then
+		GENERAL_BROWSER=
 	fi
 
 	__ROOT="$root"
@@ -270,7 +270,7 @@ function __set_global_variables() {
 	__QUIET=false
 	__ARCHINSTALL_PRESET="./resources/archinstall-preset.json"
 	__AUR_HELPER_IS_INSTALLED=false
-	__AUR_HELPER_BIN="$AUR_HELPER"
+	__AUR_HELPER_BIN="$GENERAL_AUR_HELPER"
 	while [[ $__AUR_HELPER_BIN =~ (-bin|-git)$ ]]; do
 		__AUR_HELPER_BIN="${__AUR_HELPER_BIN/${BASH_REMATCH[0]}/}"
 	done
@@ -309,12 +309,12 @@ function __set_global_variables() {
 	)
 
 	__HYPR_TEMPLATE_VALUES=(
-		[KB_LAYOUT]="$KB_LAYOUT"
-		[KB_VARIANT]="$KB_VARIANT"
-		[TERMINAL]="$TERMINAL"
-		[EDITOR]="$EDITOR"
-		[EXPLORER]="$EXPLORER"
-		[BROWSER]="$BROWSER"
+		[KB_LAYOUT]="$GENERAL_KB_LAYOUT"
+		[KB_VARIANT]="$GENERAL_KB_VARIANT"
+		[TERMINAL]="$GENERAL_TERMINAL"
+		[EDITOR]="$GENERAL_EDITOR"
+		[EXPLORER]="$GENERAL_EXPLORER"
+		[BROWSER]="$GENERAL_BROWSER"
 	)
 
 	__KERNEL_PARAMETERS=(
@@ -341,12 +341,12 @@ function __set_global_variables() {
 		fi
 	fi
 
-	if $SETUP_ZRAM; then
+	if $GENERAL_SETUP_ZRAM; then
 		__KERNEL_PARAMETERS+=("zswap.enabled=0")
 		__KERNEL_FALLBACK_PARAMETERS+=("zswap.enabled=0")
 	fi
 
-	if [[ ! "$KERNEL" =~ cachyos && "$GPU" =~ nvidia ]]; then
+	if [[ ! "$GENERAL_KERNEL" =~ cachyos && "$GPU" =~ nvidia ]]; then
 		__KERNEL_PARAMETERS+=('nvidia-drm.modeset=1')
 		__KERNEL_MODULES+=(
 			nvidia
@@ -366,7 +366,7 @@ function __set_global_variables() {
 		linux-firmware
 		sof-firmware
 		sudo
-		"${USER_SHELL:-bash}"
+		"${GENERAL_USER_SHELL:-bash}"
 	)
 
 	__KERNEL_PKGLIST=(
@@ -698,10 +698,10 @@ function __set_global_variables() {
 	)
 
 	__DE_COMMON_PKGLIST=(
-		"$TERMINAL"
-		"$EDITOR"
-		"$BROWSER"
-		"$EXPLORER"
+		"$GENERAL_TERMINAL"
+		"$GENERAL_EDITOR"
+		"$GENERAL_BROWSER"
+		"$GENERAL_EXPLORER"
 	)
 
 	__HYDE_PACKAGE_BLACKLIST=(
@@ -725,7 +725,7 @@ function __set_global_variables() {
 		vulkan-icd-loader
 	)
 
-	if $PACMAN_ENABLE_MULTILIB; then
+	if $GENERAL_PACMAN_ENABLE_MULTILIB; then
 		__WSL_GUI_PKGLIST+=(lib32-vulkan-icd-loader)
 	fi
 
@@ -756,7 +756,7 @@ function __set_global_variables() {
 	)
 
 	declare __vsc_color_theme_ext __vsc_icon_theme_ext __vsc_dark_color_theme __vsc_light_color_theme __vsc_icon_theme
-	if [[ "$DESKTOP_PROFILE" != hyprland || "$OS" == windows ]]; then
+	if [[ "$GENERAL_DESKTOP_PROFILE" != hyprland || "$OS" == windows ]]; then
 		__vsc_color_theme_ext='Default Themes:vscode.theme-defaults'
 		__vsc_icon_theme_ext='Symbols:miguelsolorio.symbols'
 		__vsc_dark_color_theme='Default Dark Modern'
@@ -789,21 +789,21 @@ function __set_global_variables() {
 		[DARK_COLOR_THEME]="$__vsc_dark_color_theme"
 		[LIGHT_COLOR_THEME]="$__vsc_light_color_theme"
 		[ICON_THEME]="$__vsc_icon_theme"
-		[EXTERNAL_TERMINAL]="$TERMINAL"
-		[INTEGRATED_TERMINAL]="$USER_SHELL"
+		[EXTERNAL_TERMINAL]="$GENERAL_TERMINAL"
+		[INTEGRATED_TERMINAL]="$GENERAL_USER_SHELL"
 	)
 
-	if [[ -n "$KERNEL" && "$__IS_WSL" == false ]]; then
-		if [[ "$KERNEL" =~ cachyos && "$ENABLE_CACHYOS_KIT" == true ]]; then
+	if [[ -n "$GENERAL_KERNEL" && "$__IS_WSL" == false ]]; then
+		if [[ "$GENERAL_KERNEL" =~ cachyos && "$GENERAL_ENABLE_CACHYOS_KIT" == true ]]; then
 			__CACHYOS_PKGLIST=(
-				"$KERNEL"
-				"${KERNEL}-headers"
+				"$GENERAL_KERNEL"
+				"${GENERAL_KERNEL}-headers"
 				"${__CACHYOS_PKGLIST[@]}"
 			)
 		else
 			__KERNEL_PKGLIST=(
-				"$KERNEL"
-				"${KERNEL}-headers"
+				"$GENERAL_KERNEL"
+				"${GENERAL_KERNEL}-headers"
 				"${__KERNEL_PKGLIST[@]}"
 			)
 		fi

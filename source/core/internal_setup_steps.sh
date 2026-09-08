@@ -6,7 +6,7 @@ function __setup_sudoers() {
 		declare -a sudoers_options=(
 			"Defaults	insults"
 			"Defaults	pwfeedback"
-			"Defaults	timestamp_timeout=${TIMESTAMP_TIMEOUT}"
+			"Defaults	timestamp_timeout=${GENERAL_TIMESTAMP_TIMEOUT}"
 		)
 
 		for option in "${sudoers_options[@]}"; do
@@ -199,8 +199,8 @@ function __setup_pacman() {
 
 	__enable_colors || return_code=1
 	__enable_i_love_candy || return_code=1
-	__set_parallel_downloads "$PACMAN_PARALLEL_DOWNLOADS" || return_code=1
-	$PACMAN_ENABLE_MULTILIB && { __enable_multilib_repo || return_code=1; }
+	__set_parallel_downloads "$GENERAL_PACMAN_PARALLEL_DOWNLOADS" || return_code=1
+	$GENERAL_PACMAN_ENABLE_MULTILIB && { __enable_multilib_repo || return_code=1; }
 	__fix_file_permissions || return_code=1
 	__update_repo_database || return_code=1
 
@@ -219,11 +219,11 @@ function __rate_mirrors() {
 		"--ipv4"
 		"--ipv6"
 		"--protocol https"
-		"--country ${REFLECTOR_MIRROR_COUNTRIES}"
-		"--latest ${REFLECTOR_MIRROR_LIMIT}"
+		"--country ${GENERAL_REFLECTOR_MIRROR_COUNTRIES}"
+		"--latest ${GENERAL_REFLECTOR_MIRROR_LIMIT}"
 		"--sort rate"
 	)
-	declare log_data="${REFLECTOR_MIRROR_LIMIT} mirros from ${REFLECTOR_MIRROR_COUNTRIES}"
+	declare log_data="${GENERAL_REFLECTOR_MIRROR_LIMIT} mirros from ${GENERAL_REFLECTOR_MIRROR_COUNTRIES}"
 
 	__title "Rating mirros: $(__title_params "$log_data")"
 
@@ -244,25 +244,25 @@ function __setup_locale() {
 
 	curr_locale="$(localectl status 2>>"$__LOG_FILE" | grep -e 'LANG=' | cut -d'=' -f2)"
 
-	__title "Configuring locale: $(__title_params "$LOCALE")"
+	__title "Configuring locale: $(__title_params "$GENERAL_LOCALE")"
 
-	if [[ "$LOCALE" == "$curr_locale" ]]; then
-		__info "Locale is already configured: $(__info_params "$LOCALE")"
+	if [[ "$GENERAL_LOCALE" == "$curr_locale" ]]; then
+		__info "Locale is already configured: $(__info_params "$GENERAL_LOCALE")"
 		return 0
 	fi
 
-	__confedit uncomment "$locale_gen" "$LOCALE" --format conf --separator ' ' &>>"$__LOG_FILE"
+	__confedit uncomment "$locale_gen" "$GENERAL_LOCALE" --format conf --separator ' ' &>>"$__LOG_FILE"
 
 	if locale-gen &>>"$__LOG_FILE" &&
-		localectl set-locale LANG="$LOCALE" &>>"$__LOG_FILE"; then
+		localectl set-locale LANG="$GENERAL_LOCALE" &>>"$__LOG_FILE"; then
 		success=true
 	fi
 
 	if $success; then
-		__success "Locale configured successfully: $(__success_params "$LOCALE")"
+		__success "Locale configured successfully: $(__success_params "$GENERAL_LOCALE")"
 		return 0
 	else
-		__error "Error configuring locale: $(__error_params "$LOCALE")"
+		__error "Error configuring locale: $(__error_params "$GENERAL_LOCALE")"
 		return 1
 	fi
 }
@@ -369,18 +369,18 @@ function __install_aurbuilder() {
 }
 
 function __install_aur_helper() {
-	[ -n "$AUR_HELPER" ] || return 0
+	[ -n "$GENERAL_AUR_HELPER" ] || return 0
 
-	__title "Installing AUR helper: $(__title_params "$AUR_HELPER")"
+	__title "Installing AUR helper: $(__title_params "$GENERAL_AUR_HELPER")"
 
-	if command -v "${AUR_HELPER/-bin/}" &>>"$__LOG_FILE"; then
+	if command -v "${GENERAL_AUR_HELPER/-bin/}" &>>"$__LOG_FILE"; then
 		__AUR_HELPER_IS_INSTALLED=true
-		__info "AUR helper already installed: $(__info_params "$AUR_HELPER")"
-	elif __install_package "$AUR_HELPER"; then
+		__info "AUR helper already installed: $(__info_params "$GENERAL_AUR_HELPER")"
+	elif __install_package "$GENERAL_AUR_HELPER"; then
 		__AUR_HELPER_IS_INSTALLED=true
-		__success "AUR helper installed successfully: $(__success_params "$AUR_HELPER")"
+		__success "AUR helper installed successfully: $(__success_params "$GENERAL_AUR_HELPER")"
 	else
-		__error "Error installing AUR helper: $(__error_params "$AUR_HELPER")"
+		__error "Error installing AUR helper: $(__error_params "$GENERAL_AUR_HELPER")"
 	fi
 
 	return $?
@@ -409,7 +409,7 @@ function __install_base_packages() {
 		fi
 
 		while read -r k; do
-			[[ "$k" == "$KERNEL" ]] && continue
+			[[ "$k" == "$GENERAL_KERNEL" ]] && continue
 
 			if __is_installed "$k"; then
 				pacman -Rnsu --noconfirm "$k" &>>"$__LOG_FILE"
@@ -424,7 +424,7 @@ function __install_base_packages() {
 		done < <(jq -r '.kernels[]' "${__ARCHZEN_RESOURCES_DIR}/archinstall-preset.json" | xargs)
 	}
 
-	if [[ -n "$KERNEL" && "$__IS_WSL" == false ]]; then
+	if [[ -n "$GENERAL_KERNEL" && "$__IS_WSL" == false ]]; then
 		__title "Removing default kernels"
 		__remove_default_kernels
 	fi
@@ -436,7 +436,7 @@ function __install_base_packages() {
 }
 
 function __enable_cachyos_kit() {
-	[[ "$ENABLE_CACHYOS_KIT" == true ]] || return 0
+	[[ "$GENERAL_ENABLE_CACHYOS_KIT" == true ]] || return 0
 
 	declare success=false
 
@@ -490,45 +490,45 @@ function __setup_os() {
 	__set_default_shell() {
 		declare proceed=true
 
-		__title "Changing the shell to: $(__title_params "$USER_SHELL")"
+		__title "Changing the shell to: $(__title_params "$GENERAL_USER_SHELL")"
 
-		if ! __is_installed "$USER_SHELL"; then
+		if ! __is_installed "$GENERAL_USER_SHELL"; then
 			proceed=false
 
-			__warn "The user-defined shell was not installed. Trying to install: $(__warn_params "$USER_SHELL")"
+			__warn "The user-defined shell was not installed. Trying to install: $(__warn_params "$GENERAL_USER_SHELL")"
 
-			if __install_package "$USER_SHELL"; then
+			if __install_package "$GENERAL_USER_SHELL"; then
 				proceed=true
 
-				__success "User-defined shell installed successfully: $(__success_params "$USER_SHELL")"
+				__success "User-defined shell installed successfully: $(__success_params "$GENERAL_USER_SHELL")"
 			else
-				__error "Error installing user-defined shell: $(__error_params "$USER_SHELL")"
+				__error "Error installing user-defined shell: $(__error_params "$GENERAL_USER_SHELL")"
 			fi
 		fi
 
 		$proceed || return 1
 
 		declare shell_path
-		shell_path=$(which "$USER_SHELL")
+		shell_path=$(which "$GENERAL_USER_SHELL")
 
 		if ! grep -qe "^${shell_path}$" "${__ROOT}/etc/shells" &>>"$__LOG_FILE"; then
 			proceed=false
 
-			__title "Adding the ${USER_SHELL} path to ${__ROOT}/etc/shells: $(__title_params "$shell_path")"
+			__title "Adding the ${GENERAL_USER_SHELL} path to ${__ROOT}/etc/shells: $(__title_params "$shell_path")"
 
 			if __add_lines_to_file "${__ROOT}/etc/shells" a false "$shell_path"; then
 				proceed=true
 
-				__success "${USER_SHELL} path added to ${__ROOT}/etc/shells: $(__success_params "$shell_path")"
+				__success "${GENERAL_USER_SHELL} path added to ${__ROOT}/etc/shells: $(__success_params "$shell_path")"
 			else
-				__error "Error adding the ${USER_SHELL} path to ${__ROOT}/etc/shells: $(__error_params "$shell_path")"
+				__error "Error adding the ${GENERAL_USER_SHELL} path to ${__ROOT}/etc/shells: $(__error_params "$shell_path")"
 			fi
 		fi
 
-		if $proceed && chsh -s "$(which "$USER_SHELL")" "$__USERNAME"; then
-			__success "Shell changed successfully to: $(__success_params "$USER_SHELL")"
+		if $proceed && chsh -s "$(which "$GENERAL_USER_SHELL")" "$__USERNAME"; then
+			__success "Shell changed successfully to: $(__success_params "$GENERAL_USER_SHELL")"
 		else
-			__error "Error changing shell to: $(__error_params "$USER_SHELL")"
+			__error "Error changing shell to: $(__error_params "$GENERAL_USER_SHELL")"
 		fi
 
 		return $?
@@ -536,7 +536,7 @@ function __setup_os() {
 	}
 
 	__set_os_specifications || return_code=1
-	[ -n "$USER_SHELL" ] && { __set_default_shell || return_code=1; }
+	[ -n "$GENERAL_USER_SHELL" ] && { __set_default_shell || return_code=1; }
 
 	return $return_code
 }
@@ -757,21 +757,21 @@ function __setup_hyprland() {
 		declare -a script_lines=(hyprinit)
 		declare success=false
 
-		if __check_type_alias -s SHELL_PROFILES "$USER_SHELL"; then
-			shell_profile="${__SHELL_PROFILES[$USER_SHELL]}"
+		if __check_type_alias -s SHELL_PROFILES "$GENERAL_USER_SHELL"; then
+			shell_profile="${__SHELL_PROFILES[$GENERAL_USER_SHELL]}"
 		fi
 
-		__print "$(__title "Adding $(__title_params hyprinit) to $(__title_params "$USER_SHELL") profile...")"
+		__print "$(__title "Adding $(__title_params hyprinit) to $(__title_params "$GENERAL_USER_SHELL") profile...")"
 
 		if grep -qe 'hyprinit' "$shell_profile" &>>"$__LOG_FILE"; then
-			__print -rn "$(__info "Adding $(__info_params hyprinit) to $(__info_params "$USER_SHELL") profile... $(__info_params 'Skipped!')")"
+			__print -rn "$(__info "Adding $(__info_params hyprinit) to $(__info_params "$GENERAL_USER_SHELL") profile... $(__info_params 'Skipped!')")"
 		elif ! command -v hyprinit &>>"$__LOG_FILE"; then
 			__print -rn "$(__error "$(__error_params hyprinit) helper not found in $(__error_params "$__BIN_DIR")!")"
 		elif __add_lines_to_file "$shell_profile" a true "${script_lines[@]}" &>>"$__LOG_FILE" && __takeown "$shell_profile"; then
 			success=true
-			__print -rn "$(__success "Adding $(__success_params hyprinit) to $(__success_params "$USER_SHELL") profile... $(__success_params 'Success!')")"
+			__print -rn "$(__success "Adding $(__success_params hyprinit) to $(__success_params "$GENERAL_USER_SHELL") profile... $(__success_params 'Success!')")"
 		else
-			__print -rn "$(__error "Adding $(__error_params hyprinit) to $(__error_params "$USER_SHELL") profile... $(__error_params 'Error!')")"
+			__print -rn "$(__error "Adding $(__error_params hyprinit) to $(__error_params "$GENERAL_USER_SHELL") profile... $(__error_params 'Error!')")"
 		fi
 
 		$success && return 0
