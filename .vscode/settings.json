@@ -6,7 +6,8 @@
 	"yaml.schemas": {
 		"resources/cli/cli-parser.schema.json": [
 			".cli-parser.yml",
-			".cli_parser.yaml"
+			".cli_parser.yaml",
+			"source/cli/config.yml"
 		]
 	},
 	"json.schemas": [
