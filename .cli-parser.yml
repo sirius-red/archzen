@@ -1,5 +1,5 @@
-# yaml-language-server: $schema=./resources/cli/cli_parser.schema.json
-$schema: ./resources/cli/cli_parser.schema.json
+# yaml-language-server: $schema=./resources/cli/cli-parser.schema.json
+$schema: ./resources/cli/cli-parser.schema.json
 
 name: archzen
 version: "0.0.1"

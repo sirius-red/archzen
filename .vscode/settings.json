@@ -4,12 +4,15 @@
 		"*.ps1.template": "powershell"
 	},
 	"yaml.schemas": {
-		"resources/cli/cli_parser.schema.json": ["archzen.yml", "archzen.yaml"]
+		"resources/cli/cli-parser.schema.json": [
+			".cli-parser.yml",
+			".cli_parser.yaml"
+		]
 	},
 	"json.schemas": [
 		{
-			"fileMatch": ["archzen.json"],
-			"url": "./resources/cli/cli_parser.schema.json"
+			"fileMatch": [".cli_parser.json"],
+			"url": "./resources/cli/cli-parser.schema.json"
 		}
 	]
 }

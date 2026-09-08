@@ -81,20 +81,20 @@ declare -x __ARCHZEN_CONFIG_FILE=""
 declare __script_dir=""
 __script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 
-if [[ -n "$__script_dir" && -f "${__script_dir}/.cli_parser.yml" ]]; then
-	__ARCHZEN_CONFIG_FILE="${__script_dir}/.cli_parser.yml"
+if [[ -n "$__script_dir" && -f "${__script_dir}/.cli-parser.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__script_dir}/.cli-parser.yml"
 elif [[ -n "$__script_dir" && -f "${__script_dir}/.cli_parser.json" ]]; then
 	__ARCHZEN_CONFIG_FILE="${__script_dir}/.cli_parser.json"
-elif [[ -f "${__PWD}/.cli_parser.yml" ]]; then
-	__ARCHZEN_CONFIG_FILE="${__PWD}/.cli_parser.yml"
+elif [[ -f "${__PWD}/.cli-parser.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__PWD}/.cli-parser.yml"
 elif [[ -f "${__PWD}/.cli_parser.json" ]]; then
 	__ARCHZEN_CONFIG_FILE="${__PWD}/.cli_parser.json"
-elif [[ -f "${__ARCHZEN_DIR}/.cli_parser.yml" ]]; then
-	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_DIR}/.cli_parser.yml"
+elif [[ -f "${__ARCHZEN_DIR}/.cli-parser.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_DIR}/.cli-parser.yml"
 elif [[ -f "${__ARCHZEN_DIR}/.cli_parser.json" ]]; then
 	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_DIR}/.cli_parser.json"
-elif [[ -f "${__ARCHZEN_RESOURCES_DIR}/.cli_parser.yml" ]]; then
-	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_RESOURCES_DIR}/.cli_parser.yml"
+elif [[ -f "${__ARCHZEN_RESOURCES_DIR}/.cli-parser.yml" ]]; then
+	__ARCHZEN_CONFIG_FILE="${__ARCHZEN_RESOURCES_DIR}/.cli-parser.yml"
 fi
 
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
