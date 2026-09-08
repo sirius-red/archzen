@@ -52,9 +52,12 @@ if [[ ! -f "$__config_file" ]]; then
 fi
 
 function __load_config_val() {
-	declare key="$1"
-	declare section="$2"
-	declare target_var="${3:-$key}"
+	declare path="$1"
+	declare section="${path%%.*}"
+	declare key="${path#*.}"
+	declare target_var
+
+	target_var="$(echo "$path" | sed 's/\./_/g; s/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')"
 	declare val
 
 	if val="$(__confedit get "$__config_file" "$key" "$section" 2>/dev/null)"; then
@@ -67,29 +70,29 @@ function __load_config_val() {
 }
 
 if [[ -f "$__config_file" ]]; then
-	__load_config_val "LOCALE" "General" "GENERAL_LOCALE"
-	__load_config_val "KB_LAYOUT" "General" "GENERAL_KB_LAYOUT"
-	__load_config_val "KB_VARIANT" "General" "GENERAL_KB_VARIANT"
-	__load_config_val "TIMESTAMP_TIMEOUT" "General" "GENERAL_TIMESTAMP_TIMEOUT"
-	__load_config_val "REFLECTOR_MIRROR_COUNTRIES" "General" "GENERAL_REFLECTOR_MIRROR_COUNTRIES"
-	__load_config_val "REFLECTOR_MIRROR_LIMIT" "General" "GENERAL_REFLECTOR_MIRROR_LIMIT"
-	__load_config_val "PACMAN_PARALLEL_DOWNLOADS" "General" "GENERAL_PACMAN_PARALLEL_DOWNLOADS"
-	__load_config_val "PACMAN_ENABLE_MULTILIB" "General" "GENERAL_PACMAN_ENABLE_MULTILIB"
-	__load_config_val "SETUP_ZRAM" "General" "GENERAL_SETUP_ZRAM"
-	__load_config_val "USE_SWAPFILE" "General" "GENERAL_USE_SWAPFILE"
-	__load_config_val "USE_NVIDIA_OSS_DRIVERS" "General" "GENERAL_USE_NVIDIA_OSS_DRIVERS"
-	__load_config_val "ENABLE_CACHYOS_KIT" "General" "GENERAL_ENABLE_CACHYOS_KIT"
-	__load_config_val "KERNEL" "General" "GENERAL_KERNEL"
-	__load_config_val "USER_SHELL" "General" "GENERAL_USER_SHELL"
-	__load_config_val "AUR_HELPER" "General" "GENERAL_AUR_HELPER"
-	__load_config_val "EDITOR" "General" "GENERAL_EDITOR"
-	__load_config_val "DESKTOP_PROFILE" "General" "GENERAL_DESKTOP_PROFILE"
-	__load_config_val "TERMINAL" "General" "GENERAL_TERMINAL"
-	__load_config_val "EXPLORER" "General" "GENERAL_EXPLORER"
-	__load_config_val "BROWSER" "General" "GENERAL_BROWSER"
+	__load_config_val General.Locale
+	__load_config_val General.KbLayout
+	__load_config_val General.KbVariant
+	__load_config_val General.TimestampTimeout
+	__load_config_val General.ReflectorMirrorCountries
+	__load_config_val General.ReflectorMirrorLimit
+	__load_config_val General.PacmanParallelDownloads
+	__load_config_val General.PacmanEnableMultilib
+	__load_config_val General.SetupZram
+	__load_config_val General.UseSwapfile
+	__load_config_val General.UseNvidiaOssDrivers
+	__load_config_val General.EnableCachyosKit
+	__load_config_val General.Kernel
+	__load_config_val General.UserShell
+	__load_config_val General.AurHelper
+	__load_config_val General.Editor
+	__load_config_val General.DesktopProfile
+	__load_config_val General.Terminal
+	__load_config_val General.Explorer
+	__load_config_val General.Browser
 
-	__load_config_val "ENABLE_GUI" "WSL" "WSL_ENABLE_GUI"
-	__load_config_val "ENABLE_INTEROP" "WSL" "WSL_ENABLE_INTEROP"
+	__load_config_val WSL.EnableGUI
+	__load_config_val WSL.EnableInterop
 fi
 # <<<<<<<<<<<<<<<<<<<<<<<< Load Configuration <<<<<<<<<<<<<<<<<<<<<<<<
 
