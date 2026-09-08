@@ -82,6 +82,8 @@ function action_install_archzen() {
 			cp -f "${__PWD}/LICENSE" "$__ARCHZEN_DIR" &&
 			{ [[ -f "${__PWD}/archzen.yml" ]] && cp -f "${__PWD}/archzen.yml" "$__ARCHZEN_DIR"; true; } &&
 			{ [[ -f "${__PWD}/archzen.json" ]] && cp -f "${__PWD}/archzen.json" "$__ARCHZEN_DIR"; true; } &&
+			{ [[ -f "${__PWD}/archzen.conf" ]] && cp -f "${__PWD}/archzen.conf" "$__ARCHZEN_DIR"; true; } &&
+			{ [[ -f "${__PWD}/archzen.conf" ]] && cp -f "${__PWD}/archzen.conf" "${__ROOT}/etc/archzen.conf"; true; } &&
 			touch "$__VAR_ARCHZEN_INSTALLED" &&
 			success=true
 	} &>>"$__LOG_FILE"

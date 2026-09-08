@@ -1,47 +1,101 @@
 #!/usr/bin/env bash
 
-# >>>>>>>>>>>>>>>>>>>>>>>> Main Settings >>>>>>>>>>>>>>>>>>>>>>>>
-LOCALE="en_US.UTF-8"               # Use `cat /usr/share/i18n/SUPPORTED | cut -d' ' -f1` to list possible values
-KB_LAYOUT="us"                     # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
-KB_VARIANT="intl,altgr-intl"       # Use `grep -i 'English' /usr/share/X11/xkb/rules/base.lst` to list possible values
-TIMESTAMP_TIMEOUT=-1               # number of minutes before the sudo password prompt times out, or -1 for no timeout
-REFLECTOR_MIRROR_COUNTRIES="BR,US" # Use `reflector --list-countries` to list available countries
-REFLECTOR_MIRROR_LIMIT=10          # The higher the value, the longer the reflector will take to complete its run
-PACMAN_PARALLEL_DOWNLOADS=10       # Value for Pacman's "ParallelDownloads" config option
-PACMAN_ENABLE_MULTILIB=true        # Enable (or not) the multilib repository
-AUR_HELPER="yay-bin"               # paru[-[bin|git]] | yay[-[bin|git]]; "aurbuilder" will use this behind the scenes for some tasks. Comment this line to use "makepkg"
-SETUP_ZRAM=true                    # true | false; Improve zram settings if you enabled it in Arch installation
-USE_SWAPFILE=true                  # true | false; Enables a swapfile fallback, used only if zram is unavailable or insufficient and filesystem is not btrfs
-KERNEL="linux-zen"                 # Any available in the official repository or AUR; Comment this line to not install
-USER_SHELL="fish"                  # Any available in the official repository or AUR; Comment this line to not change the shell; Only “fish” has customizations
-USE_NVIDIA_OSS_DRIVERS=false       # true | false; Se verdadeiro, instalará os drivers open source da nvidia (`nvidia-open`) ao invés do padrão (`nvidia`)
-ENABLE_CACHYOS_KIT=false           # true | false; Installs the CachyOS repository and some CachyOS tools
-# DESKTOP_PROFILE="hyprland"       # xorg | xorg-minimal | gnome | plasma | hyprland; Comment this line to not install
-# TERMINAL="kitty"                 # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-# EDITOR="vim"                     # Any terminal editor available in the official repository or AUR; Comment this line to not install
-# EXPLORER="dolphin"               # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-# BROWSER="firefox"                # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-# NOTE="obsidian"                  # Any available in the official repository or AUR; Comment this line to use the DESKTOP_PROFILE default
-# <<<<<<<<<<<<<<<<<<<<<<<< Main Settings <<<<<<<<<<<<<<<<<<<<<<<<
-
-# >>>>>>>>>>>>>>>>>>>>>>>> WSL Settings >>>>>>>>>>>>>>>>>>>>>>>>
-# These variables will be ignored if archzen is not running on a
-# WSL installation.
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-WSL_ENABLE_GUI=true     # Enables GUI in WSL
-WSL_ENABLE_INTEROP=true # Enables interoperability between WSL and Windows, and GUI support in WSL
-# <<<<<<<<<<<<<<<<<<<<<<<< WSL Settings <<<<<<<<<<<<<<<<<<<<<<<<
+# >>>>>>>>>>>>>>>>>>>>>>>> Default Settings >>>>>>>>>>>>>>>>>>>>>>>>
+LOCALE="en_US.UTF-8"
+KB_LAYOUT="us"
+KB_VARIANT="intl,altgr-intl"
+TIMESTAMP_TIMEOUT=-1
+REFLECTOR_MIRROR_COUNTRIES="US"
+REFLECTOR_MIRROR_LIMIT=10
+PACMAN_PARALLEL_DOWNLOADS=10
+PACMAN_ENABLE_MULTILIB=true
+SETUP_ZRAM=true
+USE_SWAPFILE=true
+USE_NVIDIA_OSS_DRIVERS=false
+ENABLE_CACHYOS_KIT=false
+WSL_ENABLE_GUI=true
+WSL_ENABLE_INTEROP=true
+# <<<<<<<<<<<<<<<<<<<<<<<< Default Settings <<<<<<<<<<<<<<<<<<<<<<<<
 
 
 # >>>>>>>>>>>>>>>>>>>>>>>> Load Source Files >>>>>>>>>>>>>>>>>>>>>>>>
 declare __source_dir=""
 __source_dir="$(dirname "${BASH_SOURCE[0]}")/source"
 
+# shellcheck source=source/lib/confedit.sh
+source "${__source_dir}/lib/confedit.sh"
+
+# >>>>>>>>>>>>>>>>>>>>>>>> Load Configuration >>>>>>>>>>>>>>>>>>>>>>>>
+declare __config_file=""
+if [[ "$ARCHZEN_IS_RUNNING_FROM_BINARY" == true ]]; then
+	__config_file="/etc/archzen.conf"
+else
+	__config_file="${PWD}/archzen.conf"
+fi
+
+if [[ ! -f "$__config_file" ]]; then
+	declare __template_config
+	__template_config="$(dirname "${BASH_SOURCE[0]}")/archzen.conf"
+	if [[ -f "$__template_config" ]]; then
+		if [[ "$ARCHZEN_IS_RUNNING_FROM_BINARY" == true && $EUID -ne 0 ]]; then
+			sudo cp -f "$__template_config" "$__config_file" 2>/dev/null || true
+		else
+			cp -f "$__template_config" "$__config_file" 2>/dev/null || true
+		fi
+	else
+		if [[ "$ARCHZEN_IS_RUNNING_FROM_BINARY" == true && $EUID -ne 0 ]]; then
+			sudo touch "$__config_file" 2>/dev/null || true
+		else
+			touch "$__config_file" 2>/dev/null || true
+		fi
+	fi
+fi
+
+function __load_config_val() {
+	declare key="$1"
+	declare section="$2"
+	declare target_var="${3:-$key}"
+	declare val
+
+	if val="$(__confedit get "$__config_file" "$key" "$section" 2>/dev/null)"; then
+		val="${val%\"}"
+		val="${val#\"}"
+		val="${val%\'}"
+		val="${val#\'}"
+		eval "$target_var=\"\$val\""
+	fi
+}
+
+if [[ -f "$__config_file" ]]; then
+	__load_config_val "LOCALE" "General"
+	__load_config_val "KB_LAYOUT" "General"
+	__load_config_val "KB_VARIANT" "General"
+	__load_config_val "TIMESTAMP_TIMEOUT" "General"
+	__load_config_val "REFLECTOR_MIRROR_COUNTRIES" "General"
+	__load_config_val "REFLECTOR_MIRROR_LIMIT" "General"
+	__load_config_val "PACMAN_PARALLEL_DOWNLOADS" "General"
+	__load_config_val "PACMAN_ENABLE_MULTILIB" "General"
+	__load_config_val "SETUP_ZRAM" "General"
+	__load_config_val "USE_SWAPFILE" "General"
+	__load_config_val "USE_NVIDIA_OSS_DRIVERS" "General"
+	__load_config_val "ENABLE_CACHYOS_KIT" "General"
+	__load_config_val "KERNEL" "General"
+	__load_config_val "USER_SHELL" "General"
+	__load_config_val "AUR_HELPER" "General"
+	__load_config_val "EDITOR" "General"
+	__load_config_val "DESKTOP_PROFILE" "General"
+	__load_config_val "TERMINAL" "General"
+	__load_config_val "EXPLORER" "General"
+	__load_config_val "BROWSER" "General"
+
+	__load_config_val "ENABLE_GUI" "WSL" "WSL_ENABLE_GUI"
+	__load_config_val "ENABLE_INTEROP" "WSL" "WSL_ENABLE_INTEROP"
+fi
+# <<<<<<<<<<<<<<<<<<<<<<<< Load Configuration <<<<<<<<<<<<<<<<<<<<<<<<
+
 # shellcheck source=source/global_declarations.sh
 source "${__source_dir}/global_declarations.sh"
 
-# shellcheck source=source/lib/confedit.sh
-source "${__source_dir}/lib/confedit.sh"
 # shellcheck source=source/lib/cli_parser.sh
 source "${__source_dir}/lib/cli_parser.sh"
 
