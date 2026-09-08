@@ -17,8 +17,8 @@ In the Arch Linux live iso environment:
 ```bash
 git clone --depth 1 https://github.com/sirius-red/archzen
 cd archzen
-vim archzen.sh # optional for edit default settings
-./archzen.sh install
+vim archzen.conf # optional for edit default settings
+./archzen.sh --help
 ```
 
 ## CLI
