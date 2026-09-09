@@ -337,7 +337,7 @@ function action_setup_wsl() {
 
 		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
 
-		if __confedit set "$__WSL_CONF" "user.default" "$__USERNAME" --create &>>"$__LOG_FILE"; then
+		if confmgr set "$__WSL_CONF" "user.default" "$__USERNAME" --create &>>"$__LOG_FILE"; then
 			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
 			return 0
 		else
@@ -360,7 +360,7 @@ function action_setup_wsl() {
 		fi
 
 		for k in GALLIUM_DRIVER LIBVA_DRIVER_NAME; do
-			if __confedit set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
+			if confmgr set "$env_file" "$k" "$v" --format conf --create &>>"$__LOG_FILE"; then
 				__success "Environment variable configured successfully: $(__success_params "${k}=${v}")"
 			else
 				__error "Error setting environment variable: $(__error_params "${k}=${v}")"
@@ -374,7 +374,7 @@ function action_setup_wsl() {
 	function __setup_wsl_interop() {
 		__title "Configuring WSL interop"
 
-		if __confedit set "$__WSL_CONF" "interop.enabled" "$WSL_ENABLE_INTEROP" --create &>>"$__LOG_FILE"; then
+		if confmgr set "$__WSL_CONF" "interop.enabled" "$WSL_ENABLE_INTEROP" --create &>>"$__LOG_FILE"; then
 			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
 			return 0
 		else

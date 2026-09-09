@@ -49,7 +49,7 @@ function __load_config_val() {
 	target_var="$(echo "$path" | sed 's/\./_/g; s/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')"
 	declare val
 
-	val="$(__confedit get "$__config_file" "$path" 2>/dev/null)"
+	val="$(confmgr get "$__config_file" "$path" 2>/dev/null)"
 	if [[ $? -eq 0 || -n "$val" ]]; then
 		eval "$target_var=\"\$val\""
 	fi
