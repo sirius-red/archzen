@@ -8,8 +8,8 @@ __source_dir="$(dirname "${BASH_SOURCE[0]}")/source"
 # shellcheck source=source/lib/confmgr.sh
 source "${__source_dir}/lib/confmgr.sh"
 
-# shellcheck source=source/core/settings.sh
-source "${__source_dir}/configuration.sh"
+# shellcheck source=source/core/user_settings.sh
+source "${__source_dir}/core/user_settings.sh"
 
 # shellcheck source=source/global_declarations.sh
 source "${__source_dir}/global_declarations.sh"
