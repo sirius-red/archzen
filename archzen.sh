@@ -52,7 +52,7 @@ __script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 __cli_config_file="${__script_dir}/source/cli/config.yml"
 
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
-	__cli_parser "$__cli_config_file" "$@"
+	cli_parser "$__cli_config_file" "$@"
 	exit $?
 fi
 
@@ -78,6 +78,6 @@ if __is_main_module; then
 		fi
 	fi
 
-	__cli_parser "$__cli_config_file" "$@" || __EXIT_CODE=$?
+	cli_parser "$__cli_config_file" "$@" || __EXIT_CODE=$?
 	exit $__EXIT_CODE
 fi

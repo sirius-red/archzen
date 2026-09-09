@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# __cli_parser — Self-contained declarative CLI engine for YAML and JSON
+# cli_parser — Self-contained declarative CLI engine for YAML and JSON
 # ==============================================================================
 # Parses CLI arguments based on a declarative configuration file (.yml, .yaml, .json).
 # Supports commands, subcommands, aliases, typed positional arguments, enum validation,
@@ -9,10 +9,10 @@
 # and direct action dispatching.
 #
 # USAGE:
-#   __cli_parser <config_file> "$@"
+#   cli_parser <config_file> "$@"
 # ==============================================================================
 # shellcheck disable=SC2329
-function __cli_parser() {
+function cli_parser() {
 	declare __cli_config_file="$1"
 	shift 1
 
@@ -380,6 +380,23 @@ function __cli_parser() {
 				export FORCE=true
 				declare -gx __FORCE=true
 				shift 1
+				;;
+			--config|-c)
+				if [[ -z "$2" || "$2" == -* ]]; then
+					__error "Argument required for $(__error_params "$1")"
+					return 1
+				fi
+				declare custom_config="$2"
+				shift 2
+				if [[ -f "$custom_config" ]]; then
+					__config_file="$(realpath "$custom_config" 2>/dev/null || readlink -f "$custom_config")"
+					if __func_exists __reload_config; then
+						__reload_config
+					fi
+				else
+					__error "Configuration file not found: $(__error_params "$custom_config")"
+					return 1
+				fi
 				;;
 			--version|-v)
 				opt_version=true

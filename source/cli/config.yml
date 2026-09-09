@@ -2,23 +2,27 @@
 $schema: ../../resources/cli/cli-parser.schema.json
 
 name: archzen
-version: "0.0.1"
-description: "ArchZen - Stay Zen and install Arch Linux"
-usage: "archzen [flags] <command> [subcommand] [args...]"
-author: "Sirius Red"
-license: "GPLv3"
+version: 0.0.1
+description: ArchZen - Stay Zen and install Arch Linux
+usage: archzen [flags] <command> [subcommand] [args...]
+author: Sirius Red
+license: GPLv3
 
 global_flags:
   dev:
-    aliases: ["-d"]
-    description: "Habilita comandos e opções exclusivas para desenvolvimento."
-    type: "Boolean"
+    aliases: [-d]
+    description: Habilita comandos e opções exclusivas para desenvolvimento.
+    type: Boolean
     default: false
   force:
-    aliases: ["-f"]
-    description: "Força a execução ignorando avisos de checagem."
-    type: "Boolean"
+    aliases: [-f]
+    description: Força a execução ignorando avisos de checagem.
+    type: Boolean
     default: false
+  config:
+    aliases: [-c]
+    description: Carrega um arquivo de configuração, sobrescrevendo as configurações atuais.
+    type: String
 
 commands:
   # ===========================================================================
@@ -26,31 +30,31 @@ commands:
   # ===========================================================================
   install:
     arch:
-      aliases: ["a"]
-      description: "Inicia o instalador do Arch Linux (archinstall) com preset minimal."
-      action: "action_install_archlinux"
+      aliases: [a]
+      description: Inicia o instalador do Arch Linux (archinstall) com preset minimal.
+      action: action_install_archlinux
       root_required: true
       reboot: true
 
     self:
-      aliases: ["s"]
-      description: "Instala o ArchZen no sistema para uso global."
-      action: "action_install_archzen"
+      aliases: [s]
+      description: Instala o ArchZen no sistema para uso global.
+      action: action_install_archzen
       root_required: false
 
     desktop-profile:
-      aliases: ["dp"]
-      description: "Instala e configura o perfil de ambiente gráfico/desktop selecionado."
-      action: "action_install_desktop_profile"
-      usage: "archzen install desktop-profile [profile]"
+      aliases: [dp]
+      description: Instala e configura o perfil de ambiente gráfico/desktop selecionado.
+      action: action_install_desktop_profile
+      usage: archzen install desktop-profile [profile]
       root_required: true
       reboot: true
       args:
         - name: profile
-          description: "Perfil de desktop a instalar."
-          type: "String"
-          options: ["xorg", "xorg-minimal", "gnome", "plasma", "hyprland"]
-          default: "hyprland"
+          description: Perfil de desktop a instalar.
+          type: String
+          options: [xorg, xorg-minimal, gnome, plasma, hyprland]
+          default: hyprland
           required: false
 
   # ===========================================================================
@@ -58,55 +62,55 @@ commands:
   # ===========================================================================
   setup:
     arch:
-      aliases: ["a"]
-      description: "Configura um Arch Linux já instalado com todas as personalizações do ArchZen."
-      action: "action_setup_archlinux"
+      aliases: [a]
+      description: Configura um Arch Linux já instalado com todas as personalizações do ArchZen.
+      action: action_setup_archlinux
       root_required: true
       reboot: true
 
     bootloader:
-      aliases: ["b"]
+      aliases: [b]
       description: "Configura o bootloader (ex: systemd-boot) incluindo hooks e scripts de update."
-      action: "action_setup_bootloader"
-      usage: "archzen setup bootloader <bootloader> [gen_scripts]"
+      action: action_setup_bootloader
+      usage: archzen setup bootloader <bootloader> [gen_scripts]
       root_required: true
       reboot: true
       args:
         - name: bootloader
-          description: "Tipo de bootloader a ser configurado."
-          type: "String"
-          options: ["auto", "sdboot", "refind", "grub", "lilo"]
-          default: "auto"
+          description: Tipo de bootloader a ser configurado.
+          type: String
+          options: [auto, sdboot, refind, grub, lilo]
+          default: auto
           required: true
         - name: gen_scripts
-          description: "Gera scripts automáticos de atualização do bootloader."
-          type: "Boolean"
+          description: Gera scripts automáticos de atualização do bootloader.
+          type: Boolean
           options: [true, false]
           default: true
           required: false
 
     dotfiles:
-      aliases: ["d"]
-      description: "Copia os arquivos de configuração (dotfiles) do ArchZen para ~/.config."
-      action: "action_setup_dotfiles"
+      aliases: [d]
+      description: Copia os arquivos de configuração (dotfiles) do ArchZen para ~/.config.
+      action: action_setup_dotfiles
       root_required: false
 
     vscode:
-      aliases: ["vsc"]
-      description: "Configura settings, keymaps e instala extensões do VS Code."
-      action: "action_setup_vscode"
+      aliases: [vsc]
+      description: Configura settings, keymaps e instala extensões do VS Code.
+      action: action_setup_vscode
       root_required: false
 
     wsl:
-      aliases: ["w"]
-      description: "Aplica configurações e pacotes específicos para ambiente WSL."
-      action: "action_setup_wsl"
+      aliases: [w]
+      description: Aplica configurações e pacotes específicos para ambiente WSL.
+      action: action_setup_wsl
       root_required: true
 
     zram:
-      aliases: ["z"]
-      description: "Configura e otimiza o zram no sistema."
-      action: "action_setup_zram"
+      aliases: [z]
+      description: Configura e otimiza o zram no sistema.
+      action: action_setup_zram
       root_required: true
       reboot: true
 
@@ -114,18 +118,18 @@ commands:
   # DEV: archzen --dev <func|f> <function_name> [args...]
   # ===========================================================================
   func:
-    aliases: ["f"]
-    description: "Executa diretamente qualquer função interna do script."
+    aliases: [f]
+    description: Executa diretamente qualquer função interna do script.
     dev: true
-    action: "action_exec_func"
-    usage: "archzen --dev func <function_name> [args...]"
+    action: action_exec_func
+    usage: archzen --dev func <function_name> [args...]
     args:
       - name: function_name
-        description: "Nome da função bash existente a ser invocada."
-        type: "String"
+        description: Nome da função bash existente a ser invocada.
+        type: String
         required: true
       - name: args
-        description: "Parâmetros e argumentos extras a repassar para a função."
-        type: "Array<String>"
+        description: Parâmetros e argumentos extras a repassar para a função.
+        type: Array<String>
         required: false
         variadic: true
