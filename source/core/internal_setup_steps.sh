@@ -105,10 +105,10 @@ function __setup_pacman() {
 
 		__show_title "Enable colors"
 
-		if __confedit exists "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE"; then
+		if __confedit exists "$pacman_conf" "options.Color" --separator "" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif __confedit uncomment "$pacman_conf" "Color" "options" --separator "" &>>"$__LOG_FILE" ||
-			__confedit set "$pacman_conf" "Color" "" "options" --separator "" &>>"$__LOG_FILE"; then
+		elif __confedit uncomment "$pacman_conf" "options.Color" --separator "" &>>"$__LOG_FILE" ||
+			__confedit set "$pacman_conf" "options.Color" "" --separator "" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -123,10 +123,10 @@ function __setup_pacman() {
 
 		__show_title "Enable pacman's most important option"
 
-		if __confedit exists "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE"; then
+		if __confedit exists "$pacman_conf" "options.ILoveCandy" --separator "" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif __confedit uncomment "$pacman_conf" "ILoveCandy" "options" --separator "" &>>"$__LOG_FILE" ||
-			__confedit set "$pacman_conf" "ILoveCandy" "" "options" --separator "" &>>"$__LOG_FILE"; then
+		elif __confedit uncomment "$pacman_conf" "options.ILoveCandy" --separator "" &>>"$__LOG_FILE" ||
+			__confedit set "$pacman_conf" "options.ILoveCandy" "" --separator "" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -142,9 +142,9 @@ function __setup_pacman() {
 
 		__show_title "Set value of parallel downloads"
 
-		if [[ "$(__confedit get "$pacman_conf" "ParallelDownloads" "options" 2>>"$__LOG_FILE")" == "$value" ]]; then
+		if [[ "$(__confedit get "$pacman_conf" "options.ParallelDownloads" 2>>"$__LOG_FILE")" == "$value" ]]; then
 			status="keep"
-		elif __confedit set "$pacman_conf" "ParallelDownloads" "$value" "options" &>>"$__LOG_FILE"; then
+		elif __confedit set "$pacman_conf" "options.ParallelDownloads" "$value" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"
@@ -159,9 +159,9 @@ function __setup_pacman() {
 
 		__show_title "Enable multilib repository"
 
-		if __confedit exists "$pacman_conf" "Include" "multilib" &>>"$__LOG_FILE"; then
+		if __confedit exists "$pacman_conf" "multilib.Include" &>>"$__LOG_FILE"; then
 			status="keep"
-		elif __confedit set "$pacman_conf" "Include" "/etc/pacman.d/mirrorlist" "multilib" &>>"$__LOG_FILE"; then
+		elif __confedit set "$pacman_conf" "multilib.Include" "/etc/pacman.d/mirrorlist" &>>"$__LOG_FILE"; then
 			status="changed"
 		else
 			status="unchanged"

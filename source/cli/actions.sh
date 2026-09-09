@@ -337,7 +337,7 @@ function action_setup_wsl() {
 
 		__title "Setting default WSL user: $(__title_params "$__USERNAME")"
 
-		if __confedit set "$__WSL_CONF" default "$__USERNAME" user --create &>>"$__LOG_FILE"; then
+		if __confedit set "$__WSL_CONF" "user.default" "$__USERNAME" --create &>>"$__LOG_FILE"; then
 			__success "Default WSL user configured successfully: $(__success_params "$__USERNAME")"
 			return 0
 		else
@@ -374,7 +374,7 @@ function action_setup_wsl() {
 	function __setup_wsl_interop() {
 		__title "Configuring WSL interop"
 
-		if __confedit set "$__WSL_CONF" enabled "$WSL_ENABLE_INTEROP" interop --create &>>"$__LOG_FILE"; then
+		if __confedit set "$__WSL_CONF" "interop.enabled" "$WSL_ENABLE_INTEROP" --create &>>"$__LOG_FILE"; then
 			__success "WSL interop configured successfully: $(__success_params "enabled=${WSL_ENABLE_INTEROP}")"
 			return 0
 		else

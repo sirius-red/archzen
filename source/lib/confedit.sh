@@ -18,14 +18,17 @@
 #   confedit <operation> <file> [options...]
 #
 # OPERATIONS:
-#   set     <file> <key> <value> [section]  — Set a key=value (creates if missing)
-#   get     <file> <key> [section]          — Print the value of a key
-#   delete  <file> <key> [section]          — Remove a key entirely
-#   comment <file> <key> [section]          — Comment out a key
-#   uncomment <file> <key> [section]        — Uncomment a key
-#   exists  <file> <key> [section]          — Return 0 if key exists, 1 otherwise
+#   set     <file> <keypath> <value>        — Set a key=value (creates if missing)
+#   get     <file> <keypath>                — Print the value of a key
+#   delete  <file> <keypath>                — Remove a key entirely
+#   comment <file> <keypath>                — Comment out a key
+#   uncomment <file> <keypath>              — Uncomment a key
+#   exists  <file> <keypath>                — Return 0 if key exists, 1 otherwise
 #   section-add    <file> <section>         — Add a new section header
 #   section-delete <file> <section>         — Remove an entire section and its keys
+#
+#   <keypath> format: [section.][subsection.]key
+#   Supports parsing types like boolean and number, and unquoting strings in `get`.
 #
 # OPTIONS:
 #   --format <ini|conf>   — Force a format instead of auto-detecting from extension
@@ -34,9 +37,9 @@
 #   --create              — Create the file if it doesn't exist
 #
 # EXAMPLES:
-#   confedit set /etc/pacman.conf Color true misc
-#   confedit get /etc/pacman.conf ParallelDownloads options
-#   confedit delete ~/.config/app.ini theme ui
+#   confedit set /etc/pacman.conf misc.Color true
+#   confedit get /etc/pacman.conf options.ParallelDownloads
+#   confedit delete ~/.config/app.ini ui.theme
 #   confedit set myfile.conf key value --format conf --backup
 # ==============================================================================
 # shellcheck disable=SC2329
@@ -281,7 +284,18 @@ function __confedit() {
 			return 1
 		fi
 
+		if [[ "$result" =~ ^\"(.*)\"$ ]] || [[ "$result" =~ ^\'(.*)\'$ ]]; then
+			result="${BASH_REMATCH[1]}"
+		fi
+
 		printf '%s\n' "$result"
+
+		declare lower_res="${result,,}"
+		if [[ "$lower_res" == "false" || "$lower_res" == "no" || "$lower_res" == "0" ]]; then
+			return 1
+		fi
+
+		return 0
 	}
 
 	function __confedit_op_delete() {
@@ -591,68 +605,98 @@ function __confedit() {
 	# Dispatch operation
 	case "$operation" in
 		set)
-			declare ce_key="${positional_args[0]}"
+			declare ce_keypath="${positional_args[0]}"
 			declare ce_value="${positional_args[1]}"
-			declare ce_section="${positional_args[2]}"
+			declare ce_section="" ce_key="$ce_keypath"
 
-			if [[ -z "$ce_key" ]]; then
-				__confedit_err "'set' requires: confedit set <file> <key> <value> [section]"
+			if [[ -z "$ce_keypath" ]]; then
+				__confedit_err "'set' requires: confedit set <file> <keypath> <value>"
 				return 1
+			fi
+
+			if [[ "$ce_keypath" == *.* ]]; then
+				ce_section="${ce_keypath%.*}"
+				ce_key="${ce_keypath##*.}"
 			fi
 
 			__confedit_op_set "$file_path" "$ce_key" "$ce_value" "$ce_section"
 			;;
 		get)
-			declare ce_key="${positional_args[0]}"
-			declare ce_section="${positional_args[1]}"
+			declare ce_keypath="${positional_args[0]}"
+			declare ce_section="" ce_key="$ce_keypath"
 
-			if [[ -z "$ce_key" ]]; then
-				__confedit_err "'get' requires: confedit get <file> <key> [section]"
+			if [[ -z "$ce_keypath" ]]; then
+				__confedit_err "'get' requires: confedit get <file> <keypath>"
 				return 1
+			fi
+
+			if [[ "$ce_keypath" == *.* ]]; then
+				ce_section="${ce_keypath%.*}"
+				ce_key="${ce_keypath##*.}"
 			fi
 
 			__confedit_op_get "$file_path" "$ce_key" "$ce_section"
 			;;
 		delete)
-			declare ce_key="${positional_args[0]}"
-			declare ce_section="${positional_args[1]}"
+			declare ce_keypath="${positional_args[0]}"
+			declare ce_section="" ce_key="$ce_keypath"
 
-			if [[ -z "$ce_key" ]]; then
-				__confedit_err "'delete' requires: confedit delete <file> <key> [section]"
+			if [[ -z "$ce_keypath" ]]; then
+				__confedit_err "'delete' requires: confedit delete <file> <keypath>"
 				return 1
+			fi
+
+			if [[ "$ce_keypath" == *.* ]]; then
+				ce_section="${ce_keypath%.*}"
+				ce_key="${ce_keypath##*.}"
 			fi
 
 			__confedit_op_delete "$file_path" "$ce_key" "$ce_section"
 			;;
 		comment)
-			declare ce_key="${positional_args[0]}"
-			declare ce_section="${positional_args[1]}"
+			declare ce_keypath="${positional_args[0]}"
+			declare ce_section="" ce_key="$ce_keypath"
 
-			if [[ -z "$ce_key" ]]; then
-				__confedit_err "'comment' requires: confedit comment <file> <key> [section]"
+			if [[ -z "$ce_keypath" ]]; then
+				__confedit_err "'comment' requires: confedit comment <file> <keypath>"
 				return 1
+			fi
+
+			if [[ "$ce_keypath" == *.* ]]; then
+				ce_section="${ce_keypath%.*}"
+				ce_key="${ce_keypath##*.}"
 			fi
 
 			__confedit_op_comment "$file_path" "$ce_key" "$ce_section"
 			;;
 		uncomment)
-			declare ce_key="${positional_args[0]}"
-			declare ce_section="${positional_args[1]}"
+			declare ce_keypath="${positional_args[0]}"
+			declare ce_section="" ce_key="$ce_keypath"
 
-			if [[ -z "$ce_key" ]]; then
-				__confedit_err "'uncomment' requires: confedit uncomment <file> <key> [section]"
+			if [[ -z "$ce_keypath" ]]; then
+				__confedit_err "'uncomment' requires: confedit uncomment <file> <keypath>"
 				return 1
+			fi
+
+			if [[ "$ce_keypath" == *.* ]]; then
+				ce_section="${ce_keypath%.*}"
+				ce_key="${ce_keypath##*.}"
 			fi
 
 			__confedit_op_uncomment "$file_path" "$ce_key" "$ce_section"
 			;;
 		exists)
-			declare ce_key="${positional_args[0]}"
-			declare ce_section="${positional_args[1]}"
+			declare ce_keypath="${positional_args[0]}"
+			declare ce_section="" ce_key="$ce_keypath"
 
-			if [[ -z "$ce_key" ]]; then
-				__confedit_err "'exists' requires: confedit exists <file> <key> [section]"
+			if [[ -z "$ce_keypath" ]]; then
+				__confedit_err "'exists' requires: confedit exists <file> <keypath>"
 				return 1
+			fi
+
+			if [[ "$ce_keypath" == *.* ]]; then
+				ce_section="${ce_keypath%.*}"
+				ce_key="${ce_keypath##*.}"
 			fi
 
 			__confedit_op_exists "$file_path" "$ce_key" "$ce_section"

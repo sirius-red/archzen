@@ -44,18 +44,13 @@ fi
 
 function __load_config_val() {
 	declare path="$1"
-	declare section="${path%%.*}"
-	declare key="${path#*.}"
 	declare target_var
 
 	target_var="$(echo "$path" | sed 's/\./_/g; s/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')"
 	declare val
 
-	if val="$(__confedit get "$__config_file" "$key" "$section" 2>/dev/null)"; then
-		val="${val%\"}"
-		val="${val#\"}"
-		val="${val%\'}"
-		val="${val#\'}"
+	val="$(__confedit get "$__config_file" "$path" 2>/dev/null)"
+	if [[ $? -eq 0 || -n "$val" ]]; then
 		eval "$target_var=\"\$val\""
 	fi
 }
@@ -82,6 +77,6 @@ if [[ -f "$__config_file" ]]; then
 	__load_config_val General.Explorer
 	__load_config_val General.Browser
 
-	__load_config_val Wsl.EnableGui
-	__load_config_val Wsl.EnableInterop
+	__load_config_val WSL.EnableGui
+	__load_config_val WSL.EnableInterop
 fi
