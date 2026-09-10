@@ -3,7 +3,7 @@
 # Delay to reboot system automatically in seconds
 declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
 
-declare -x CONFEDIT_ENABLE_BACKUP=true
+declare -x CONFMGR_ENABLE_BACKUP=false
 
 declare -x \
 	__VERSION="0.0.1" \

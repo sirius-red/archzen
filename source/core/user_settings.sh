@@ -78,7 +78,7 @@ function __reload_config() {
 		__load_config_val General.Explorer
 		__load_config_val General.Browser
 
-		__load_config_val WSL.EnableGui
+		__load_config_val WSL.EnableGUI
 		__load_config_val WSL.EnableInterop
 	fi
 }

@@ -48,7 +48,7 @@ function __finish() {
 
 	if $__FORCE_REBOOT_SYSTEM; then
 		while [ $__FORCE_REBOOT_SYSTEM_TIME -ge 0 ]; do
-			trap echo EXIT INT
+			trap 'exit 1' INT
 
 			__reset_line
 			printf '\r%s' "$(__warn "The system will reboot automatically in $(__warn_params $__FORCE_REBOOT_SYSTEM_TIME) seconds. Press $(__warn_params 'CTRL+C') to cancel")"

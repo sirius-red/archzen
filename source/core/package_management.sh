@@ -197,7 +197,7 @@ function __install_pkglist() {
 			declare pkg_type
 			declare success=false
 
-			if [[ "${installed_packages[*]}" =~ $pkg ]]; then
+			if [[ " ${installed_packages[*]} " == *" $pkg "* ]]; then
 				__ALREADY_INSTALLED_PKGLIST+=("$pkg")
 				__update_result_text 1 info
 				continue
@@ -227,7 +227,7 @@ function __install_pkglist() {
 		__update_installed_packages
 
 		for pkg in "${arch_pkglist[@]}"; do
-			if [[ "${installed_packages[*]}" =~ $pkg ]]; then
+			if [[ " ${installed_packages[*]} " == *" $pkg "* ]]; then
 				__update_result_text 1 info
 			else
 				__NOT_INSTALLED_PKGLIST+=("$pkg")
@@ -242,7 +242,7 @@ function __install_pkglist() {
 
 		__update_installed_packages
 		for pkg in "${aur_pkglist[@]}"; do
-			if [[ "${installed_packages[*]}" =~ $pkg ]]; then
+			if [[ " ${installed_packages[*]} " == *" $pkg "* ]]; then
 				__update_result_text 1 info
 			else
 				__NOT_INSTALLED_PKGLIST+=("$pkg")
@@ -280,7 +280,7 @@ function __ensure_deps() {
 
 	declare quiet=$__QUIET
 
-	while $# -gt 0; do
+	while [[ $# -gt 0 ]]; do
 		case "$1" in
 			-q|--quiet) __QUIET=true ;;
 		esac
@@ -303,7 +303,7 @@ function __get_line() {
 	result=$(grep -n "$pattern" "$file_path" || printf 'none')
 
 	if [[ "$result" != 'none' ]]; then
-		line=$(echo "$result" | cut -d ':' -f 1 | xargs)
+		line=$(echo "$result" | head -n 1 | cut -d ':' -f 1 | xargs)
 	fi
 
 	printf '%d' $line
@@ -408,7 +408,7 @@ function __apply_template_values() {
 
 	__title "Applying template values $(__title_params "$template_var") to $(__title_params "$file_path") file"
 
-	if eval "[ -z \"$$template_var\" ]"; then
+	if eval "[ \${#${template_var}[@]} -eq 0 ]"; then
 		__error "Template variable $(__error_params "\$$template_var") is not defined"
 		return 1
 	fi

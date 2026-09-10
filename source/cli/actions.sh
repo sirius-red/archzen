@@ -240,7 +240,7 @@ function action_setup_zram() {
 	if __setup_zram &>>"$__LOG_FILE"; then
 		__success "Zram configured successfully"
 
-		if [[ $GENERAL_USE_SWAPFILE ]]; then
+		if $GENERAL_USE_SWAPFILE; then
 			__setup_swapfile &>>"$__LOG_FILE" || __warn "Swapfile was not configured correctly"
 		fi
 	else

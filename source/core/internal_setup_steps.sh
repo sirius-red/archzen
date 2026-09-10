@@ -34,10 +34,10 @@ function __setup_sudoers() {
 			__add_lines_to_file "${sudoers_user}" "w" false "${sudoers_user_options[@]}"
 		else
 			declare -i line_n
-			line_n=$(__get_line "^${__USERNAME} ALL=(ALL) ALL")
+			line_n=$(__get_line "^${__USERNAME} ALL=(ALL) ALL" "$sudoers_user")
 
 			if [ $line_n -gt 0 ]; then
-				sed -i "${line_n}d" &>>"$__LOG_FILE"
+				sed -i "${line_n}d" "$sudoers_user" &>>"$__LOG_FILE"
 			fi
 
 			for option in "${sudoers_user_options[@]}"; do
@@ -421,7 +421,7 @@ function __install_base_packages() {
 				grep -qe "^linux.*initramfs-${k}[-fallback].img$" "$entry" || continue
 				rm -f "$entry"
 			done
-		done < <(jq -r '.kernels[]' "${__ARCHZEN_RESOURCES_DIR}/archinstall-preset.json" | xargs)
+		done < <(jq -r '.kernels[]' "${__ARCHZEN_RESOURCES_DIR}/archinstall-preset.json")
 	}
 
 	if [[ -n "$GENERAL_KERNEL" && "$__IS_WSL" == false ]]; then
