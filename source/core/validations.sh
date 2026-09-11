@@ -4,9 +4,9 @@ __is_valid_semver() {
 	declare version="$1"
 
 	if [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
-		return 0 # válido
+		return 0 # valid
 	else
-		return 1 # inválido
+		return 1 # invalid
 	fi
 }
 

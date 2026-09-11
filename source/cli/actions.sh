@@ -116,7 +116,7 @@ function action_setup_zram() {
 			'# Defines the first zram unit'
 			'[zram0]'
 			''
-			'# Defines ZRAM size to a range of at least 10% and at a 4XIMUM 50% (with a maximum limit of 16g)'
+			'# Defines ZRAM size to a range of at least 10% and up to a maximum of 50% (with a maximum limit of 16g)'
 			'zram-size = max(ram / 10, min(ram / 2, 16384M))'
 			''
 			'# Compression algorithm'
@@ -144,7 +144,7 @@ function action_setup_zram() {
 			'# Releases Pagecache more aggressively (good for builds, compilations, etc.)'
 			'vm.vfs_cache_pressure = 100'
 			''
-			'# Prevents excessive dirty cache flushs'
+			'# Prevents excessive dirty cache flushes'
 			'vm.dirty_background_ratio = 5'
 			'vm.dirty_ratio = 20'
 		)
@@ -604,7 +604,7 @@ function action_setup_vscode() {
 
 	__reset_line
 	printf "%s\n" "$result_message"
-	__info "After starting the VS Code for the first time, run the command \`$(__info_params "Enable Custom CSS and JS Loader")\`"
+	__info "After starting VS Code for the first time, run the command \`$(__info_params "Enable Custom CSS and JS Loader")\`"
 
 	__takeown "$__USERHOME"
 

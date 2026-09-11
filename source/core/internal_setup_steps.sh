@@ -11,7 +11,7 @@ function __setup_sudoers() {
 
 		for option in "${sudoers_options[@]}"; do
 			if grep -qe "$option" "$sudoers" &>>"$__LOG_FILE"; then
-				__info "Option alread exists: $(__info_params "$option")"
+				__info "Option already exists: $(__info_params "$option")"
 				continue
 			fi
 
@@ -223,9 +223,9 @@ function __rate_mirrors() {
 		"--latest ${GENERAL_REFLECTOR_MIRROR_LIMIT}"
 		"--sort rate"
 	)
-	declare log_data="${GENERAL_REFLECTOR_MIRROR_LIMIT} mirros from ${GENERAL_REFLECTOR_MIRROR_COUNTRIES}"
+	declare log_data="${GENERAL_REFLECTOR_MIRROR_LIMIT} mirrors from ${GENERAL_REFLECTOR_MIRROR_COUNTRIES}"
 
-	__title "Rating mirros: $(__title_params "$log_data")"
+	__title "Rating mirrors: $(__title_params "$log_data")"
 
 	if __add_lines_to_file "$reflector_conf" "w" false "${lines[@]}" &&
 		systemctl start reflector.service &>>"$__LOG_FILE"; then
@@ -961,13 +961,13 @@ function __install_archlinux() {
 
 	declare first_line_warn rest_lines_warn
 	declare quiet="$__QUIET"
-	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try load a config"
+	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try to load a config"
 	rest_lines_warn="$(
 		cat <<EOL
     file with the "profile_config" property set, choose it manually from the installation menu.
-    Choose another profile may not interfere with the installation and the rest of the setup,
+    Choosing another profile may not interfere with the installation and the rest of the setup,
     but things can be strange in the end, since ArchZen installs the desktop environment on its own
-    (if you want a diffrent profile from plasma, which is defined by default in ArchZen, set it
+    (if you want a different profile from plasma, which is defined by default in ArchZen, set it
     in the "GENERAL_DESKTOP_PROFILE" variable in the "archzen.sh" file)
 EOL
 	)"
@@ -998,7 +998,7 @@ EOL
 
 function __install_archlinux_on_wsl() {
 	if [[ $EUID -ne 0 ]]; then
-		__error "This comand must be run as root if running on WSL"
+		__error "This command must be run as root if running on WSL"
 		return 1
 	fi
 
@@ -1038,13 +1038,13 @@ function __install_archlinux_on_wsl() {
 	if [[ -n "$WSL_ROOTPASSWORD" ]]; then
 		echo "root:${WSL_ROOTPASSWORD}" | chpasswd &>>"$__LOG_FILE"
 	else
-		__WARN_MESSAGES+=("Root account is without password")
+		__WARN_MESSAGES+=("Root account has no password")
 	fi
 
 	if [[ -n "$WSL_USERPASSWORD" ]]; then
 		echo "${WSL_USERNAME}:${WSL_USERPASSWORD}" | chpasswd &>>"$__LOG_FILE"
 	else
-		__WARN_MESSAGES+=("User account is without password")
+		__WARN_MESSAGES+=("User account has no password")
 	fi
 
 	declare original_username="$__USERNAME"

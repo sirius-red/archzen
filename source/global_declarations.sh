@@ -37,7 +37,7 @@ declare -x \
 	__ARCHZEN_GNOME_SETTINGS_FILE \
 	__MAIN_SCRIPT_BASE_PATH \
 	__MAIN_SCRIPT_PATH \
-	__VAR_DEPENDENCIES_INSTALED \
+	__VAR_DEPENDENCIES_INSTALLED \
 	__VAR_ARCHZEN_INSTALLED \
 	__VAR_DOTFILES_INSTALLED \
 	__VAR_INITIAL_OS_SETUP_INSTALLED \
@@ -288,7 +288,7 @@ function __set_global_variables() {
 	__ARCHZEN_GNOME_SETTINGS_FILE="${__ARCHZEN_RESOURCES_DIR}/gnome-settings.conf"
 	__MAIN_SCRIPT_BASE_PATH="/${__ARCHZEN_BASE_DIR}/archzen.sh"
 	__MAIN_SCRIPT_PATH="${__ARCHZEN_DIR}/archzen.sh"
-	__VAR_DEPENDENCIES_INSTALED="${__ROOT}/var/lib/archzen-dependencies-installed"
+	__VAR_DEPENDENCIES_INSTALLED="${__ROOT}/var/lib/archzen-dependencies-installed"
 	__VAR_ARCHZEN_INSTALLED="${__ROOT}/var/lib/archzen-installed"
 	__VAR_DOTFILES_INSTALLED="${__ROOT}/var/lib/archzen-dotfiles-installed"
 	__VAR_INITIAL_OS_SETUP_INSTALLED="${__ROOT}/var/lib/archzen-initial-os-setup-installed"

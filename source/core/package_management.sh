@@ -289,7 +289,7 @@ function __ensure_deps() {
 
 	__title "Ensuring dependencies are installed."
 	__install_pkglist "${__DEPENDENCIES[@]}" &&
-		touch "$__VAR_DEPENDENCIES_INSTALED"
+		touch "$__VAR_DEPENDENCIES_INSTALLED"
 
 	__QUIET=$quiet
 }
@@ -419,12 +419,12 @@ function __apply_template_values() {
 	fi
 
 	if ! __replace_variables; then
-		__error "Error replacing template values $(__error_params "\$$template_var") to $(__error_params "$file_path") file"
+		__error "Error replacing template values $(__error_params "\$$template_var") in $(__error_params "$file_path") file"
 		return 1
 	fi
 
 	if [ "${#not_replaced[@]}" -eq 0 ]; then
-		__success "All template values in $(__success_params "\$$template_var") were successfully replaced to the $(__success_params "$file_path") file"
+		__success "All template values in $(__success_params "\$$template_var") were successfully replaced in the $(__success_params "$file_path") file"
 	else
 		declare not_replaced_str
 		not_replaced_str="$(__join ', ' "${not_replaced[@]}")"
@@ -580,7 +580,7 @@ function __is_installed_initial_os_setup() {
 }
 
 function __is_installed_dependencies() {
-	__variable_file_exists "$__VAR_DEPENDENCIES_INSTALED"
+	__variable_file_exists "$__VAR_DEPENDENCIES_INSTALLED"
 
 	return $?
 }
@@ -734,7 +734,7 @@ function __install_gnome_extensions() {
 			__warn "Could not restart Gnome Shell, you have to restart it manually"
 			__log ''
 		else
-			__warn "Restart the Gnome Shell manually"
+			__warn "Restart Gnome Shell manually"
 			__log ''
 		fi
 
