@@ -18,6 +18,9 @@ function __init() {
 	)
 
 	clear
+	if __func_exists __reload_config; then
+		__reload_config
+	fi
 	__banner "${banner_args[@]}"
 	__ensure_deps
 }

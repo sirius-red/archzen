@@ -42,7 +42,7 @@ declare -x \
 	__VAR_DOTFILES_INSTALLED \
 	__VAR_INITIAL_OS_SETUP_INSTALLED \
 	__BIN_DIR \
-	__FORCE \
+	__ARCHZEN_FLAG_FORCE \
 	__SYSTEM_ALREADY_UPDATED \
 	__VAR_FIRST_LOGIN_RUN \
 	__FIRST_LOGIN_SCRIPT \
@@ -261,7 +261,7 @@ function __set_global_variables() {
 	fi
 
 	__ROOT="$root"
-	__FORCE="$force"
+	__ARCHZEN_FLAG_FORCE="$force"
 	__ARCHZEN_IS_RUNNING_FROM_BINARY="${archzen_is_running_from_binary}"
 	__PWD="$(pwd)"
 	__THIS_SCRIPT="$0"

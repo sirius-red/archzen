@@ -566,7 +566,7 @@ function __setup_sdboot() {
 }
 
 function __variable_file_exists() {
-	$__FORCE && return 1
+	$__ARCHZEN_FLAG_FORCE && return 1
 
 	declare file="$1"
 

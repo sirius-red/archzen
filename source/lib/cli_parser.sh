@@ -384,16 +384,23 @@ function cli_parser() {
 		case "$1" in
 			--dev|-d)
 				opt_dev=true
+				declare env_var_name="__${__app_prefix}_FLAG_DEV"
+				export "$env_var_name=true"
+				declare -gx "$env_var_name=true"
 				shift 1
 				;;
 			--force|-f)
 				opt_force=true
-				export FORCE=true
-				declare -gx __FORCE=true
+				declare env_var_name="__${__app_prefix}_FLAG_FORCE"
+				export "$env_var_name=true"
+				declare -gx "$env_var_name=true"
 				shift 1
 				;;
 			--version|-v)
 				opt_version=true
+				declare env_var_name="__${__app_prefix}_FLAG_VERSION"
+				export "$env_var_name=true"
+				declare -gx "$env_var_name=true"
 				shift 1
 				;;
 			-*)
@@ -717,13 +724,8 @@ function cli_parser() {
 	__COMMAND_ARG="$target_full_name"
 	[[ "$target_is_reboot" == "true" ]] && __REBOOT_SYSTEM=true
 
-	# Prepare call arguments including --force if set
+	# Prepare call arguments
 	declare -a action_call_args=("${validated_args[@]}")
-	if $opt_force; then
-		action_call_args+=("--force")
-		export FORCE=true
-		declare -gx __FORCE=true
-	fi
 
 	__init || return $?
 	"$target_action" "${action_call_args[@]}"

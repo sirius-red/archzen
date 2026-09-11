@@ -614,10 +614,7 @@ function __setup_hyprland() {
 	declare action="${1:-setup}"
 
 	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		elif [[ -n "$arg" && "$arg" != -* ]]; then
+		if [[ -n "$arg" && "$arg" != -* ]]; then
 			action="$arg"
 		fi
 	done
@@ -990,13 +987,13 @@ EOL
 	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
 
 	declare current_root="$__ROOT"
-	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+	__set_global_variables "$__MOUNT_DIR" "$__ARCHZEN_FLAG_FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
 
 	action_install_archzen &&
 		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
 		__setup_sudoers
 
-	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+	__set_global_variables "$current_root" "$__ARCHZEN_FLAG_FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
 }
 
 function __install_archlinux_on_wsl() {

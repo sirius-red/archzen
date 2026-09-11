@@ -45,7 +45,7 @@ unset __source_dir
 # <<<<<<<<<<<<<<<<<<<<<<<< Load Source Files <<<<<<<<<<<<<<<<<<<<<<<<
 
 
-__set_global_variables "${CHDIR:-/}" "${FORCE:-false}" "${ARCHZEN_IS_RUNNING_FROM_BINARY:-false}"
+__set_global_variables "${CHDIR:-/}" "${__ARCHZEN_FLAG_FORCE:-false}" "${ARCHZEN_IS_RUNNING_FROM_BINARY:-false}"
 
 
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then

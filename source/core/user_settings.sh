@@ -18,60 +18,61 @@ WSL_ENABLE_INTEROP=true
 WSL_USERNAME="archzen"
 # <<<<<<<<<<<<<<<<<<<<<<<< Default Settings <<<<<<<<<<<<<<<<<<<<<<<<
 
-declare __config_file=""
-if [[ "$ARCHZEN_IS_RUNNING_FROM_BINARY" == true ]]; then
-	__config_file="/etc/archzen.conf"
-else
-	__config_file="${PWD}/archzen.conf"
+if [[ -z "$__ARCHZEN_FLAG_CONFIG" ]]; then
+	if [[ -f "$HOME/.archzen.conf" ]]; then
+		__ARCHZEN_FLAG_CONFIG="$HOME/.archzen.conf"
+	else
+		__ARCHZEN_FLAG_CONFIG="/etc/archzen.conf"
+	fi
 fi
+declare -gx __ARCHZEN_FLAG_CONFIG
 
-if [[ ! -f "$__config_file" ]]; then
+if [[ ! -f "$__ARCHZEN_FLAG_CONFIG" ]]; then
 	declare __template_config
 	__template_config="$(dirname "$__source_dir")/archzen.conf"
 	if [[ -f "$__template_config" ]]; then
 		if [[ "$ARCHZEN_IS_RUNNING_FROM_BINARY" == true && $EUID -ne 0 ]]; then
-			sudo cp -f "$__template_config" "$__config_file" 2>/dev/null || true
+			sudo cp -f "$__template_config" "$__ARCHZEN_FLAG_CONFIG" 2>/dev/null || true
 		else
-			cp -f "$__template_config" "$__config_file" 2>/dev/null || true
+			cp -f "$__template_config" "$__ARCHZEN_FLAG_CONFIG" 2>/dev/null || true
 		fi
 	else
 		if [[ "$ARCHZEN_IS_RUNNING_FROM_BINARY" == true && $EUID -ne 0 ]]; then
-			sudo touch "$__config_file" 2>/dev/null || true
+			sudo touch "$__ARCHZEN_FLAG_CONFIG" 2>/dev/null || true
 		else
-			touch "$__config_file" 2>/dev/null || true
+			touch "$__ARCHZEN_FLAG_CONFIG" 2>/dev/null || true
 		fi
 	fi
 fi
 
-
 function __reload_config() {
-	if [[ -f "$__config_file" ]]; then
-		confmgr get --export "$__config_file" General.Locale
-		confmgr get --export "$__config_file" General.KbLayout
-		confmgr get --export "$__config_file" General.KbVariant
-		confmgr get --export "$__config_file" General.TimestampTimeout
-		confmgr get --export "$__config_file" General.ReflectorMirrorCountries
-		confmgr get --export "$__config_file" General.ReflectorMirrorLimit
-		confmgr get --export "$__config_file" General.PacmanParallelDownloads
-		confmgr get --export "$__config_file" General.PacmanEnableMultilib
-		confmgr get --export "$__config_file" General.SetupZram
-		confmgr get --export "$__config_file" General.UseSwapfile
-		confmgr get --export "$__config_file" General.UseNvidiaOssDrivers
-		confmgr get --export "$__config_file" General.EnableCachyosKit
-		confmgr get --export "$__config_file" General.Kernel
-		confmgr get --export "$__config_file" General.UserShell
-		confmgr get --export "$__config_file" General.AurHelper
-		confmgr get --export "$__config_file" General.Editor
-		confmgr get --export "$__config_file" General.DesktopProfile
-		confmgr get --export "$__config_file" General.Terminal
-		confmgr get --export "$__config_file" General.Explorer
-		confmgr get --export "$__config_file" General.Browser
+	if [[ -f "$__ARCHZEN_FLAG_CONFIG" ]]; then
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.Locale
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.KbLayout
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.KbVariant
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.TimestampTimeout
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.ReflectorMirrorCountries
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.ReflectorMirrorLimit
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.PacmanParallelDownloads
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.PacmanEnableMultilib
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.SetupZram
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.UseSwapfile
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.UseNvidiaOssDrivers
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.EnableCachyosKit
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.Kernel
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.UserShell
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.AurHelper
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.Editor
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.DesktopProfile
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.Terminal
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.Explorer
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" General.Browser
 
-		confmgr get --export "$__config_file" WSL.EnableGUI
-		confmgr get --export "$__config_file" WSL.EnableInterop
-		confmgr get --export "$__config_file" WSL.Username
-		confmgr get --export "$__config_file" WSL.UserPassword
-		confmgr get --export "$__config_file" WSL.RootPassword
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" WSL.EnableGUI
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" WSL.EnableInterop
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" WSL.Username
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" WSL.UserPassword
+		confmgr get --export "$__ARCHZEN_FLAG_CONFIG" WSL.RootPassword
 	fi
 }
 

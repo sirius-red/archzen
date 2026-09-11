@@ -2,19 +2,9 @@
 
 # shellcheck disable=SC2120
 function action_exec_func() {
-	declare func_name=""
-	declare -a extra_args=()
-
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		elif [[ -z "$func_name" ]]; then
-			func_name="$arg"
-		else
-			extra_args+=("$arg")
-		fi
-	done
+	declare func_name="$1"
+	shift 1 || true
+	declare -a extra_args=("$@")
 
 	if [[ -z "$func_name" ]]; then
 		__error "Function name required"
@@ -31,12 +21,7 @@ function action_exec_func() {
 
 # shellcheck disable=SC2120
 function action_install_archzen() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	declare success=false
 	declare script_name
@@ -106,12 +91,7 @@ function action_install_archzen() {
 
 # shellcheck disable=SC2120
 function action_install_archlinux() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	if $__IS_WSL; then
 		__install_archlinux_on_wsl "$@"
@@ -124,12 +104,7 @@ function action_install_archlinux() {
 
 # shellcheck disable=SC2120
 function action_setup_zram() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	$GENERAL_SETUP_ZRAM || return 0
 	zramctl &>>"$__LOG_FILE" || return 0
@@ -231,12 +206,7 @@ function action_setup_bootloader() {
 	declare bootloader="${1:-auto}"
 	declare gen_scripts="${2:-true}"
 
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	__check_type_alias BOOTLOADER "$bootloader"
 	__check_type_alias BOOLEAN "$gen_scripts"
@@ -293,12 +263,7 @@ function action_setup_bootloader() {
 
 # shellcheck disable=SC2120
 function action_setup_wsl() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	$__IS_WSL || return 0
 
@@ -468,12 +433,7 @@ function action_install_desktop_profile() {
 
 # shellcheck disable=SC2120
 function action_setup_dotfiles() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	__is_installed_archzen || action_install_archzen || return 1
 
@@ -536,12 +496,7 @@ function action_setup_dotfiles() {
 
 # shellcheck disable=SC2120
 function action_setup_vscode() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	__is_installed_archzen || action_install_archzen || return 1
 
@@ -658,12 +613,7 @@ function action_setup_vscode() {
 
 # shellcheck disable=SC2120
 function action_setup_archlinux() {
-	for arg in "$@"; do
-		if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
-			export FORCE=true
-			declare -gx __FORCE=true
-		fi
-	done
+
 
 	if ! __is_installed_initial_os_setup; then
 		__setup_sudoers || return $?
