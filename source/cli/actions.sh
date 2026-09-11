@@ -12,7 +12,7 @@ function action_exec_func() {
 	fi
 
 	if ! __func_exists "$func_name"; then
-		__error "Function not exists: $(__error_params "$func_name")"
+		__error "Function does not exist: $(__error_params "$func_name")"
 		return 1
 	fi
 

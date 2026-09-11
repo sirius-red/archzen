@@ -269,7 +269,7 @@ function __setup_locale() {
 
 function __setup_user_dirs() {
 	if ! __is_installed xdg-user-dirs; then
-		__warn "The package \"xdg-user-dirs\" is not installed\n    Installs  with \`pacman -S xdg-user-dirs\`"
+		__warn "The package \"xdg-user-dirs\" is not installed\n    Install with \`pacman -S xdg-user-dirs\`"
 		return 0
 	fi
 
@@ -479,7 +479,7 @@ function __setup_os() {
 		__title "Set OS specifications"
 
 		if __add_lines_to_file "$os_release" w false "${lines[@]}"; then
-			__success "OS specifications setted successfully"
+			__success "OS specifications set successfully"
 		else
 			__error "Error setting OS specifications"
 		fi
@@ -743,7 +743,7 @@ function __setup_hyprland() {
 			__print -rn "$(__success "Creating $(__success_params hyprinit) helper... $(__success_params 'Success!')")"
 			return 0
 		else
-			__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Runs $(__warn_params '`Hyprland`') command manually after login from TTY!")
+			__WARN_MESSAGES+=("Error creating the $(__warn_params hyprinit) helper. Run $(__warn_params '`Hyprland`') command manually after login from TTY!")
 			__print -rn "$(__error "Creating $(__error_params hyprinit) helper... $(__error_params 'Error!')")"
 			return 1
 		fi
@@ -773,7 +773,7 @@ function __setup_hyprland() {
 
 		$success && return 0
 
-		__WARN_MESSAGES+=("Error adding $(__warn_params hyprinit) helper to yout shell profile. Runs $(__warn_params '`hyprinit`') command manually after login from TTY!")
+		__WARN_MESSAGES+=("Error adding $(__warn_params hyprinit) helper to your shell profile. Run $(__warn_params '\`hyprinit\`') command manually after login from TTY!")
 		return 1
 	}
 

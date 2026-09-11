@@ -129,12 +129,12 @@ function __install_package() {
 		;;
 	none)
 		__NOT_EXISTS_PKGLIST+=("$package")
-		__warn "Package not exist: $(__warn_params "$package")"
+		__warn "Package does not exist: $(__warn_params "$package")"
 		proceed=false
 		;;
 	*)
 		__NOT_INSTALLED_PKGLIST+=("$package")
-		__error "Unkown error for package: $(__error_params "$package")"
+		__error "Unknown error for package: $(__error_params "$package")"
 		proceed=false
 		;;
 	esac
@@ -505,7 +505,7 @@ function __gen_bootloader_update_script() {
 	__title "Generating update script for $(__title_params "$bootloader"): $(__title_params "$script_name")"
 
 	if __save_script "$script_name" true "${script_lines[@]}"; then
-		__success "Success generated update script for $(__success_params "$bootloader"): $(__success_params "$script_name")"
+		__success "Successfully generated update script for $(__success_params "$bootloader"): $(__success_params "$script_name")"
 	else
 		__error "Error when generating update script for $(__error_params "$bootloader"): $(__error_params "$script_name")"
 	fi

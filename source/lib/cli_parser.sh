@@ -645,7 +645,7 @@ function cli_parser() {
 	# Dev check
 	if [[ "$target_is_dev" == "true" && "$opt_dev" != "true" ]]; then
 		__error "The command \`$(__error_params "$target_full_name")\` is only available in development mode"
-		__info "Runs \`$(__info_params "archzen --dev $target_full_name")\`"
+		__info "Run \`$(__info_params "archzen --dev $target_full_name")\`"
 		return 1
 	fi
 

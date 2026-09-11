@@ -61,7 +61,7 @@ if __is_main_module; then
 		if ! command -v archzen &>>"$__LOG_FILE"; then
 			echo
 			__error "The \`$(__error_params "$1")\` command is only available after the installation of ArchZen"
-			__info "Runs \`$(__info_params "sudo ${__THIS_SCRIPT} install self")\` first"
+			__info "Run \`$(__info_params "sudo ${__THIS_SCRIPT} install self")\` first"
 			echo
 			exit 1
 		fi
@@ -69,7 +69,7 @@ if __is_main_module; then
 		if ! $__ARCHZEN_IS_RUNNING_FROM_BINARY; then
 			echo
 			__error "Do not run the command \`$(__error_params "$1")\` through this script"
-			__info "Runs \`$(__info_params "archzen $*")\`"
+			__info "Run \`$(__info_params "archzen $*")\`"
 			echo
 			exit 1
 		fi
