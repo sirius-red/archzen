@@ -71,11 +71,18 @@ function cli_parser() {
 	__cli_name="$(__cli_get '.name')"
 	__cli_name="${__cli_name:-archzen}"
 	__cli_ver="$(__cli_get '.version')"
-	__cli_ver="${__cli_ver:-$__VERSION}"
+	__cli_ver="${__cli_ver:-0.0.1}"
 	__cli_desc="$(__cli_get '.description')"
 	__cli_author="$(__cli_get '.author')"
 	__cli_lic="$(__cli_get '.license')"
 	__cli_usage_custom="$(__cli_get '.usage')"
+
+	declare -gx __CLI_PARSER_NAME="$__cli_name"
+	declare -gx __CLI_PARSER_VERSION="$__cli_ver"
+	declare -gx __CLI_PARSER_DESCRIPTION="$__cli_desc"
+	declare -gx __CLI_PARSER_AUTHOR="$__cli_author"
+	declare -gx __CLI_PARSER_LICENSE="$__cli_lic"
+	declare -gx __VERSION="$__cli_ver"
 
 	# -- Version Display -------------------------------------------------------
 	function __cli_show_version() {
@@ -302,8 +309,9 @@ function cli_parser() {
 
 		echo
 		echo -e "$(__bold_underline "GLOBAL FLAGS:")"
-		printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "-h, --help")" "Show this help message"
 		printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "-v, --version")" "Show the script version"
+		printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "-f, --force")" "Force execution without confirmation"
+		printf "%b  %-28b %s\n" "$(__tab 1)" "$(__bright_blue "-d, --dev")" "Enable developer mode commands"
 		while IFS= read -r gf_key; do
 			[[ -z "$gf_key" ]] && continue
 			declare gf_obj gf_desc gf_aliases
@@ -366,8 +374,11 @@ function cli_parser() {
 	}
 
 	# -- Flag and Argument Parsing ---------------------------------------------
-	declare opt_dev=false opt_force=false opt_help=false opt_version=false
+	declare opt_dev=false opt_force=false opt_version=false
 	declare -a raw_args=()
+
+	declare __app_prefix
+	__app_prefix="$(echo "$__cli_name" | sed 's/[^a-zA-Z0-9]/_/g' | tr '[:lower:]' '[:upper:]')"
 
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
@@ -381,30 +392,44 @@ function cli_parser() {
 				declare -gx __FORCE=true
 				shift 1
 				;;
-			--config|-c)
-				if [[ -z "$2" || "$2" == -* ]]; then
-					__error "Argument required for $(__error_params "$1")"
-					return 1
-				fi
-				declare custom_config="$2"
-				shift 2
-				if [[ -f "$custom_config" ]]; then
-					__config_file="$(realpath "$custom_config" 2>/dev/null || readlink -f "$custom_config")"
-					if __func_exists __reload_config; then
-						__reload_config
-					fi
-				else
-					__error "Configuration file not found: $(__error_params "$custom_config")"
-					return 1
-				fi
-				;;
 			--version|-v)
 				opt_version=true
 				shift 1
 				;;
-			--help|-h)
-				opt_help=true
-				shift 1
+			-*)
+				declare gf_match=""
+				declare gf_type="Boolean"
+				while IFS= read -r gf_key; do
+					[[ -z "$gf_key" ]] && continue
+					declare aliases
+					aliases="$(__cli_get_json ".global_flags[\"$gf_key\"].aliases // []")"
+					if [[ "$1" == "--$gf_key" ]] || ( [[ "$aliases" != "null" ]] && jq -e ". | index(\"$1\")" <<<"$aliases" >/dev/null 2>&1 ); then
+						gf_match="$gf_key"
+						gf_type="$(__cli_get ".global_flags[\"$gf_key\"].type // \"Boolean\"")"
+						break
+					fi
+				done < <(__cli_get '.global_flags | keys[]' 2>/dev/null)
+
+				if [[ -n "$gf_match" ]]; then
+					declare env_var_name="__${__app_prefix}_FLAG_${gf_match^^}"
+					env_var_name="${env_var_name//-/_}"
+					if [[ "$gf_type" == "String" || "$gf_type" == "Number" ]]; then
+						if [[ -z "$2" || "$2" == -* ]]; then
+							__error "Argument required for $(__error_params "$1")"
+							return 1
+						fi
+						export "$env_var_name=$2"
+						declare -gx "$env_var_name=$2"
+						shift 2
+					else
+						export "$env_var_name=true"
+						declare -gx "$env_var_name=true"
+						shift 1
+					fi
+				else
+					raw_args+=("$1")
+					shift 1
+				fi
 				;;
 			*)
 				raw_args+=("$1")
@@ -413,7 +438,6 @@ function cli_parser() {
 		esac
 	done
 
-	# Handle early --version
 	if $opt_version; then
 		__cli_show_version
 		return 0
@@ -493,17 +517,6 @@ function cli_parser() {
 		return 0
 	fi
 
-	# If --help flag was passed alongside a command
-	if $opt_help; then
-		declare help_cmd="${raw_args[0]}"
-		declare help_subcmd="${raw_args[1]}"
-		help_cmd="$(__cli_resolve_cmd_name "$help_cmd")"
-		if [[ -n "$help_subcmd" ]]; then
-			help_subcmd="$(__cli_resolve_subcmd_name "$help_cmd" "$help_subcmd")"
-		fi
-		__cli_show_help "$help_cmd" "$help_subcmd"
-		return 0
-	fi
 
 	declare parsed_cmd="${raw_args[0]}"
 	declare resolved_cmd
@@ -566,6 +579,61 @@ function cli_parser() {
 		mapfile -t target_args_schema < <(jq -c '.args[]? // empty' <<<"$cmd_target_obj" 2>/dev/null)
 		remaining_cli_args=("${raw_args[@]:1}")
 	fi
+
+	declare target_leaf_obj
+	if [[ "$is_group" == "object" && -z "$has_direct_action" ]]; then
+		target_leaf_obj="$subcmd_target_obj"
+	else
+		target_leaf_obj="$cmd_target_obj"
+	fi
+
+	declare -a final_positionals=()
+	declare -i i_arg=0
+	while [[ $i_arg -lt ${#remaining_cli_args[@]} ]]; do
+		declare arg="${remaining_cli_args[$i_arg]}"
+		if [[ "$arg" == -* ]]; then
+			declare cf_match=""
+			declare cf_type="Boolean"
+			while IFS= read -r cf_key; do
+				[[ -z "$cf_key" ]] && continue
+				declare aliases
+				aliases="$(jq -c ".flags[\"$cf_key\"].aliases // []" <<<"$target_leaf_obj")"
+				if [[ "$arg" == "--$cf_key" ]] || ( [[ "$aliases" != "null" ]] && jq -e ". | index(\"$arg\")" <<<"$aliases" >/dev/null 2>&1 ); then
+					cf_match="$cf_key"
+					cf_type="$(jq -r ".flags[\"$cf_key\"].type // \"Boolean\"" <<<"$target_leaf_obj")"
+					break
+				fi
+			done < <(jq -r '.flags | keys[]' <<<"$target_leaf_obj" 2>/dev/null)
+
+			if [[ -n "$cf_match" ]]; then
+				declare prefix_cmd
+				prefix_cmd="$(echo "$target_full_name" | sed 's/[^a-zA-Z0-9]/_/g' | tr '[:lower:]' '[:upper:]')"
+				declare env_var_name="__${__app_prefix}_${prefix_cmd}_FLAG_${cf_match^^}"
+				env_var_name="${env_var_name//-/_}"
+				if [[ "$cf_type" == "String" || "$cf_type" == "Number" ]]; then
+					declare val="${remaining_cli_args[$((i_arg+1))]}"
+					if [[ -z "$val" || "$val" == -* ]]; then
+						__error "Argument required for $(__error_params "$arg")"
+						return 1
+					fi
+					export "$env_var_name=$val"
+					declare -gx "$env_var_name=$val"
+					i_arg=$((i_arg+2))
+				else
+					export "$env_var_name=true"
+					declare -gx "$env_var_name=true"
+					i_arg=$((i_arg+1))
+				fi
+			else
+				final_positionals+=("$arg")
+				i_arg=$((i_arg+1))
+			fi
+		else
+			final_positionals+=("$arg")
+			i_arg=$((i_arg+1))
+		fi
+	done
+	remaining_cli_args=("${final_positionals[@]}")
 
 	# Dev check
 	if [[ "$target_is_dev" == "true" && "$opt_dev" != "true" ]]; then

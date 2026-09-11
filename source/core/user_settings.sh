@@ -43,47 +43,35 @@ if [[ ! -f "$__config_file" ]]; then
 	fi
 fi
 
-function __load_config_val() {
-	declare path="$1"
-	declare target_var
-
-	target_var="$(echo "$path" | sed 's/\./_/g; s/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')"
-	declare val
-
-	val="$(confmgr get "$__config_file" "$path" 2>/dev/null)"
-	if [[ $? -eq 0 || -n "$val" ]]; then
-		eval "$target_var=\"\$val\""
-	fi
-}
 
 function __reload_config() {
 	if [[ -f "$__config_file" ]]; then
-		__load_config_val General.Locale
-		__load_config_val General.KbLayout
-		__load_config_val General.KbVariant
-		__load_config_val General.TimestampTimeout
-		__load_config_val General.ReflectorMirrorCountries
-		__load_config_val General.ReflectorMirrorLimit
-		__load_config_val General.PacmanParallelDownloads
-		__load_config_val General.PacmanEnableMultilib
-		__load_config_val General.SetupZram
-		__load_config_val General.UseSwapfile
-		__load_config_val General.UseNvidiaOssDrivers
-		__load_config_val General.EnableCachyosKit
-		__load_config_val General.Kernel
-		__load_config_val General.UserShell
-		__load_config_val General.AurHelper
-		__load_config_val General.Editor
-		__load_config_val General.DesktopProfile
-		__load_config_val General.Terminal
-		__load_config_val General.Explorer
-		__load_config_val General.Browser
+		confmgr get --export "$__config_file" General.Locale
+		confmgr get --export "$__config_file" General.KbLayout
+		confmgr get --export "$__config_file" General.KbVariant
+		confmgr get --export "$__config_file" General.TimestampTimeout
+		confmgr get --export "$__config_file" General.ReflectorMirrorCountries
+		confmgr get --export "$__config_file" General.ReflectorMirrorLimit
+		confmgr get --export "$__config_file" General.PacmanParallelDownloads
+		confmgr get --export "$__config_file" General.PacmanEnableMultilib
+		confmgr get --export "$__config_file" General.SetupZram
+		confmgr get --export "$__config_file" General.UseSwapfile
+		confmgr get --export "$__config_file" General.UseNvidiaOssDrivers
+		confmgr get --export "$__config_file" General.EnableCachyosKit
+		confmgr get --export "$__config_file" General.Kernel
+		confmgr get --export "$__config_file" General.UserShell
+		confmgr get --export "$__config_file" General.AurHelper
+		confmgr get --export "$__config_file" General.Editor
+		confmgr get --export "$__config_file" General.DesktopProfile
+		confmgr get --export "$__config_file" General.Terminal
+		confmgr get --export "$__config_file" General.Explorer
+		confmgr get --export "$__config_file" General.Browser
 
-		__load_config_val WSL.EnableGUI
-		__load_config_val WSL.EnableInterop
-		__load_config_val WSL.Username
-		__load_config_val WSL.UserPassword
-		__load_config_val WSL.RootPassword
+		confmgr get --export "$__config_file" WSL.EnableGUI
+		confmgr get --export "$__config_file" WSL.EnableInterop
+		confmgr get --export "$__config_file" WSL.Username
+		confmgr get --export "$__config_file" WSL.UserPassword
+		confmgr get --export "$__config_file" WSL.RootPassword
 	fi
 }
 

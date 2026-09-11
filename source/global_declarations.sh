@@ -6,7 +6,6 @@ declare -xi __FORCE_REBOOT_SYSTEM_TIME=5
 declare -x CONFMGR_ENABLE_BACKUP=false
 
 declare -x \
-	__VERSION="0.0.1" \
 	__EXIT_CODE=0 \
 	__REBOOT_SYSTEM=false \
 	__MOUNT_DIR="/mnt/archinstall" \

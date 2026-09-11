@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 
 
+declare __script_dir __cli_config_file
+__script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+__cli_config_file="${__script_dir}/source/cli/config.yml"
+
+
 # >>>>>>>>>>>>>>>>>>>>>>>> Load Source Files >>>>>>>>>>>>>>>>>>>>>>>>
 declare __source_dir=""
-__source_dir="$(dirname "${BASH_SOURCE[0]}")/source"
+__source_dir="${__script_dir}/source"
 
 # shellcheck source=source/lib/confmgr.sh
 source "${__source_dir}/lib/confmgr.sh"
@@ -42,14 +47,6 @@ unset __source_dir
 
 __set_global_variables "${CHDIR:-/}" "${FORCE:-false}" "${ARCHZEN_IS_RUNNING_FROM_BINARY:-false}"
 
-if ! __is_valid_semver "$__VERSION"; then
-	__error "Invalid semanthic version: $(__error_params "$__VERSION")"
-	exit 1
-fi
-
-declare __script_dir __cli_config_file
-__script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
-__cli_config_file="${__script_dir}/source/cli/config.yml"
 
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
 	cli_parser "$__cli_config_file" "$@"
@@ -60,7 +57,7 @@ if __is_main_module; then
 	__ensure_deps --quiet
 
 	# Installed check (for commands other than install or help/version)
-	if [[ ! "$1" =~ ^install$|^i$|^help$|^h$|^--help$|^-h$|^version$|^v$|^--version$|^-v$ || -z "$1" ]]; then
+	if [[ ! "$1" =~ ^install$|^i$|^help$|^h$|^--version$|^-v$ || -z "$1" ]]; then
 		if ! command -v archzen &>>"$__LOG_FILE"; then
 			echo
 			__error "The \`$(__error_params "$1")\` command is only available after the installation of ArchZen"

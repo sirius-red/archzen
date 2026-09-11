@@ -4,30 +4,16 @@ $schema: ../../resources/cli/cli-parser.schema.json
 name: archzen
 version: 0.0.1
 description: ArchZen - Stay Zen and install Arch Linux
-usage: archzen [flags] <command> [subcommand] [args...]
 author: Sirius Red
 license: GPLv3
 
 global_flags:
-  dev:
-    aliases: [-d]
-    description: Habilita comandos e opções exclusivas para desenvolvimento.
-    type: Boolean
-    default: false
-  force:
-    aliases: [-f]
-    description: Força a execução ignorando avisos de checagem.
-    type: Boolean
-    default: false
   config:
     aliases: [-c]
     description: Carrega um arquivo de configuração, sobrescrevendo as configurações atuais.
     type: String
 
 commands:
-  # ===========================================================================
-  # INSTALL: archzen <install|i> <[arch|a]|[self|s]|[[desktop-profile|dp] <xorg|xorg-minimal|gnome|plasma|hyprland>]>
-  # ===========================================================================
   install:
     arch:
       aliases: [a]
@@ -46,7 +32,6 @@ commands:
       aliases: [dp]
       description: Instala e configura o perfil de ambiente gráfico/desktop selecionado.
       action: action_install_desktop_profile
-      usage: archzen install desktop-profile [profile]
       root_required: true
       reboot: true
       args:
@@ -57,9 +42,6 @@ commands:
           default: hyprland
           required: false
 
-  # ===========================================================================
-  # SETUP: archzen <setup|s> <subcomando> [args...]
-  # ===========================================================================
   setup:
     arch:
       aliases: [a]
@@ -72,7 +54,6 @@ commands:
       aliases: [b]
       description: "Configura o bootloader (ex: systemd-boot) incluindo hooks e scripts de update."
       action: action_setup_bootloader
-      usage: archzen setup bootloader <bootloader> [gen_scripts]
       root_required: true
       reboot: true
       args:
@@ -114,15 +95,11 @@ commands:
       root_required: true
       reboot: true
 
-  # ===========================================================================
-  # DEV: archzen --dev <func|f> <function_name> [args...]
-  # ===========================================================================
   func:
     aliases: [f]
     description: Executa diretamente qualquer função interna do script.
     dev: true
     action: action_exec_func
-    usage: archzen --dev func <function_name> [args...]
     args:
       - name: function_name
         description: Nome da função bash existente a ser invocada.

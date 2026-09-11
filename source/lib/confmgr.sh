@@ -240,6 +240,8 @@ function confmgr() {
 		declare file_path="$1"
 		declare key="$2"
 		declare section="$3"
+		declare opt_export="$4"
+		declare full_keypath="$5"
 		declare key_pat result escaped_key escaped_sep
 
 		escaped_key=$(printf '%s' "$key" | sed 's/[.[\*^$()+?{|\\]/\\&/g')
@@ -288,7 +290,13 @@ function confmgr() {
 			result="${BASH_REMATCH[1]}"
 		fi
 
-		printf '%s\n' "$result"
+		if [[ "$opt_export" == true ]]; then
+			declare target_var
+			target_var="$(echo "$full_keypath" | sed 's/\./_/g; s/\([a-z0-9]\)\([A-Z]\)/\1_\2/g' | tr '[:lower:]' '[:upper:]')"
+			declare -gx "$target_var=$result"
+		else
+			printf '%s\n' "$result"
+		fi
 
 		declare lower_res="${result,,}"
 		if [[ "$lower_res" == "false" || "$lower_res" == "no" || "$lower_res" == "0" ]]; then
@@ -493,23 +501,17 @@ function confmgr() {
 	# -- Argument parsing & dispatch -------------------------------------------
 
 	declare operation="$1"
-	declare file_path="$2"
+	shift || true
 
 	if [[ -z "$operation" ]]; then
 		__confmgr_err "missing operation. Usage: confmgr <operation> <file> [options...]"
 		return 1
 	fi
 
-	if [[ -z "$file_path" ]]; then
-		__confmgr_err "missing file path. Usage: confmgr <operation> <file> [options...]"
-		return 1
-	fi
-
-	shift 2
-
 	# Collect positional args and flags
 	declare -a positional_args=()
-	declare opt_format="" opt_separator="" opt_backup=false opt_create=false
+	declare file_path=""
+	declare opt_format="" opt_separator="" opt_backup=false opt_create=false opt_export=false
 	declare opt_separator_set=false
 
 	while [[ $# -gt 0 ]]; do
@@ -531,6 +533,10 @@ function confmgr() {
 				opt_create=true
 				shift
 				;;
+			--export|-e)
+				opt_export=true
+				shift
+				;;
 			--)
 				shift
 				positional_args+=("$@")
@@ -541,13 +547,22 @@ function confmgr() {
 				return 1
 				;;
 			*)
-				positional_args+=("$1")
+				if [[ -z "$file_path" ]]; then
+					file_path="$1"
+				else
+					positional_args+=("$1")
+				fi
 				shift
 				;;
 		esac
 	done
 
 	# Handle file existence
+	if [[ -z "$file_path" ]]; then
+		__confmgr_err "missing file path. Usage: confmgr <operation> <file> [options...]"
+		return 1
+	fi
+
 	if [[ ! -f "$file_path" ]]; then
 		if $opt_create; then
 			declare parent_dir
@@ -635,7 +650,7 @@ function confmgr() {
 				ce_key="${ce_keypath##*.}"
 			fi
 
-			__confmgr_op_get "$file_path" "$ce_key" "$ce_section"
+			__confmgr_op_get "$file_path" "$ce_key" "$ce_section" "$opt_export" "$ce_keypath"
 			;;
 		delete)
 			declare ce_keypath="${positional_args[0]}"

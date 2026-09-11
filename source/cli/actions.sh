@@ -52,7 +52,7 @@ function action_install_archzen() {
 		''
 		'export ARCHZEN_IS_RUNNING_FROM_BINARY=true'
 		''
-		'if [[ "$1" =~ ^version$|^v$|^--version$|^-v$|^help$|^h$|^--help$|^-h$ || -z "$1" || ( "$1" =~ ^install$|^i$ && "$2" =~ ^self$|^s$ ) ]]; then'
+		'if [[ "$1" =~ ^--version$|^-v$|^help$|^h$ || -z "$1" || ( "$1" =~ ^install$|^i$ && "$2" =~ ^self$|^s$ ) ]]; then'
 		"	$__MAIN_SCRIPT_BASE_PATH \"\$@\""
 		'else'
 		"	sudo -E $__MAIN_SCRIPT_BASE_PATH \"\$@\""
@@ -69,21 +69,28 @@ function action_install_archzen() {
 	{
 		[ -d "$__ARCHZEN_DIR" ] &&
 			{
+				declare step_ok=false
 				if [ -d "$tmp_script_dir" ]; then
-					cp -rf "$tmp_script_dir" "$__ARCHZEN_SCRIPTS_DIR" &>>"$__LOG_FILE"
-				else
-					true
+					cp -rf "$tmp_script_dir" "$__ARCHZEN_SCRIPTS_DIR" &>>"$__LOG_FILE" && \
+						step_ok=true
 				fi
+				$step_ok
 			} &&
 			cp -f "$__THIS_SCRIPT" "$__MAIN_SCRIPT_PATH" &&
 			chmod +x "$__MAIN_SCRIPT_PATH" &&
 			__save_script "$script_name" true "${bin_file_lines[@]}" &&
 			cp -rf "$__PWD_RESOURCES_DIR" "$__ARCHZEN_RESOURCES_DIR" &&
+			cp -rf "$__PWD/source" "$__ARCHZEN_DIR/source" &&
 			cp -f "${__PWD}/LICENSE" "$__ARCHZEN_DIR" &&
-			{ [[ -f "${__PWD}/archzen.yml" ]] && cp -f "${__PWD}/archzen.yml" "$__ARCHZEN_DIR"; true; } &&
-			{ [[ -f "${__PWD}/archzen.json" ]] && cp -f "${__PWD}/archzen.json" "$__ARCHZEN_DIR"; true; } &&
-			{ [[ -f "${__PWD}/archzen.conf" ]] && cp -f "${__PWD}/archzen.conf" "$__ARCHZEN_DIR"; true; } &&
-			{ [[ -f "${__PWD}/archzen.conf" ]] && cp -f "${__PWD}/archzen.conf" "${__ROOT}/etc/archzen.conf"; true; } &&
+			{
+				declare step_ok=false archzen_conf="${__PWD}/archzen.conf"
+				if [[ -f "$archzen_conf" ]]; then
+					cp -f "$archzen_conf" "$__ARCHZEN_DIR/" && \
+						cp -f "$archzen_conf" "${__ROOT}/etc/" && \
+						step_ok=true
+				fi
+				$step_ok
+			} &&
 			touch "$__VAR_ARCHZEN_INSTALLED" &&
 			success=true
 	} &>>"$__LOG_FILE"
