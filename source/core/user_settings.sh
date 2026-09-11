@@ -15,6 +15,7 @@ GENERAL_USE_NVIDIA_OSS_DRIVERS=false
 GENERAL_ENABLE_CACHYOS_KIT=false
 WSL_ENABLE_GUI=true
 WSL_ENABLE_INTEROP=true
+WSL_USERNAME="archzen"
 # <<<<<<<<<<<<<<<<<<<<<<<< Default Settings <<<<<<<<<<<<<<<<<<<<<<<<
 
 declare __config_file=""
@@ -80,6 +81,9 @@ function __reload_config() {
 
 		__load_config_val WSL.EnableGUI
 		__load_config_val WSL.EnableInterop
+		__load_config_val WSL.Username
+		__load_config_val WSL.UserPassword
+		__load_config_val WSL.RootPassword
 	fi
 }
 

@@ -106,46 +106,13 @@ function action_install_archlinux() {
 		fi
 	done
 
-	if ! command -v archinstall &>>"$__LOG_FILE"; then
-		__error "Executable not found in PATH: $(__error_params "archinstall")"
-		return $?
+	if $__IS_WSL; then
+		__install_archlinux_on_wsl "$@"
+	else
+		__install_archlinux
 	fi
 
-	declare first_line_warn rest_lines_warn
-	declare quiet="$__QUIET"
-	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try load a config"
-	rest_lines_warn="$(
-		cat <<EOL
-    file with the "profile_config" property set, choose it manually from the installation menu.
-    Choose another profile may not interfere with the installation and the rest of the setup,
-    but things can be strange in the end, since ArchZen installs the desktop environment on its own
-    (if you want a diffrent profile from plasma, which is defined by default in ArchZen, set it
-    in the "GENERAL_DESKTOP_PROFILE" variable in the "archzen.sh" file)
-EOL
-	)"
-
-	__log "" ""
-	__warn "$first_line_warn"
-	__QUIET=true
-	__log "$rest_lines_warn" "$rest_lines_warn"
-	__QUIET="$quiet"
-	echo "$rest_lines_warn"
-	__log "" ""
-
-	__confirm "Proceed?" || exit 0
-	__log "" ""
-
-	__setup_pacman || return 1
-	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
-
-	declare current_root="$__ROOT"
-	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
-
-	action_install_archzen &&
-		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
-		__setup_sudoers
-
-	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+	return $?
 }
 
 # shellcheck disable=SC2120

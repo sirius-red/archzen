@@ -305,7 +305,7 @@ function __set_global_variables() {
 		'	exit'
 		'fi'
 		''
-		"archzen arch && rm -rf '${__FIRST_LOGIN_SCRIPT#"$__ROOT"*}' &>/dev/null"
+		"archzen setup arch && rm -rf '${__FIRST_LOGIN_SCRIPT#"$__ROOT"*}' &>/dev/null"
 	)
 
 	__HYPR_TEMPLATE_VALUES=(

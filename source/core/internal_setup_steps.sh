@@ -955,3 +955,110 @@ function __add_user_groups() {
 
 	return 0
 }
+
+function __install_archlinux() {
+	if ! command -v archinstall &>>"$__LOG_FILE"; then
+		__error "Executable not found in PATH: $(__error_params "archinstall")"
+		return $?
+	fi
+
+	declare first_line_warn rest_lines_warn
+	declare quiet="$__QUIET"
+	first_line_warn="ArchZen was made for the \"Minimal\" profile, but it throws an error if you try load a config"
+	rest_lines_warn="$(
+		cat <<EOL
+    file with the "profile_config" property set, choose it manually from the installation menu.
+    Choose another profile may not interfere with the installation and the rest of the setup,
+    but things can be strange in the end, since ArchZen installs the desktop environment on its own
+    (if you want a diffrent profile from plasma, which is defined by default in ArchZen, set it
+    in the "GENERAL_DESKTOP_PROFILE" variable in the "archzen.sh" file)
+EOL
+	)"
+
+	__log "" ""
+	__warn "$first_line_warn"
+	__QUIET=true
+	__log "$rest_lines_warn" "$rest_lines_warn"
+	__QUIET="$quiet"
+	echo "$rest_lines_warn"
+	__log "" ""
+
+	__confirm "Proceed?" || exit 0
+	__log "" ""
+
+	__setup_pacman || return 1
+	archinstall --advanced --config "${__ARCHINSTALL_PRESET}" || return 1
+
+	declare current_root="$__ROOT"
+	__set_global_variables "$__MOUNT_DIR" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+
+	action_install_archzen &&
+		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}" &&
+		__setup_sudoers
+
+	__set_global_variables "$current_root" "$__FORCE" "$__ARCHZEN_IS_RUNNING_FROM_BINARY"
+}
+
+function __install_archlinux_on_wsl() {
+	if [[ $EUID -ne 0 ]]; then
+		__error "This comand must be run as root if running on WSL"
+		return 1
+	fi
+
+	__title "Starting WSL environment setup..."
+
+	__setup_pacman || return 1
+	__update_system || return 1
+
+	declare -a wsl_deps=(sudo vi vim go-yq jq)
+	__install_pkglist "${wsl_deps[@]}" || return 1
+
+	__title "Creating user $(__title_params "$WSL_USERNAME") and adding to $(__title_params "wheel") group"
+	if id "$WSL_USERNAME" &>/dev/null; then
+		__info "User $(__info_params "$WSL_USERNAME") already exists, skipping creation"
+	else
+		if ! useradd -UmG wheel "$WSL_USERNAME" &>>"$__LOG_FILE"; then
+			__error "Failed to create user $(__error_params "$WSL_USERNAME")"
+			return 1
+		fi
+	fi
+
+	if confmgr set "$__WSL_CONF" user.default "$WSL_USERNAME" --create; then
+		__info "User $(__info_params "$WSL_USERNAME") defined as the default user in $(__info_params "$__WSL_CONF")"
+	else
+		__warn "Error defining user $(__warn_params "$WSL_USERNAME") as the default user in $(__warn_params "$__WSL_CONF")"
+	fi
+
+	declare wsl_user_conf config_dir="/${PWD}"
+	$ARCHZEN_IS_RUNNING_FROM_BINARY && config_dir="/etc"
+	wsl_user_conf="$(confmgr get "${config_dir}/archzen.conf" WSL.Username 2>/dev/null)"
+
+	if [[ -z "$wsl_user_conf" ]]; then
+		__INFO_MESSAGES+=("Created account with the default username: $(__info_params "$WSL_USERNAME")")
+	fi
+
+	__title "Setting passwords"
+	if [[ -n "$WSL_ROOTPASSWORD" ]]; then
+		echo "root:${WSL_ROOTPASSWORD}" | chpasswd &>>"$__LOG_FILE"
+	else
+		__WARN_MESSAGES+=("Root account is without password")
+	fi
+
+	if [[ -n "$WSL_USERPASSWORD" ]]; then
+		echo "${WSL_USERNAME}:${WSL_USERPASSWORD}" | chpasswd &>>"$__LOG_FILE"
+	else
+		__WARN_MESSAGES+=("User account is without password")
+	fi
+
+	declare original_username="$__USERNAME"
+	__USERNAME="$WSL_USERNAME"
+
+	__setup_sudoers
+
+	action_install_archzen &&
+		__add_lines_to_file "$__FIRST_LOGIN_SCRIPT" w false "${__FIRST_LOGIN_SCRIPT_LINES[@]}"
+
+	__USERNAME="$original_username"
+
+	__success "WSL environment setup completed successfully!"
+}
