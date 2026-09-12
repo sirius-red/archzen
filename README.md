@@ -1,8 +1,10 @@
 # ArchZen
 
-My own custom Arch Linux setup in a script.
+Stay zen and install Arch.
 
 ## Disclaimer
+
+This is my own custom Arch Linux setup in a script.
 
 I don't intend to evolve the project beyond what it already does, its purpose is just to make my life easier when I need to format the system because I always change a lot of things, and it ends up becoming boring at times since, although I don't get paid to configure things, but to create them, I still love Arch's “DIY” way of being.
 
@@ -12,16 +14,25 @@ In any case, if it's useful to you, feel free to create a fork and make the edit
 
 ## Installation
 
-In the Arch Linux live iso environment:
+> [!TIP] Help command
+> ArchZen has a comprehensive help command, run `archzen help [command]`.
 
-```bash
-git clone --depth 1 https://github.com/sirius-red/archzen
-cd archzen
-vim archzen.conf # optional for edit default settings
-./archzen.sh --help
-./archzen.sh install arch
-```
+In the Arch Linux live ISO environment or in a fresh WSL installation.
 
-## CLI
+1. Clone the repository.
 
-![ArchZen "help" command](resources/assets/help-command.png)
+   ```bash
+   git clone --depth 1 https://github.com/sirius-red/archzen && cd archzen
+   ```
+
+2. Edit the desired settings. This step is optional in WSL, as the settings open for editing upon the first login of the defined user.
+
+   ```bash
+   vim archzen.conf
+   ```
+
+3. Run the installation command and go grab a coffee.
+
+   ```bash
+   ./archzen.sh install arch
+   ```
