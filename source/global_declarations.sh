@@ -307,6 +307,13 @@ function __set_global_variables() {
 		"archzen setup arch && rm -rf '${__FIRST_LOGIN_SCRIPT#"$__ROOT"*}' &>/dev/null"
 	)
 
+	if $__IS_WSL; then
+		declare -i last_index=$(( ${#__FIRST_LOGIN_SCRIPT_LINES[@]} - 1 ))
+
+		__FIRST_LOGIN_SCRIPT_LINES+=("	${__FIRST_LOGIN_SCRIPT_LINES[last_index]}")
+		__FIRST_LOGIN_SCRIPT_LINES[last_index]="${EDITOR:-vim} archzen.conf && \\"
+	fi
+
 	__HYPR_TEMPLATE_VALUES=(
 		[KB_LAYOUT]="$GENERAL_KB_LAYOUT"
 		[KB_VARIANT]="$GENERAL_KB_VARIANT"
