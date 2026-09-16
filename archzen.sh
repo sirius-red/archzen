@@ -49,14 +49,13 @@ __set_global_variables "${CHDIR:-/}" "${__ARCHZEN_FLAG_FORCE:-false}" "${ARCHZEN
 
 
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
+	__ensure_deps
 	cli_parser --pre-action-hook __init "$__cli_config_file" "$@"
 	__finish
 	exit $?
 fi
 
 if __is_main_module; then
-	__ensure_deps --quiet
-
 	# shellcheck disable=SC2329
 	function __archzen_pre_action_hook() {
 		declare target_cmd="$1"
@@ -89,6 +88,7 @@ if __is_main_module; then
 		return $?
 	}
 
+	__ensure_deps
 	cli_parser --pre-action-hook __archzen_pre_action_hook "$__cli_config_file" "$@" || __EXIT_CODE=$?
 	__finish
 	exit $__EXIT_CODE

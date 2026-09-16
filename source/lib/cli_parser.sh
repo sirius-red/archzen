@@ -67,11 +67,12 @@ function cli_parser() {
 
 	# Parse config into JSON in memory for unified querying with jq
 	declare __cp_json=""
+	if ! command -v jq >/dev/null 2>&1; then
+		printf 'cli_parser: jq is required to parse and query configuration files\n' >&2
+		return 1
+	fi
+
 	if [[ "$__cp_format" == "json" ]]; then
-		if ! command -v jq >/dev/null 2>&1; then
-			printf 'cli_parser: jq is required to parse JSON config files\n' >&2
-			return 1
-		fi
 		__cp_json="$(cat "$__cp_config_file")"
 	else
 		if ! command -v yq >/dev/null 2>&1; then

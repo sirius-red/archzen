@@ -22,7 +22,6 @@ function __init() {
 		__reload_config
 	fi
 	__banner "${banner_args[@]}"
-	__ensure_deps
 }
 
 function __finish() {
