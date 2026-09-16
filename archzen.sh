@@ -13,14 +13,14 @@ __source_dir="${__script_dir}/source"
 # shellcheck source=source/lib/confmgr.sh
 source "${__source_dir}/lib/confmgr.sh"
 
+# shellcheck source=source/lib/cli_parser.sh
+source "${__source_dir}/lib/cli_parser.sh"
+
 # shellcheck source=source/core/user_settings.sh
 source "${__source_dir}/core/user_settings.sh"
 
 # shellcheck source=source/global_declarations.sh
 source "${__source_dir}/global_declarations.sh"
-
-# shellcheck source=source/lib/cli_parser.sh
-source "${__source_dir}/lib/cli_parser.sh"
 
 # shellcheck source=source/utils/string.sh
 source "${__source_dir}/utils/string.sh"
@@ -49,32 +49,47 @@ __set_global_variables "${CHDIR:-/}" "${__ARCHZEN_FLAG_FORCE:-false}" "${ARCHZEN
 
 
 if [[ "$ARCHZEN_PROCESS_ENV" == development ]]; then
-	cli_parser "$__cli_config_file" "$@"
+	cli_parser --pre-action-hook __init "$__cli_config_file" "$@"
+	__finish
 	exit $?
 fi
 
 if __is_main_module; then
 	__ensure_deps --quiet
 
-	# Installed check (for commands other than install or help/version)
-	if [[ ! "$1" =~ ^install$|^i$|^help$|^h$|^--version$|^-v$ || -z "$1" ]]; then
+	# shellcheck disable=SC2329
+	function __archzen_pre_action_hook() {
+		declare target_cmd="$1"
+		shift 1
+
+		if [[ "$target_cmd" =~ ^install ]]; then
+			return 0
+		fi
+
 		if ! command -v archzen &>>"$__LOG_FILE"; then
 			echo
-			__error "The \`$(__error_params "$1")\` command is only available after the installation of ArchZen"
+			__error "The \`$(__error_params "$target_cmd")\` command is only available after the installation of ArchZen"
 			__info "Run \`$(__info_params "sudo ${__THIS_SCRIPT} install self")\` first"
 			echo
-			exit 1
+			return 1
 		fi
 
 		if ! $__ARCHZEN_IS_RUNNING_FROM_BINARY; then
 			echo
-			__error "Do not run the command \`$(__error_params "$1")\` through this script"
-			__info "Run \`$(__info_params "archzen $*")\`"
+			__error "Do not run the command \`$(__error_params "$target_cmd")\` through this script"
+			declare cmd_suggestion="archzen ${target_cmd}"
+			[[ $# -gt 0 ]] && cmd_suggestion+=" $*"
+			__info "Run \`$(__info_params "$cmd_suggestion")\`"
 			echo
-			exit 1
+			return 1
 		fi
-	fi
 
-	cli_parser "$__cli_config_file" "$@" || __EXIT_CODE=$?
+		__init
+
+		return $?
+	}
+
+	cli_parser --pre-action-hook __archzen_pre_action_hook "$__cli_config_file" "$@" || __EXIT_CODE=$?
+	__finish
 	exit $__EXIT_CODE
 fi
