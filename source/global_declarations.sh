@@ -122,7 +122,6 @@ __DEPENDENCIES=(
 	pacman-contrib
 	git
 	curl
-	vi
 	vim
 	sed
 	xz
