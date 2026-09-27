@@ -44,6 +44,12 @@ source "${__source_dir}/cli/lifecycle_functions.sh"
 unset __source_dir
 # <<<<<<<<<<<<<<<<<<<<<<<< Load Source Files <<<<<<<<<<<<<<<<<<<<<<<<
 
+for __arg in "$@"; do
+	if [[ "$__arg" == "--force" || "$__arg" == "-f" ]]; then
+		__ARCHZEN_FLAG_FORCE=true
+		break
+	fi
+done
 
 __set_global_variables "${CHDIR:-/}" "${__ARCHZEN_FLAG_FORCE:-false}" "${ARCHZEN_IS_RUNNING_FROM_BINARY:-false}"
 
